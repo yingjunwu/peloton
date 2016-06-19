@@ -27,7 +27,7 @@ class UpdateExecutor : public AbstractExecutor {
 
  public:
   explicit UpdateExecutor(const planner::AbstractPlan *node,
-                          ExecutorContext *executor_context, const bool blind_write = false);
+                          ExecutorContext *executor_context);
 
   ~UpdateExecutor() {}
 

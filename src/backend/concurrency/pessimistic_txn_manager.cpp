@@ -125,7 +125,7 @@ bool PessimisticTxnManager::IsOwnable(
 
 bool PessimisticTxnManager::AcquireOwnership(
     const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tile_group_id, const oid_t &tuple_id, const bool is_blind_write __attribute__((unused))) {
+    const oid_t &tile_group_id, const oid_t &tuple_id) {
   LOG_TRACE("AcquireOwnership");
   assert(IsOwner(tile_group_header, tuple_id) == false);
 

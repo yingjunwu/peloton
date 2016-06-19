@@ -160,7 +160,7 @@ MixedPlans PrepareMixedPlan() {
   planner::UpdatePlan update_node(user_table, std::move(project_info));
 
   executor::UpdateExecutor *update_executor = 
-      new executor::UpdateExecutor(&update_node, nullptr, state.blind_write);
+      new executor::UpdateExecutor(&update_node, nullptr);
 
   update_executor->AddChild(update_index_scan_executor);
 
