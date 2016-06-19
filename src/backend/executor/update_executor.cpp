@@ -32,8 +32,9 @@ namespace executor {
  * @param node Update node corresponding to this executor.
  */
 UpdateExecutor::UpdateExecutor(const planner::AbstractPlan *node,
-                               ExecutorContext *executor_context)
-    : AbstractExecutor(node, executor_context) {
+                               ExecutorContext *executor_context,
+                               const bool is_blind_write)
+    : AbstractExecutor(node, executor_context) ,_is_blind_write(is_blind_write){
 	}
 
 /**
@@ -162,7 +163,7 @@ bool UpdateExecutor::DExecute() {
       // if the tuple is not owned by any transaction and is visible to current
       // transaction.
       if (transaction_manager.AcquireOwnership(tile_group_header, tile_group_id,
-                                               physical_tuple_id) == false) {
+                                               physical_tuple_id, _is_blind_write) == false) {
         LOG_TRACE("Fail to insert new tuple. Set txn failure.");
         transaction_manager.SetTransactionResult(Result::RESULT_FAILURE);
         transaction_manager.AddOneAcquireOwnerAbort();

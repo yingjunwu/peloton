@@ -371,6 +371,7 @@ Result OptimisticTxnManager::CommitTransaction() {
         LOG_TRACE("end commit id=%lu",
                   tile_group_header->GetEndCommitId(tuple_slot));
         // otherwise, validation fails. abort transaction.
+        AddOneReadAbort();
         return AbortTransaction();
       }
     }

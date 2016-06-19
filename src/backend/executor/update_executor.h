@@ -27,7 +27,7 @@ class UpdateExecutor : public AbstractExecutor {
 
  public:
   explicit UpdateExecutor(const planner::AbstractPlan *node,
-                          ExecutorContext *executor_context);
+                          ExecutorContext *executor_context, const bool blind_write = false);
 
   ~UpdateExecutor() {}
 
@@ -50,6 +50,7 @@ class UpdateExecutor : public AbstractExecutor {
 
  private:
   storage::DataTable *target_table_ = nullptr;
+  bool _is_blind_write;
 
   std::unique_ptr<planner::ProjectInfo> project_info_;
   
