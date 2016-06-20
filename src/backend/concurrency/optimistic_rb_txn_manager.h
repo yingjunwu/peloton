@@ -54,7 +54,7 @@ public:
   inline bool IsInserted(
       const storage::TileGroupHeader *const tile_grou_header,
       const oid_t &tuple_id) {
-      assert(IsOwner(tile_grou_header, tuple_id));
+      PL_ASSERT(IsOwner(tile_grou_header, tuple_id));
       return tile_grou_header->GetBeginCommitId(tuple_id) == MAX_CID;
   }
 
@@ -88,12 +88,12 @@ public:
   virtual bool PerformRead(const ItemPointer &location);
 
   virtual void PerformUpdate(const ItemPointer &old_location __attribute__((unused)),
-                             const ItemPointer &new_location __attribute__((unused)), UNUSED_ATTRIBUTE const bool is_blind_write = false) { assert(false); }
+                             const ItemPointer &new_location __attribute__((unused)), UNUSED_ATTRIBUTE const bool is_blind_write = false) { PL_ASSERT(false); }
 
   virtual void PerformDelete(const ItemPointer &old_location  __attribute__((unused)),
-                             const ItemPointer &new_location __attribute__((unused))) { assert(false); }
+                             const ItemPointer &new_location __attribute__((unused))) { PL_ASSERT(false); }
 
-  virtual void PerformUpdate(const ItemPointer &location  __attribute__((unused))) { assert(false); }
+  virtual void PerformUpdate(const ItemPointer &location  __attribute__((unused))) { PL_ASSERT(false); }
 
   /**
    * Interfaces for rollback segment
@@ -118,10 +118,9 @@ public:
 
   /**
    * @brief Test if a reader with read timestamp @read_ts should follow on the
-   * rb chain started from rb_set
+   * rb chain started from rb_seg
    */
   inline bool IsRBVisible(char *rb_seg, cid_t read_ts) {
-    // Check if we actually have a rollback segment
     if (rb_seg == nullptr) {
       return false;
     }
@@ -137,9 +136,9 @@ public:
     cid_t txn_begin_cid = current_txn->GetBeginCommitId();
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_slot_id);
 
-    assert(tuple_begin_cid != MAX_CID);
+    PL_ASSERT(tuple_begin_cid != MAX_CID);
     // Owner can not call this function
-    assert(IsOwner(tile_group_header, tuple_slot_id) == false);
+    PL_ASSERT(IsOwner(tile_group_header, tuple_slot_id) == false);
 
     RBSegType rb_seg = GetRbSeg(tile_group_header, tuple_slot_id);
     char *prev_visible;
@@ -225,30 +224,56 @@ public:
     SetSIndexPtr(tile_group_header, tuple_id, nullptr);
     ClearDeleteFlag(tile_group_header, tuple_id);
     *(reinterpret_cast<bool*>(reserved_area + delete_flag_offset)) = false;
+    new (reserved_area + spinlock_offset) Spinlock();
   }
 
   // Get current segment pool of the transaction manager
   inline storage::RollbackSegmentPool *GetSegmentPool() {return current_segment_pool;}
 
   inline RBSegType GetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    LockTuple(tile_group_header, tuple_id);
     char **rb_seg_ptr = (char **)(tile_group_header->GetReservedFieldRef(tuple_id) + rb_seg_offset);
-    return *rb_seg_ptr;
+    if (*rb_seg_ptr != nullptr) {
+      if (*(int *)(*rb_seg_ptr+16) == 0) {
+        LOG_INFO("Reading an empty rollback segment");
+      }
+    }
+    RBSegType result = *rb_seg_ptr;
+    UnlockTuple(tile_group_header, tuple_id);
+    return result;
   }
 
  private:
   static const size_t rb_seg_offset = 0;
   static const size_t sindex_ptr = rb_seg_offset + sizeof(char *);
   static const size_t delete_flag_offset = sindex_ptr + sizeof(char *);
+  static const size_t spinlock_offset = delete_flag_offset + sizeof(char *);
   // TODO: add cooperative GC
   // The RB segment pool that is actively being used
   cuckoohash_map<cid_t, std::shared_ptr<storage::RollbackSegmentPool>> living_pools_;
   // The RB segment pool that has been marked as garbage
   cuckoohash_map<cid_t, std::shared_ptr<storage::RollbackSegmentPool>> garbage_pools_;
 
-  inline void SetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
-                       const RBSegType seg_ptr) {
+  inline void LockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
+                             spinlock_offset);
+    lock->Lock();
+  }
+
+  inline void UnlockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
+                             spinlock_offset);
+    lock->Unlock();
+  }
+
+  inline void SetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id, const RBSegType seg_ptr) {
+    // Sanity check
+    LockTuple(tile_group_header, tuple_id);
+    if (seg_ptr != nullptr)
+      PL_ASSERT(*(int *)(seg_ptr + 16) != 0);
     const char **rb_seg_ptr = (const char **)(tile_group_header->GetReservedFieldRef(tuple_id) + rb_seg_offset);
     *rb_seg_ptr = seg_ptr;
+    UnlockTuple(tile_group_header, tuple_id);
   }
 
   inline void SetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,

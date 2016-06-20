@@ -31,11 +31,11 @@ static std::vector<ConcurrencyType> TEST_TYPES = {
   // CONCURRENCY_TYPE_SSI,
   // CONCURRENCY_TYPE_EAGER_WRITE,
   // CONCURRENCY_TYPE_TO,
-  // CONCURRENCY_TYPE_OCC_RB,
   // CONCURRENCY_TYPE_OCC_N2O,
   // CONCURRENCY_TYPE_TO_N2O,
+  CONCURRENCY_TYPE_OCC_RB,
   // CONCURRENCY_TYPE_TO_RB,
-  CONCURRENCY_TYPE_TO_FULL_RB,
+  // CONCURRENCY_TYPE_TO_FULL_RB,
 };
 
 void DirtyWriteTest() {
@@ -457,7 +457,6 @@ TEST_F(IsolationLevelTest, SerializableTest) {
   }
 }
 
-// FIXME: CONCURRENCY_TYPE_SPECULATIVE_READ can't pass it for now
 TEST_F(IsolationLevelTest, StressTest) {
   const int num_txn = 16;
   const int scale = 20;
@@ -471,8 +470,8 @@ TEST_F(IsolationLevelTest, StressTest) {
         TransactionTestsUtil::CreateTable(num_key, "TEST_TABLE" , INVALID_OID, next_table_id++, 1234, true));
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
-    // WARNING: change k to a bigger number to a more stress test
-    for (int k = 0; k < 1; k++) {
+    // NOTE: change k to a bigger number to a more stress test
+    for (int k = 0; k < 10; k++) {
       TransactionScheduler scheduler(num_txn, table.get(), &txn_manager);
       scheduler.SetConcurrent(true);
       for (int i = 0; i < num_txn; i++) {
@@ -484,11 +483,9 @@ TEST_F(IsolationLevelTest, StressTest) {
           // Store substracted value
           scheduler.Txn(i).ReadStore(key1, -delta);
           scheduler.Txn(i).Update(key1, TXN_STORED_VALUE);
-          LOG_INFO("Txn %d deducts %d from %d", i, delta, key1);
           // Store increased value
           scheduler.Txn(i).ReadStore(key2, delta);
           scheduler.Txn(i).Update(key2, TXN_STORED_VALUE);
-          LOG_INFO("Txn %d adds %d to %d", i, delta, key2);
         }
         scheduler.Txn(i).Commit();
       }
@@ -507,7 +504,6 @@ TEST_F(IsolationLevelTest, StressTest) {
     // The sum should be zero
     int sum = 0;
     for (auto result : scheduler2.schedules[0].results) {
-      LOG_INFO("Table has tuple value: %d", result);
       sum += result;
     }
 

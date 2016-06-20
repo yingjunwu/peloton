@@ -234,8 +234,11 @@ public:
   inline storage::RollbackSegmentPool *GetSegmentPool() {return full_to_current_segment_pool;}
 
   inline RBSegType GetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    LockTuple(tile_group_header, tuple_id);
     char **rb_seg_ptr = (char **)(tile_group_header->GetReservedFieldRef(tuple_id) + RB_SEG_OFFSET);
-    return *rb_seg_ptr;
+    RBSegType result = *rb_seg_ptr;
+    UnlockTuple(tile_group_header, tuple_id);
+    return result;
   }
 
  private:
@@ -251,10 +254,24 @@ public:
   // The RB segment pool that has been marked as garbage
   cuckoohash_map<cid_t, std::shared_ptr<storage::RollbackSegmentPool>> garbage_pools_;
 
+  inline void LockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
+                             LOCK_OFFSET);
+    lock->Lock();
+  }
+
+  inline void UnlockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
+                             LOCK_OFFSET);
+    lock->Unlock();
+  }
+
   inline void SetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
                        const RBSegType seg_ptr) {
+    LockTuple(tile_group_header, tuple_id);
     const char **rb_seg_ptr = (const char **)(tile_group_header->GetReservedFieldRef(tuple_id) + RB_SEG_OFFSET);
     *rb_seg_ptr = seg_ptr;
+    UnlockTuple(tile_group_header, tuple_id);
   }
 
   inline void SetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,

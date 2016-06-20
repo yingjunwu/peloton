@@ -21,7 +21,6 @@ namespace storage {
 RBSegType RollbackSegmentPool::CreateSegmentFromTuple(const catalog::Schema *schema,
                                                       const AbstractTuple *tuple) {
   PL_ASSERT(schema);
-  PL_ASSERT(target_list.size() != 0);
 
   size_t col_count = schema->GetColumnCount();
   size_t header_size = pairs_start_offset + col_count * sizeof(ColIdOffsetPair);
