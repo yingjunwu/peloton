@@ -34,7 +34,8 @@ static std::vector<ConcurrencyType> TEST_TYPES = {
   CONCURRENCY_TYPE_OCC_RB,
   // CONCURRENCY_TYPE_OCC_N2O,
   // CONCURRENCY_TYPE_TO_N2O,
-  // CONCURRENCY_TYPE_TO_RB
+  CONCURRENCY_TYPE_TO_RB,
+  CONCURRENCY_TYPE_TO_FULL_RB,
 };
 
 void TransactionTest(concurrency::TransactionManager *txn_manager) {

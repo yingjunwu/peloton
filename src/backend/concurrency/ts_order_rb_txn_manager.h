@@ -60,7 +60,7 @@ public:
 
   virtual bool AcquireOwnership(
       const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tile_group_id, const oid_t &tuple_id, const bool is_blind_write = false);
+      const oid_t &tile_group_id, const oid_t &tuple_id);
 
   virtual void YieldOwnership(const oid_t &tile_group_id,
     const oid_t &tuple_id);
@@ -230,8 +230,11 @@ public:
   inline storage::RollbackSegmentPool *GetSegmentPool() {return to_current_segment_pool;}
 
   inline RBSegType GetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    LockTuple(tile_group_header, tuple_id);
     char **rb_seg_ptr = (char **)(tile_group_header->GetReservedFieldRef(tuple_id) + RB_SEG_OFFSET);
-    return *rb_seg_ptr;
+    RBSegType result = *rb_seg_ptr;
+    UnlockTuple(tile_group_header, tuple_id);
+    return result;
   }
 
  private:
@@ -241,6 +244,18 @@ public:
   static const size_t LOCK_OFFSET = DELETE_FLAG_OFFSET + 8; // actually the delete flag only occupies one byte.
   static const size_t LAST_READER_OFFSET = LOCK_OFFSET + 8; // actually the lock also only occupies one byte.
 
+  inline void LockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
+                             LOCK_OFFSET);
+    lock->Lock();
+  }
+
+  inline void UnlockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
+                             LOCK_OFFSET);
+    lock->Unlock();
+  }
+
   // TODO: add cooperative GC
   // The RB segment pool that is activlely being used
   cuckoohash_map<cid_t, std::shared_ptr<storage::RollbackSegmentPool>> living_pools_;
@@ -249,8 +264,10 @@ public:
 
   inline void SetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
                        const RBSegType seg_ptr) {
+    LockTuple(tile_group_header, tuple_id);
     const char **rb_seg_ptr = (const char **)(tile_group_header->GetReservedFieldRef(tuple_id) + RB_SEG_OFFSET);
     *rb_seg_ptr = seg_ptr;
+    UnlockTuple(tile_group_header, tuple_id);
   }
 
   inline void SetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
