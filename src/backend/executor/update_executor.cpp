@@ -33,7 +33,7 @@ namespace executor {
  */
 UpdateExecutor::UpdateExecutor(const planner::AbstractPlan *node,
                                ExecutorContext *executor_context)
-    : AbstractExecutor(node, executor_context) {
+    : AbstractExecutor(node, executor_context){
 	}
 
 /**

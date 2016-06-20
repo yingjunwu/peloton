@@ -112,7 +112,7 @@ UpdatePlans PrepareUpdatePlan() {
       user_table, predicate, column_ids, index_scan_desc);
   
   executor::IndexScanExecutor *index_scan_executor =
-      new executor::IndexScanExecutor(&index_scan_node, nullptr);
+      new executor::IndexScanExecutor(&index_scan_node, nullptr, state.blind_write);
 
   /////////////////////////////////////////////////////////
   // UPDATE

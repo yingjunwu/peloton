@@ -196,6 +196,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
             auto res = transaction_manager.PerformRead(tuple_location);
             if (!res) {
               transaction_manager.SetTransactionResult(RESULT_FAILURE);
+              transaction_manager.AddOneReadAbort();
               return res;
             }
           }
@@ -211,6 +212,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
               auto res = transaction_manager.PerformRead(tuple_location);
               if (!res) {
                 transaction_manager.SetTransactionResult(RESULT_FAILURE);
+                transaction_manager.AddOneReadAbort();
                 return res;
               }
             }
@@ -424,6 +426,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
           auto res = transaction_manager.PerformRead(tuple_location);
           if (!res) {
             transaction_manager.SetTransactionResult(RESULT_FAILURE);
+            transaction_manager.AddOneReadAbort();
             return res;
           }
         }
@@ -439,6 +442,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
             auto res = transaction_manager.PerformRead(tuple_location);
             if (!res) {
               transaction_manager.SetTransactionResult(RESULT_FAILURE);
+              transaction_manager.AddOneReadAbort();
               return res;
             }
           }

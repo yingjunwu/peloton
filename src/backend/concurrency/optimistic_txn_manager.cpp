@@ -121,7 +121,7 @@ bool OptimisticTxnManager::IsOwnable(
 // this is invoked by update/delete executors.
 bool OptimisticTxnManager::AcquireOwnership(
     const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tile_group_id __attribute__((unused)), const oid_t &tuple_id, UNUSED_ATTRIBUTE const bool is_blind_write) {
+    const oid_t &tile_group_id __attribute__((unused)), const oid_t &tuple_id) {
   auto txn_id = current_txn->GetTransactionId();
 
   if (tile_group_header->SetAtomicTransactionId(tuple_id, txn_id) == false) {
@@ -371,6 +371,7 @@ Result OptimisticTxnManager::CommitTransaction() {
         LOG_TRACE("end commit id=%lu",
                   tile_group_header->GetEndCommitId(tuple_slot));
         // otherwise, validation fails. abort transaction.
+        AddOneReadAbort();
         return AbortTransaction();
       }
     }
