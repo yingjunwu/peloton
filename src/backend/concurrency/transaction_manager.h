@@ -44,14 +44,14 @@ class TransactionManager {
   TransactionManager() {
     next_txn_id_ = ATOMIC_VAR_INIT(START_TXN_ID);
     next_cid_ = ATOMIC_VAR_INIT(START_CID);
-    // read_abort_ = 0;
-    // acquire_owner_abort_ = 0;
-    // no_space_abort_ = 0;
-    // cannot_own_abort_ = 0;
+     read_abort_ = 0;
+     acquire_owner_abort_ = 0;
+     no_space_abort_ = 0;
+     cannot_own_abort_ = 0;
   }
 
   virtual ~TransactionManager() {
-    // printf("read_abort_ = %d, acquire_owner_abort_ = %d, no_space_abort_ = %d, cannot_own_abort_ = %d\n", read_abort_.load(), acquire_owner_abort_.load(), no_space_abort_.load(), cannot_own_abort_.load());
+     printf("read_abort_ = %d, acquire_owner_abort_ = %d, no_space_abort_ = %d, cannot_own_abort_ = %d\n", read_abort_.load(), acquire_owner_abort_.load(), no_space_abort_.load(), cannot_own_abort_.load());
   }
 
   txn_id_t GetNextTransactionId() { return next_txn_id_++; }
@@ -74,7 +74,7 @@ class TransactionManager {
 
   virtual bool AcquireOwnership(
       const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tile_group_id, const oid_t &tuple_id, const bool is_blind_write = false) = 0;
+      const oid_t &tile_group_id, const oid_t &tuple_id) = 0;
 
   // This method is used by executor to yield ownership after the acquired ownership.
   virtual void YieldOwnership(const oid_t &tile_group_id, const oid_t &tuple_id) = 0;
@@ -162,29 +162,29 @@ class TransactionManager {
   }
 
   inline void AddOneReadAbort() {
-    // ++read_abort_;
+     ++read_abort_;
   }
 
   inline void AddOneAcquireOwnerAbort() {
-    // ++acquire_owner_abort_;
+     ++acquire_owner_abort_;
   }
 
   inline void AddOneNoSpaceAbort() {
-    // ++no_space_abort_;
+     ++no_space_abort_;
   }
 
   inline void AddOneCannotOwnAbort() {
-    // ++cannot_own_abort_;
+     ++cannot_own_abort_;
   }
 
  private:
   std::atomic<txn_id_t> next_txn_id_;
   std::atomic<cid_t> next_cid_;
 
-  // std::atomic<int> read_abort_;
-  // std::atomic<int> acquire_owner_abort_;
-  // std::atomic<int> no_space_abort_;
-  // std::atomic<int> cannot_own_abort_;
+   std::atomic<int> read_abort_;
+   std::atomic<int> acquire_owner_abort_;
+   std::atomic<int> no_space_abort_;
+   std::atomic<int> cannot_own_abort_;
 
 };
 }  // End storage namespace

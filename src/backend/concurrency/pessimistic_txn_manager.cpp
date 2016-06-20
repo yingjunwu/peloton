@@ -125,13 +125,20 @@ bool PessimisticTxnManager::IsOwnable(
 
 bool PessimisticTxnManager::AcquireOwnership(
     const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tile_group_id, const oid_t &tuple_id, UNUSED_ATTRIBUTE const bool is_blind_write) {
+    const oid_t &tile_group_id, const oid_t &tuple_id) {
   LOG_TRACE("AcquireOwnership");
   assert(IsOwner(tile_group_header, tuple_id) == false);
 
   // First release read lock that is acquired before, the executor will always
   // read the tuple before calling AcquireOwnership().
-  ReleaseReadLock(tile_group_header, tuple_id);
+  // Check if we have read this tuple before, if so, release the reader count.
+  // This also works for blind write
+  auto &rw_set = current_txn->GetRWSet();
+  if (rw_set.find(tile_group_id) != rw_set.end()
+      && rw_set.at(tile_group_id).find(tuple_id) != rw_set.at(tile_group_id).end()
+      && rw_set.at(tile_group_id).at(tuple_id) == RW_TYPE_READ) {
+    ReleaseReadLock(tile_group_header, tuple_id);
+  }
 
   // Mark the tuple as released
   pessimistic_released_rdlock[tile_group_id].insert(tuple_id);
@@ -188,7 +195,9 @@ void PessimisticTxnManager::ReleaseReadLock(
   {
     int *cnt_ptr = GetReaderCountField(tile_group_header, tuple_id);
     assert(*cnt_ptr > 0);
-    *cnt_ptr = *cnt_ptr - 1;
+    if (*cnt_ptr > 0) {
+      *cnt_ptr = *cnt_ptr - 1;
+    }
   }
   GetSpinlockField(tile_group_header, tuple_id)->Unlock();
 

@@ -66,7 +66,7 @@ class EagerWriteTxnManager : public TransactionManager {
 
   virtual bool AcquireOwnership(
       const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tile_group_id, const oid_t &tuple_id, const bool is_blind_write = false);
+      const oid_t &tile_group_id, const oid_t &tuple_id);
 
   virtual void YieldOwnership(const oid_t &tile_group_id,
     const oid_t &tuple_id);
@@ -221,7 +221,8 @@ class EagerWriteTxnManager : public TransactionManager {
 
     ReleaseEwReaderLock(tile_group_header, tuple_id);
     if (find == false) {
-      assert(false);
+      // For blind write we may have this
+      // assert(false);
     }
   }
 

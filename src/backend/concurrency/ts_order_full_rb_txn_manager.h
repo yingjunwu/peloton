@@ -2,9 +2,9 @@
 //
 //                         PelotonDB
 //
-// optimistic_rb_txn_manager.h
+// ts_order_full_rb_txn_manager.h
 //
-// Identification: src/backend/concurrency/optimistic_rb_txn_manager.h
+// Identification: src/backend/concurrency/ts_order_full_rb_txn_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -19,26 +19,25 @@
 #include "backend/index/rb_btree_index.h"
 
 namespace peloton {
-
 namespace concurrency {
 
 // Each transaction has a RollbackSegmentPool
-extern thread_local storage::RollbackSegmentPool *current_segment_pool;
-extern thread_local cid_t latest_read_timestamp;
-extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> updated_index_entries;
+extern thread_local storage::RollbackSegmentPool *full_to_current_segment_pool;
+extern thread_local cid_t full_to_latest_read_timestamp;
+extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> full_to_updated_index_entries;
 //===--------------------------------------------------------------------===//
-// optimistic concurrency control with rollback segment
+// timestamp ordering with rollback segment
 //===--------------------------------------------------------------------===//
 
-class OptimisticRbTxnManager : public TransactionManager {
+class TsOrderFullRbTxnManager : public TransactionManager {
 public:
   typedef char* RBSegType;
 
-  OptimisticRbTxnManager() {}
+  TsOrderFullRbTxnManager() {}
 
-  virtual ~OptimisticRbTxnManager() {}
+  virtual ~TsOrderFullRbTxnManager() {}
 
-  static OptimisticRbTxnManager &GetInstance();
+  static TsOrderFullRbTxnManager &GetInstance();
 
   virtual VisibilityType IsVisible(
       const storage::TileGroupHeader *const tile_group_header,
@@ -52,10 +51,10 @@ public:
       const oid_t &tuple_id);
 
   inline bool IsInserted(
-      const storage::TileGroupHeader *const tile_grou_header,
+      const storage::TileGroupHeader *const tile_group_header,
       const oid_t &tuple_id) {
-      PL_ASSERT(IsOwner(tile_grou_header, tuple_id));
-      return tile_grou_header->GetBeginCommitId(tuple_id) == MAX_CID;
+      assert(IsOwner(tile_group_header, tuple_id));
+      return tile_group_header->GetBeginCommitId(tuple_id) == MAX_CID;
   }
 
   virtual bool AcquireOwnership(
@@ -79,7 +78,7 @@ public:
   // either the begin commit time of current transaction of the just committed
   // transaction.
   cid_t GetLatestReadTimestamp() {
-    return latest_read_timestamp;
+    return full_to_latest_read_timestamp;
   }
 
   /**
@@ -88,19 +87,22 @@ public:
   virtual bool PerformRead(const ItemPointer &location);
 
   virtual void PerformUpdate(const ItemPointer &old_location __attribute__((unused)),
-                             const ItemPointer &new_location __attribute__((unused)), UNUSED_ATTRIBUTE const bool is_blind_write = false) { PL_ASSERT(false); }
+                             const ItemPointer &new_location __attribute__((unused)), __attribute__((unused)) const bool is_blind_write = false) { assert(false); }
 
   virtual void PerformDelete(const ItemPointer &old_location  __attribute__((unused)),
-                             const ItemPointer &new_location __attribute__((unused))) { PL_ASSERT(false); }
+                             const ItemPointer &new_location __attribute__((unused))) { assert(false); }
 
-  virtual void PerformUpdate(const ItemPointer &location  __attribute__((unused))) { PL_ASSERT(false); }
+  virtual void PerformUpdate(const ItemPointer &location  __attribute__((unused))) { assert(false); }
 
   /**
    * Interfaces for rollback segment
    */
-
   // Add a new rollback segment to the tuple
   void PerformUpdateWithRb(const ItemPointer &location, char *new_rb_seg);
+
+  // Perform update with a RB, but this RB is used for overwritting the existing RB
+  void PerformUpdateWithOverwriteRb(const ItemPointer &location,
+    const catalog::Schema *schema, const TargetList &target_list, const AbstractTuple *tuple);
 
   // Insert a version, basically maintain secondary index
   bool RBInsertVersion(storage::DataTable *target_table,
@@ -118,9 +120,10 @@ public:
 
   /**
    * @brief Test if a reader with read timestamp @read_ts should follow on the
-   * rb chain started from rb_seg
+   * rb chain started from rb_set
    */
   inline bool IsRBVisible(char *rb_seg, cid_t read_ts) {
+    // Check if we actually have a rollback segment
     if (rb_seg == nullptr) {
       return false;
     }
@@ -136,9 +139,9 @@ public:
     cid_t txn_begin_cid = current_txn->GetBeginCommitId();
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_slot_id);
 
-    PL_ASSERT(tuple_begin_cid != MAX_CID);
-    // Owner can not call this function
-    PL_ASSERT(IsOwner(tile_group_header, tuple_slot_id) == false);
+    assert(tuple_begin_cid != MAX_CID);
+    // Owner cannot call this function
+    assert(IsOwner(tile_group_header, tuple_slot_id) == false);
 
     RBSegType rb_seg = GetRbSeg(tile_group_header, tuple_slot_id);
     char *prev_visible;
@@ -177,9 +180,9 @@ public:
     auto eid = EpochManagerFactory::GetInstance().EnterEpoch(begin_cid);
     txn->SetEpochId(eid);
 
-    latest_read_timestamp = begin_cid;
+    full_to_latest_read_timestamp = begin_cid;
     // Create current transaction poll
-    current_segment_pool = new storage::RollbackSegmentPool(BACKEND_TYPE_MM);
+    full_to_current_segment_pool = new storage::RollbackSegmentPool(BACKEND_TYPE_MM);
 
     return txn;
   }
@@ -192,25 +195,25 @@ public:
       // Committed
       if (current_txn->IsReadOnly()) {
         // read only txn, just delete the segment pool because it's empty
-        delete current_segment_pool;
+        delete full_to_current_segment_pool;
       } else {
         // It's not read only txn
-        current_segment_pool->SetPoolTimestamp(end_cid);
-        living_pools_[end_cid] = std::shared_ptr<peloton::storage::RollbackSegmentPool>(current_segment_pool);
+        full_to_current_segment_pool->SetPoolTimestamp(end_cid);
+        living_pools_[end_cid] = std::shared_ptr<peloton::storage::RollbackSegmentPool>(full_to_current_segment_pool);
       }
     } else {
       // Aborted
       // TODO: Add coperative GC
-      current_segment_pool->MarkedAsGarbage();
-      garbage_pools_[current_txn->GetBeginCommitId()] = std::shared_ptr<peloton::storage::RollbackSegmentPool>(current_segment_pool);
+      full_to_current_segment_pool->MarkedAsGarbage();
+      garbage_pools_[current_txn->GetBeginCommitId()] = std::shared_ptr<peloton::storage::RollbackSegmentPool>(full_to_current_segment_pool);
     }
 
     EpochManagerFactory::GetInstance().ExitEpoch(current_txn->GetEpochId());
 
-    updated_index_entries.clear();
+    full_to_updated_index_entries.clear();
     delete current_txn;
     current_txn = nullptr;
-    current_segment_pool = nullptr;
+    full_to_current_segment_pool = nullptr;
   }
 
   // Init reserved area of a tuple
@@ -223,80 +226,106 @@ public:
     SetRbSeg(tile_group_header, tuple_id, nullptr);
     SetSIndexPtr(tile_group_header, tuple_id, nullptr);
     ClearDeleteFlag(tile_group_header, tuple_id);
-    *(reinterpret_cast<bool*>(reserved_area + delete_flag_offset)) = false;
-    new (reserved_area + spinlock_offset) Spinlock();
+    *(reinterpret_cast<bool*>(reserved_area + DELETE_FLAG_OFFSET)) = false;
   }
 
   // Get current segment pool of the transaction manager
-  inline storage::RollbackSegmentPool *GetSegmentPool() {return current_segment_pool;}
+  inline storage::RollbackSegmentPool *GetSegmentPool() {return full_to_current_segment_pool;}
 
   inline RBSegType GetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
     LockTuple(tile_group_header, tuple_id);
-    char **rb_seg_ptr = (char **)(tile_group_header->GetReservedFieldRef(tuple_id) + rb_seg_offset);
-    if (*rb_seg_ptr != nullptr) {
-      if (*(int *)(*rb_seg_ptr+16) == 0) {
-        LOG_INFO("Reading an empty rollback segment");
-      }
-    }
+    char **rb_seg_ptr = (char **)(tile_group_header->GetReservedFieldRef(tuple_id) + RB_SEG_OFFSET);
     RBSegType result = *rb_seg_ptr;
     UnlockTuple(tile_group_header, tuple_id);
     return result;
   }
 
  private:
-  static const size_t rb_seg_offset = 0;
-  static const size_t sindex_ptr = rb_seg_offset + sizeof(char *);
-  static const size_t delete_flag_offset = sindex_ptr + sizeof(char *);
-  static const size_t spinlock_offset = delete_flag_offset + sizeof(char *);
+  static const size_t RB_SEG_OFFSET = 0;
+  static const size_t SINDEX_PTR_OFFSET = RB_SEG_OFFSET + sizeof(char *);
+  static const size_t DELETE_FLAG_OFFSET = SINDEX_PTR_OFFSET + sizeof(char *);
+  static const size_t LOCK_OFFSET = DELETE_FLAG_OFFSET + 8; // actually the delete flag only occupies one byte.
+  static const size_t LAST_READER_OFFSET = LOCK_OFFSET + 8; // actually the lock also only occupies one byte.
+
   // TODO: add cooperative GC
-  // The RB segment pool that is actively being used
+  // The RB segment pool that is activlely being used
   cuckoohash_map<cid_t, std::shared_ptr<storage::RollbackSegmentPool>> living_pools_;
   // The RB segment pool that has been marked as garbage
   cuckoohash_map<cid_t, std::shared_ptr<storage::RollbackSegmentPool>> garbage_pools_;
 
   inline void LockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
     auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
-                             spinlock_offset);
+                             LOCK_OFFSET);
     lock->Lock();
   }
 
   inline void UnlockTuple(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
     auto lock = (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) +
-                             spinlock_offset);
+                             LOCK_OFFSET);
     lock->Unlock();
   }
 
-  inline void SetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id, const RBSegType seg_ptr) {
-    // Sanity check
+  inline void SetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
+                       const RBSegType seg_ptr) {
     LockTuple(tile_group_header, tuple_id);
-    if (seg_ptr != nullptr)
-      PL_ASSERT(*(int *)(seg_ptr + 16) != 0);
-    const char **rb_seg_ptr = (const char **)(tile_group_header->GetReservedFieldRef(tuple_id) + rb_seg_offset);
+    const char **rb_seg_ptr = (const char **)(tile_group_header->GetReservedFieldRef(tuple_id) + RB_SEG_OFFSET);
     *rb_seg_ptr = seg_ptr;
     UnlockTuple(tile_group_header, tuple_id);
   }
 
   inline void SetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
                           index::RBItemPointer *ptr) {
-    index::RBItemPointer **index_ptr = (index::RBItemPointer **)(tile_group_header->GetReservedFieldRef(tuple_id) + sindex_ptr);
+    index::RBItemPointer **index_ptr = (index::RBItemPointer **)(tile_group_header->GetReservedFieldRef(tuple_id) + SINDEX_PTR_OFFSET);
     *index_ptr = ptr;
   }
 
   inline index::RBItemPointer *GetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
-    index::RBItemPointer **index_ptr = (index::RBItemPointer **)(tile_group_header->GetReservedFieldRef(tuple_id) + sindex_ptr);
+    index::RBItemPointer **index_ptr = (index::RBItemPointer **)(tile_group_header->GetReservedFieldRef(tuple_id) + SINDEX_PTR_OFFSET);
     return *index_ptr;
   }
 
-  inline bool GetDeleteFlag(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
-    return *(reinterpret_cast<bool*>(tile_group_header->GetReservedFieldRef(tuple_id) + delete_flag_offset));
+  inline bool GetDeleteFlag(const storage::TileGroupHeader *const tile_group_header, const oid_t tuple_id) {
+    return *(reinterpret_cast<bool*>(tile_group_header->GetReservedFieldRef(tuple_id) + DELETE_FLAG_OFFSET));
   }
 
-  inline void SetDeleteFlag(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
-    *(reinterpret_cast<bool*>(tile_group_header->GetReservedFieldRef(tuple_id) + delete_flag_offset)) = true;
+  inline void SetDeleteFlag(const storage::TileGroupHeader *const tile_group_header, const oid_t tuple_id) {
+    *(reinterpret_cast<bool*>(tile_group_header->GetReservedFieldRef(tuple_id) + DELETE_FLAG_OFFSET)) = true;
   }
 
-  inline void ClearDeleteFlag(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
-    *(reinterpret_cast<bool*>(tile_group_header->GetReservedFieldRef(tuple_id) + delete_flag_offset)) = false;
+  inline void ClearDeleteFlag(const storage::TileGroupHeader *const tile_group_header, const oid_t tuple_id) {
+    *(reinterpret_cast<bool*>(tile_group_header->GetReservedFieldRef(tuple_id) + DELETE_FLAG_OFFSET)) = false;
+  }
+
+  inline Spinlock *GetSpinlockField(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
+    return (Spinlock *)(tile_group_header->GetReservedFieldRef(tuple_id) + LOCK_OFFSET);
+  }
+
+  inline cid_t GetLastReaderCid(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
+    return *(cid_t*)(tile_group_header->GetReservedFieldRef(tuple_id) + LAST_READER_OFFSET);
+  }
+
+  inline bool SetLastReaderCid(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
+    assert(IsOwner(tile_group_header, tuple_id) == false);
+
+    cid_t *ts_ptr = (cid_t*)(tile_group_header->GetReservedFieldRef(tuple_id) + LAST_READER_OFFSET);
+    
+    cid_t current_cid = current_txn->GetBeginCommitId();
+
+    GetSpinlockField(tile_group_header, tuple_id)->Lock();
+    
+    txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
+    
+    if(tuple_txn_id != INITIAL_TXN_ID) {
+      GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+      return false;
+    } else {
+      if (*ts_ptr < current_cid) {
+        *ts_ptr = current_cid;
+      }
+      
+      GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+      return true;
+    }
   }
 };
 }
