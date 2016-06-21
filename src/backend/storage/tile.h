@@ -17,6 +17,7 @@
 #include "backend/common/serializer.h"
 #include "backend/common/pool.h"
 #include "backend/common/printable.h"
+#include "backend/storage/rollback_segment.h"
 
 #include <mutex>
 
@@ -31,6 +32,10 @@ class Tuple;
 class TileGroup;
 class TileGroupHeader;
 class TupleIterator;
+
+extern thread_local cid_t last_read_timestamp;
+extern thread_local ItemPointer last_read_location;
+extern thread_local RBSegType last_read_rb;
 
 /**
  * Represents a Tile.
