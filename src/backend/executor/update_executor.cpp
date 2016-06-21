@@ -152,20 +152,6 @@ bool UpdateExecutor::DExecute() {
       } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
         auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
 
-        if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
-          // If it's not an inserted tuple,
-          // create a new rollback segment based on the old one and the old tuple
-          auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-            schema, project_info_->GetTargetList(), &old_tuple);
-
-          // TODO: rb_seg == nullptr may be resulted from an optimization to be done
-          // when creating rollback segment
-          if (rb_seg != nullptr) {
-            // Ask the txn manager to perform update
-            rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, schema, project_info_->GetTargetList(), &old_tuple);
-          }
-        }
-
         // Overwrite the master copy
         tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
 
