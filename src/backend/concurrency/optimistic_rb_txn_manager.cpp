@@ -209,9 +209,6 @@ bool OptimisticRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
       continue;
     }
 
-    // Get RBBtree index
-    PL_ASSERT(index->GetTypeName() == "RBBtree");
-
     auto index_schema = index->GetKeySchema();
     auto indexed_columns = index_schema->GetIndexedColumns();
     std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));

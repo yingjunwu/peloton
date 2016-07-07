@@ -19,6 +19,7 @@
 #include "backend/concurrency/ts_order_txn_manager.h"
 #include "backend/concurrency/ssi_txn_manager.h"
 #include "backend/concurrency/optimistic_rb_txn_manager.h"
+#include "backend/concurrency/optimistic_central_rb_txn_manager.h"
 #include "backend/concurrency/optimistic_n2o_txn_manager.h"
 #include "backend/concurrency/ts_order_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_n2o_txn_manager.h"
@@ -30,29 +31,31 @@ class TransactionManagerFactory {
  public:
   static TransactionManager &GetInstance() {
     switch (protocol_) {
-     case CONCURRENCY_TYPE_OPTIMISTIC:
+      case CONCURRENCY_TYPE_OPTIMISTIC:
        return OptimisticTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_PESSIMISTIC:
+      case CONCURRENCY_TYPE_PESSIMISTIC:
        return PessimisticTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_SPECULATIVE_READ:
+      case CONCURRENCY_TYPE_SPECULATIVE_READ:
        return SpeculativeReadTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_EAGER_WRITE:
+      case CONCURRENCY_TYPE_EAGER_WRITE:
        return EagerWriteTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_SSI:
+      case CONCURRENCY_TYPE_SSI:
        return SsiTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_TO:
+      case CONCURRENCY_TYPE_TO:
        return TsOrderTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_OCC_RB:
+      case CONCURRENCY_TYPE_OCC_RB:
        return OptimisticRbTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_OCC_N2O:
+      case CONCURRENCY_TYPE_OCC_CENTRAL_RB:
+       return OptimisticCentralRbTxnManager::GetInstance();
+      case CONCURRENCY_TYPE_OCC_N2O:
        return OptimisticN2OTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_TO_RB:
+      case CONCURRENCY_TYPE_TO_RB:
        return TsOrderRbTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_TO_N2O:
+      case CONCURRENCY_TYPE_TO_N2O:
        return TsOrderN2OTxnManager::GetInstance();
-     case CONCURRENCY_TYPE_TO_FULL_RB:
+      case CONCURRENCY_TYPE_TO_FULL_RB:
        return TsOrderFullRbTxnManager::GetInstance();
-     default:
+      default:
        return OptimisticTxnManager::GetInstance();
     }
   }
