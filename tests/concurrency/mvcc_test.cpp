@@ -192,7 +192,8 @@ TEST_F(MVCCTest, SingleThreadVersionChainTest) {
     {
       if (concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_RB
         && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_RB
-        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_FULL_RB) {
+        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_FULL_RB
+        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
         // Bypass RB
         TransactionScheduler scheduler(1, table.get(), &txn_manager);
         scheduler.Txn(0).Delete(100);

@@ -228,6 +228,7 @@ void RunBenchmark() {
   if (state.protocol != CONCURRENCY_TYPE_OCC_N2O 
     && state.protocol != CONCURRENCY_TYPE_TO_N2O 
     && state.protocol != CONCURRENCY_TYPE_OCC_RB
+    && state.protocol != CONCURRENCY_TYPE_OCC_CENTRAL_RB
     && state.protocol != CONCURRENCY_TYPE_TO_RB
     && state.protocol != CONCURRENCY_TYPE_TO_FULL_RB) {
     ValidateMVCC();
@@ -240,6 +241,7 @@ void RunBenchmark() {
   if (state.protocol != CONCURRENCY_TYPE_OCC_N2O 
     && state.protocol != CONCURRENCY_TYPE_TO_N2O 
     && state.protocol != CONCURRENCY_TYPE_OCC_RB
+    && state.protocol != CONCURRENCY_TYPE_OCC_CENTRAL_RB
     && state.protocol != CONCURRENCY_TYPE_TO_RB
     && state.protocol != CONCURRENCY_TYPE_TO_FULL_RB) {
     ValidateMVCC();
