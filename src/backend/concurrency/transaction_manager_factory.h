@@ -20,6 +20,7 @@
 #include "backend/concurrency/ssi_txn_manager.h"
 #include "backend/concurrency/optimistic_rb_txn_manager.h"
 #include "backend/concurrency/optimistic_central_rb_txn_manager.h"
+#include "backend/concurrency/ts_order_central_rb_txn_manager.h"
 #include "backend/concurrency/optimistic_n2o_txn_manager.h"
 #include "backend/concurrency/ts_order_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_n2o_txn_manager.h"
@@ -47,6 +48,8 @@ class TransactionManagerFactory {
        return OptimisticRbTxnManager::GetInstance();
       case CONCURRENCY_TYPE_OCC_CENTRAL_RB:
        return OptimisticCentralRbTxnManager::GetInstance();
+      case CONCURRENCY_TYPE_TO_CENTRAL_RB:
+       return TsOrderCentralRbTxnManager::GetInstance();
       case CONCURRENCY_TYPE_OCC_N2O:
        return OptimisticN2OTxnManager::GetInstance();
       case CONCURRENCY_TYPE_TO_RB:
