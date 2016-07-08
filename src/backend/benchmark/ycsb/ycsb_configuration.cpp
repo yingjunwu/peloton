@@ -42,7 +42,7 @@ void Usage(FILE *out) {
           "   -e --exp_backoff       :  enable exponential backoff \n"
           "   -x --blind_write       :  enable blind write \n"
           "   -p --protocol          :  choose protocol, default OCC\n"
-          "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, and ton2o\n"
+          "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, to_central_rb and ton2o\n"
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
           "                             gc protocol could be off, co, va, and n2o\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va\n"
@@ -267,6 +267,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_OCC_RB;
         } else if (strcmp(protocol, "occ_central_rb") == 0) {
           state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
+        } else if (strcmp(protocol, "to_central_rb") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
         } else if (strcmp(protocol, "sread") == 0) {
           state.protocol = CONCURRENCY_TYPE_SPECULATIVE_READ;
         } else if (strcmp(protocol, "occn2o") == 0) {

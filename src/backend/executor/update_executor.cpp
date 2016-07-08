@@ -149,6 +149,28 @@ bool UpdateExecutor::DExecute() {
 
         // Insert into secondary index
         rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
+      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+        auto rb_txn_manager = (concurrency::TsOrderCentralRbTxnManager*)&transaction_manager;
+
+        if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
+          // If it's not an inserted tuple,
+          // create a new rollback segment based on the old one and the old tuple
+          auto rb_seg = concurrency::TsOrderCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
+            schema, project_info_->GetTargetList(), &old_tuple);
+
+          // TODO: rb_seg == nullptr may be resulted from an optimization to be done
+          // when creating rollback segment
+          if (rb_seg != nullptr) {
+            // Ask the txn manager to add the a new rollback segment
+            rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
+          }
+        }
+
+        // Overwrite the master copy
+        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
+
+        // Insert into secondary index
+        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
       } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_RB) {
         auto rb_txn_manager = (concurrency::TsOrderRbTxnManager*)&transaction_manager;
 
@@ -226,6 +248,23 @@ bool UpdateExecutor::DExecute() {
 
         // Create a rollback segment based on the old tuple
         auto rb_seg = concurrency::OptimisticCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
+          schema, project_info_->GetTargetList(), &old_tuple);
+
+        // Ask the txn manager to append the rollback segment
+        rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
+
+        // Overwrite the master copy
+        tile_group->CopyTuple(new_tuple.get(), old_location.offset);
+
+        // Insert into secondary index. Maybe we can insert index before
+        // CopyTuple? -- RX
+        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
+      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+        // For rollback segment implementation
+        auto rb_txn_manager = (concurrency::TsOrderCentralRbTxnManager*)&transaction_manager;
+
+        // Create a rollback segment based on the old tuple
+        auto rb_seg = concurrency::TsOrderCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
           schema, project_info_->GetTargetList(), &old_tuple);
 
         // Ask the txn manager to append the rollback segment

@@ -28,12 +28,18 @@ static oid_t next_table_id = 0;
 class MVCCTest : public PelotonTest {};
 
 static std::vector<ConcurrencyType> TEST_TYPES = {
-  // CONCURRENCY_TYPE_OPTIMISTIC
+  // CONCURRENCY_TYPE_OPTIMISTIC,
   // CONCURRENCY_TYPE_PESSIMISTIC,
   // CONCURRENCY_TYPE_SSI,
-  // CONCURRENCY_TYPE_SPECULATIVE_READ,
   // CONCURRENCY_TYPE_EAGER_WRITE,
   // CONCURRENCY_TYPE_TO,
+  // CONCURRENCY_TYPE_OCC_N2O,
+  // CONCURRENCY_TYPE_TO_N2O,
+  // CONCURRENCY_TYPE_OCC_RB,
+  // CONCURRENCY_TYPE_TO_RB,
+  // CONCURRENCY_TYPE_TO_FULL_RB,
+  // CONCURRENCY_TYPE_OCC_CENTRAL_RB,
+  CONCURRENCY_TYPE_TO_CENTRAL_RB
 };
 
 
@@ -193,7 +199,8 @@ TEST_F(MVCCTest, SingleThreadVersionChainTest) {
       if (concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_RB
         && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_RB
         && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_FULL_RB
-        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_CENTRAL_RB
+        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_CENTRAL_RB) {
         // Bypass RB
         TransactionScheduler scheduler(1, table.get(), &txn_manager);
         scheduler.Txn(0).Delete(100);

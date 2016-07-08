@@ -98,7 +98,8 @@ bool InsertExecutor::DExecute() {
       if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
         || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB
         || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
         location = target_table->InsertTuple(tuple.get(), &rb_itemptr_ptr);
         assert(rb_itemptr_ptr != nullptr);
       } else {
@@ -118,6 +119,8 @@ bool InsertExecutor::DExecute() {
         res = ((concurrency::OptimisticRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
         res = ((concurrency::OptimisticCentralRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+      } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+        res = ((concurrency::TsOrderCentralRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
         // If we are using TO N2O txn manager, use another form of perform insert
         res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
@@ -181,7 +184,8 @@ bool InsertExecutor::DExecute() {
       if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
         || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB
         || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
         location = target_table->InsertTuple(tuple, &rb_itemptr_ptr);
         if (target_table->GetIndexCount() > 1)
           assert(rb_itemptr_ptr != nullptr);
@@ -202,6 +206,8 @@ bool InsertExecutor::DExecute() {
         res = ((concurrency::OptimisticRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
         res = ((concurrency::OptimisticCentralRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+      } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+        res = ((concurrency::TsOrderCentralRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB) {
         res = ((concurrency::TsOrderRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB) {
