@@ -17,7 +17,7 @@
 #include "backend/common/macros.h"
 #include "backend/index/index_factory.h"
 #include "backend/index/index_key.h"
-// #include "backend/index/bwtree_index.h"
+#include "backend/index/bwtree_index.h"
 #include "backend/index/btree_index.h"
 #include "backend/index/hash_index.h"
 // #include "backend/index/hash_unique_index.h"
@@ -205,84 +205,149 @@ Index *IndexFactory::GetInstance(IndexMetadata *metadata, const size_t &prealloc
     }
   }
 
-  // if (ints_only && (index_type == INDEX_TYPE_BWTREE)) {
-  //   if (key_size <= sizeof(uint64_t)) {
-  //     return new BWTreeIndex<IntsKey<1>, ItemPointer *,
-  //                            IntsComparator<1>, IntsEqualityChecker<1>>(
-  //         metadata);
-  //   } else if (key_size <= sizeof(int64_t) * 2) {
-  //     return new BWTreeIndex<IntsKey<2>, ItemPointer *,
-  //                            IntsComparator<2>, IntsEqualityChecker<2>>(
-  //         metadata);
-  //   } else if (key_size <= sizeof(int64_t) * 3) {
-  //     return new BWTreeIndex<IntsKey<3>, ItemPointer *,
-  //                            IntsComparator<3>, IntsEqualityChecker<3>>(
-  //         metadata);
-  //   } else if (key_size <= sizeof(int64_t) * 4) {
-  //     return new BWTreeIndex<IntsKey<4>, ItemPointer *,
-  //                            IntsComparator<4>, IntsEqualityChecker<4>>(
-  //         metadata);
-  //   } else {
-  //     throw IndexException("We currently only support tree index on non-unique "
-  //                          "integer keys of size 32 bytes or smaller...");
-  //   }
-  // }
+  if (ints_only && (index_type == INDEX_TYPE_BWTREE)) {
+    if (key_size <= sizeof(uint64_t)) {
+      return new BWTreeIndex<IntsKey<1>, ItemPointer *,
+                             IntsComparator<1>,
+                             IntsEqualityChecker<1>,
+                             IntsHasher<1>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= sizeof(int64_t) * 2) {
+      return new BWTreeIndex<IntsKey<2>, ItemPointer *,
+                             IntsComparator<2>,
+                             IntsEqualityChecker<2>,
+                             IntsHasher<2>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= sizeof(int64_t) * 3) {
+      return new BWTreeIndex<IntsKey<3>, ItemPointer *,
+                             IntsComparator<3>,
+                             IntsEqualityChecker<3>,
+                             IntsHasher<3>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= sizeof(int64_t) * 4) {
+      return new BWTreeIndex<IntsKey<4>, ItemPointer *,
+                             IntsComparator<4>,
+                             IntsEqualityChecker<4>,
+                             IntsHasher<4>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else {
+      throw IndexException("We currently only support tree index on non-unique "
+                           "integer keys of size 32 bytes or smaller...");
+    }
+  }
 
-  // if (index_type == INDEX_TYPE_BWTREE) {
-  //   if (key_size <= 4) {
-  //     return new BWTreeIndex<GenericKey<4>, ItemPointer *,
-  //                            GenericComparator<4>, GenericEqualityChecker<4>>(
-  //         metadata);
-  //   } else if (key_size <= 8) {
-  //     return new BWTreeIndex<GenericKey<8>, ItemPointer *,
-  //                            GenericComparator<8>, GenericEqualityChecker<8>>(
-  //         metadata);
-  //   } else if (key_size <= 12) {
-  //     return new BWTreeIndex<GenericKey<12>, ItemPointer *,
-  //                            GenericComparator<12>, GenericEqualityChecker<12>>(
-  //         metadata);
-  //   } else if (key_size <= 16) {
-  //     return new BWTreeIndex<GenericKey<16>, ItemPointer *,
-  //                            GenericComparator<16>, GenericEqualityChecker<16>>(
-  //         metadata);
-  //   } else if (key_size <= 24) {
-  //     return new BWTreeIndex<GenericKey<24>, ItemPointer *,
-  //                            GenericComparator<24>, GenericEqualityChecker<24>>(
-  //         metadata);
-  //   } else if (key_size <= 32) {
-  //     return new BWTreeIndex<GenericKey<32>, ItemPointer *,
-  //                            GenericComparator<32>, GenericEqualityChecker<32>>(
-  //         metadata);
-  //   } else if (key_size <= 48) {
-  //     return new BWTreeIndex<GenericKey<48>, ItemPointer *,
-  //                            GenericComparator<48>, GenericEqualityChecker<48>>(
-  //         metadata);
-  //   } else if (key_size <= 64) {
-  //     return new BWTreeIndex<GenericKey<64>, ItemPointer *,
-  //                            GenericComparator<64>, GenericEqualityChecker<64>>(
-  //         metadata);
-  //   } else if (key_size <= 96) {
-  //     return new BWTreeIndex<GenericKey<96>, ItemPointer *,
-  //                            GenericComparator<96>, GenericEqualityChecker<96>>(
-  //         metadata);
-  //   } else if (key_size <= 128) {
-  //     return new BWTreeIndex<GenericKey<128>, ItemPointer *,
-  //                            GenericComparator<128>,
-  //                            GenericEqualityChecker<128>>(metadata);
-  //   } else if (key_size <= 256) {
-  //     return new BWTreeIndex<GenericKey<256>, ItemPointer *,
-  //                            GenericComparator<256>,
-  //                            GenericEqualityChecker<256>>(metadata);
-  //   } else if (key_size <= 512) {
-  //     return new BWTreeIndex<GenericKey<512>, ItemPointer *,
-  //                            GenericComparator<512>,
-  //                            GenericEqualityChecker<512>>(metadata);
-  //   } else {
-  //     return new BWTreeIndex<TupleKey, ItemPointer *,
-  //                            TupleKeyComparator, TupleKeyEqualityChecker>(
-  //         metadata);
-  //   }
-  // }
+  if (index_type == INDEX_TYPE_BWTREE) {
+    if (key_size <= 4) {
+      return new BWTreeIndex<GenericKey<4>, ItemPointer *,
+                             GenericComparator<4>,
+                             GenericEqualityChecker<4>,
+                             GenericHasher<4>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 8) {
+      return new BWTreeIndex<GenericKey<8>, ItemPointer *,
+                             GenericComparator<8>,
+                             GenericEqualityChecker<8>,
+                             GenericHasher<8>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 12) {
+      return new BWTreeIndex<GenericKey<12>, ItemPointer *,
+                             GenericComparator<12>,
+                             GenericEqualityChecker<12>,
+                             GenericHasher<12>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 16) {
+      return new BWTreeIndex<GenericKey<16>, ItemPointer *,
+                             GenericComparator<16>,
+                             GenericEqualityChecker<16>,
+                             GenericHasher<16>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 24) {
+      return new BWTreeIndex<GenericKey<24>, ItemPointer *,
+                             GenericComparator<24>,
+                             GenericEqualityChecker<24>,
+                             GenericHasher<24>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 32) {
+      return new BWTreeIndex<GenericKey<32>, ItemPointer *,
+                             GenericComparator<32>,
+                             GenericEqualityChecker<32>,
+                             GenericHasher<32>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 48) {
+      return new BWTreeIndex<GenericKey<48>, ItemPointer *,
+                             GenericComparator<48>,
+                             GenericEqualityChecker<48>,
+                             GenericHasher<48>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 64) {
+      return new BWTreeIndex<GenericKey<64>, ItemPointer *,
+                             GenericComparator<64>,
+                             GenericEqualityChecker<64>,
+                             GenericHasher<64>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 96) {
+      return new BWTreeIndex<GenericKey<96>, ItemPointer *,
+                             GenericComparator<96>,
+                             GenericEqualityChecker<96>,
+                             GenericHasher<96>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    } else if (key_size <= 128) {
+      return new BWTreeIndex<GenericKey<128>, ItemPointer *,
+                             GenericComparator<128>,
+                             GenericEqualityChecker<128>,
+                             GenericHasher<128>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(metadata);
+    } else if (key_size <= 256) {
+      return new BWTreeIndex<GenericKey<256>, ItemPointer *,
+                             GenericComparator<256>,
+                             GenericEqualityChecker<256>,
+                             GenericHasher<256>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(metadata);
+    } else if (key_size <= 512) {
+      return new BWTreeIndex<GenericKey<512>, ItemPointer *,
+                             GenericComparator<512>,
+                             GenericEqualityChecker<512>,
+                             GenericHasher<512>,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(metadata);
+    } else {
+      return new BWTreeIndex<TupleKey, ItemPointer *,
+                             TupleKeyComparator,
+                             TupleKeyEqualityChecker,
+                             TupleKeyHasher,
+                             ItemPointerComparator,
+                             ItemPointerHashFunc>(
+          metadata);
+    }
+  }
 
   if (ints_only && (index_type == INDEX_TYPE_RBBTREE)) {
     if (key_size <= sizeof(uint64_t)) {
