@@ -62,7 +62,11 @@ class PointerComparator {
  */
 #define BWTREE_PELOTON
 
+#ifdef BWTREE_PELOTON
+
 #include "backend/index/index.h"
+
+#endif
 
 // Used for debugging
 #include <mutex>
@@ -346,11 +350,11 @@ class BwTree {
   constexpr static int DELTA_CHAIN_LENGTH_THRESHOLD_LEAF_DIFF = 0;
 
   // If node size goes above this then we split it
-  constexpr static size_t INNER_NODE_SIZE_UPPER_THRESHOLD = 128;
-  constexpr static size_t LEAF_NODE_SIZE_UPPER_THRESHOLD = 128;
+  constexpr static size_t INNER_NODE_SIZE_UPPER_THRESHOLD = 64;
+  constexpr static size_t LEAF_NODE_SIZE_UPPER_THRESHOLD = 64;
 
-  constexpr static size_t INNER_NODE_SIZE_LOWER_THRESHOLD = 32;
-  constexpr static size_t LEAF_NODE_SIZE_LOWER_THRESHOLD = 32;
+  constexpr static size_t INNER_NODE_SIZE_LOWER_THRESHOLD = 16;
+  constexpr static size_t LEAF_NODE_SIZE_LOWER_THRESHOLD = 16;
 
   constexpr static int max_thread_count = 0x7FFFFFFF;
   
@@ -677,8 +681,18 @@ class BwTree {
     /*
      * Constructor - Initialize a context object into initial state
      */
-    Context(const KeyType &p_search_key) :
+    Context(const KeyType p_search_key) :
+      #ifdef BWTREE_PELOTON
+      
+      // Because earlier versions of g++ does not support
+      // initializer list so must use () form
       search_key(p_search_key),
+      
+      #else
+      
+      search_key{p_search_key},
+      
+      #endif
       abort_counter{0},
       current_level{-1},
       abort_flag{false}
@@ -1004,9 +1018,6 @@ class BwTree {
     // We always hold data within a vector of KeyValuePair
     std::vector<KeyValuePair> data_list;
 
-    // This stores accumulated number of items for each key for fast access
-    std::vector<int> item_prefix_sum;
-
     // This holds high key and the next node ID inside a pair
     // so that they could be accessed in a compacted manner
     KeyNodeIDPair high_key;
@@ -1029,6 +1040,70 @@ class BwTree {
                p_item_count},
       high_key{p_high_key_p}
     {}
+    
+    /*
+     * FindSplitPoint() - Find the split point that could divide the node
+     *                    into two even siblings
+     *
+     * If such point does not exist then we manage to find a point that
+     * divides the node into two halves that are as even as possible (i.e.
+     * make the size difference as small as possible)
+     *
+     * This function works by first finding the key on the exact central
+     * position, after which it scans forward to find a KeyValuePair
+     * with a different key. If this fails then it scans backwards to find
+     * a KeyValuePair with a different key.
+     *
+     * NOTE: If both split points would make an uneven division with one of
+     * the node size below the merge threshold, then we do not split,
+     * and return -1 instead. Otherwise the index of the spliting point
+     * is returned
+     */
+    int FindSplitPoint(const BwTree *t) const {
+      int central_index = static_cast<int>(data_list.size()) / 2;
+      assert(central_index > 1);
+      
+      // This will used as upper_bound and lower_bound key
+      const KeyValuePair &central_kvp = data_list[central_index];
+
+      // Move it to the element before data_list
+      auto it = data_list.begin() + central_index - 1;
+      
+      // If iterator has reached the begin then we know there could not
+      // be any split points
+      while((it != data_list.begin()) && \
+            (t->KeyCmpEqual(it->first, central_kvp.first) == true)) {
+        it--;
+      }
+      
+      // This is the real split point
+      it++;
+      
+      // This size is exactly the index of the split point
+      int left_sibling_size = std::distance(data_list.begin(), it);
+      
+      if(left_sibling_size > static_cast<int>(LEAF_NODE_SIZE_LOWER_THRESHOLD)) {
+        return left_sibling_size;
+      }
+      
+      // Move it to the element after data_list
+      it = data_list.begin() + central_index + 1;
+
+      // If iterator has reached the end then we know there could not
+      // be any split points
+      while((it != data_list.end()) && \
+            (t->KeyCmpEqual(it->first, central_kvp.first) == true)) {
+        it++;
+      }
+      
+      int right_sibling_size = std::distance(it, data_list.end());
+      
+      if(right_sibling_size > static_cast<int>(LEAF_NODE_SIZE_LOWER_THRESHOLD)) {
+        return std::distance(data_list.begin(), it);
+      }
+      
+      return -1;
+    }
 
     /*
      * GetSplitSibling() - Split the node into two halves
@@ -1052,36 +1127,26 @@ class BwTree {
      * NOTE 3: This function assumes no out-of-bound key, i.e. all keys
      * stored in the leaf node are < high key. This is valid since we
      * already filtered out those key >= high key in consolidation.
+     *
+     * NOTE 4: On failure of split (i.e. could not find a split key that evenly
+     * or almost evenly divide the leaf node) then the return value of this
+     * function is nullptr
      */
-    LeafNode *GetSplitSibling() const {
-      int key_num = static_cast<int>(item_prefix_sum.size());
-      assert(key_num >= 2);
-
+    LeafNode *GetSplitSibling(const BwTree *t) const {
       // When we split a leaf node, it is certain that there is no delta
       // chain on top of it. As a result, the number of items must equal
       // the actual size of the data list
       assert(static_cast<int>(data_list.size()) == this->GetItemCount());
 
-      // This is the index of the key in prefix sum array
-      int split_key_index = key_num / 2;
-
       // This is the index of the actual key-value pair in data_list
       // We need to substract this value from the prefix sum in the new
       // inner node
-      int split_item_index = item_prefix_sum[split_key_index];
-
-      // This points to the prefix sum array and we use this to copy
-      // the prefix sum array
-      auto prefix_sum_start_it = item_prefix_sum.begin();
-      std::advance(prefix_sum_start_it, split_key_index);
-
-      auto prefix_sum_end_it = item_prefix_sum.end();
+      int split_item_index = FindSplitPoint(t);
 
       // This is an iterator pointing to the split point in the vector
       // note that std::advance() operates efficiently on std::vector's
       // RandomAccessIterator
-      auto copy_start_it = data_list.begin();
-      std::advance(copy_start_it, split_item_index);
+      auto copy_start_it = data_list.begin() + split_item_index;
 
       // This is the end point for later copy of data
       auto copy_end_it = data_list.end();
@@ -1099,16 +1164,6 @@ class BwTree {
 
       // Copy data item into the new node using batch assign()
       leaf_node_p->data_list.assign(copy_start_it, copy_end_it);
-
-      // Copy prefix sum into the new node and later we will modify it
-      leaf_node_p->item_prefix_sum.assign(prefix_sum_start_it,
-                                          prefix_sum_end_it);
-
-      // Adjust prefix sum in the new leaf node by subtracting them
-      // from the index of item on the split point
-      for(auto &prefix_sum : leaf_node_p->item_prefix_sum) {
-        prefix_sum -= split_item_index;
-      }
 
       return leaf_node_p;
     }
@@ -1928,16 +1983,33 @@ class BwTree {
     first_leaf_id = GetNextNodeID();
     assert(first_leaf_id == FIRST_LEAF_NODE_ID);
 
+    #ifdef BWTREE_PELOTON
+    
     // For the first inner node, it needs an empty low key
     // the search procedure will not look at it and only use it
     // if the search key could not be matched to anything after the first key
     KeyNodeIDPair first_sep{KeyType(), first_leaf_id};
-
+    
     // Initially there is one element inside the root node
     // so we set item count to be 1
     // The high key is +Inf which is identified by INVALID_NODE_ID
     InnerNode *root_node_p = \
       new InnerNode{std::make_pair(KeyType(), INVALID_NODE_ID), 1};
+    
+    #else
+    
+    // For the first inner node, it needs an empty low key
+    // the search procedure will not look at it and only use it
+    // if the search key could not be matched to anything after the first key
+    KeyNodeIDPair first_sep{KeyType{}, first_leaf_id};
+    
+    // Initially there is one element inside the root node
+    // so we set item count to be 1
+    // The high key is +Inf which is identified by INVALID_NODE_ID
+    InnerNode *root_node_p = \
+      new InnerNode{std::make_pair(KeyType{}, INVALID_NODE_ID), 1};
+      
+    #endif
 
     root_node_p->sep_list.push_back(first_sep);
 
@@ -1949,8 +2021,17 @@ class BwTree {
 
     // Initially there is no element inside the leaf node so we set element
     // count to be 0
+    #ifdef BWTREE_PELOTON
+    
     LeafNode *left_most_leaf = \
       new LeafNode{std::make_pair(KeyType(), INVALID_NODE_ID), 0};
+      
+    #else
+    
+    LeafNode *left_most_leaf = \
+      new LeafNode{std::make_pair(KeyType{}, INVALID_NODE_ID), 0};
+    
+    #endif
 
     InstallNewNode(first_leaf_id, left_most_leaf);
 
@@ -2991,7 +3072,7 @@ abort_traverse:
 
           const LeafNode *leaf_node_p = \
             static_cast<const LeafNode *>(node_p);
-            
+
           // Here we know the search key < high key of current node
           // NOTE: We only compare keys here, so it will get to the first
           // element >= search key
@@ -3183,7 +3264,7 @@ abort_traverse:
     // Item count would not change during consolidation
     assert(static_cast<int>(leaf_node_p->data_list.size()) == \
            node_p->GetItemCount());
-           
+
     // This is the key value pair comparator object
     auto key_value_pair_cmp_obj = \
       [this](const KeyValuePair &kvp1, const KeyValuePair &kvp2) {
@@ -3196,49 +3277,6 @@ abort_traverse:
     std::sort(data_list_p->begin(),
               data_list_p->end(),
               key_value_pair_cmp_obj);
-
-    // We reserve that many space for storing the prefix sum
-    // Note that if the node is going to be consolidated then this will
-    // definitely cause reallocation
-    leaf_node_p->item_prefix_sum.reserve(LEAF_NODE_SIZE_UPPER_THRESHOLD);
-
-    // Next we compute prefix sum of key numbers
-    // We compute that by finding the upper bound of the current key
-    // and compute the distance, and switch the current key to the
-    // current upper bound, until we have reached end() iterator
-
-    auto range_begin_it = data_list_p->begin();
-    auto end_it = data_list_p->end();
-
-    // This is used to compute prefix sum of distinct elements
-    int prefix_sum = 0;
-
-    while(range_begin_it != end_it) {
-      // Search for the first item whose key > current key
-      // and their difference is the number of elements
-      auto range_end_it = std::upper_bound(range_begin_it,
-                                           end_it,
-                                           *range_begin_it,
-                                           key_value_pair_cmp_obj);
-
-      // The first element is always 0 since the index starts with 0
-      leaf_node_p->item_prefix_sum.push_back(prefix_sum);
-
-      // The distance should be > 0 otherwise the key is not found
-      // which is impossible because we know the key exists in
-      // the data list
-      int distance = std::distance(range_begin_it, range_end_it);
-      assert(distance > 0);
-
-      // Then increase prefix sum with the length of the range
-      // which is also the distance between the two variables
-      prefix_sum += distance;
-
-      // Start from the end of current range which is the next key
-      // If there is no more elements then std::upper_bound() returns
-      // end() iterator, which would fail while loop testing
-      range_begin_it = range_end_it;
-    }
 
     return leaf_node_p;
   }
@@ -4260,6 +4298,8 @@ before_switch:
           // to the first element in the sep list
           // NOTE: Storage will be automatically reserved inside the
           // constructor
+          #ifdef BWTREE_PELOTON
+
           InnerNode *inner_node_p = \
             new InnerNode{std::make_pair(KeyType(), INVALID_NODE_ID), 2};
 
@@ -4268,6 +4308,18 @@ before_switch:
           // object into the list
           inner_node_p->sep_list.push_back(std::make_pair(KeyType(),
                                                           snapshot_p->node_id));
+                                                          
+          #else
+          
+          InnerNode *inner_node_p = \
+            new InnerNode{std::make_pair(KeyType{}, INVALID_NODE_ID), 2};
+          
+          // NOTE: Since we never directly access the first element in the
+          // InnerNode object, it is OK to just put an empty KeyType
+          // object into the list
+          inner_node_p->sep_list.push_back(std::make_pair(KeyType{},
+                                                          snapshot_p->node_id));
+          #endif
 
           inner_node_p->sep_list.push_back(*insert_item_p);
 
@@ -4551,13 +4603,31 @@ before_switch:
       // evenly, and in the worst case if there is one key in the
       // node the node could not be splited while having a large
       // item count
-      size_t node_size = leaf_node_p->item_prefix_sum.size();
+      size_t node_size = leaf_node_p->GetItemCount();
 
       // Perform corresponding action based on node size
       if(node_size >= LEAF_NODE_SIZE_UPPER_THRESHOLD) {
         bwt_printf("Node size >= leaf upper threshold. Split\n");
 
-        const LeafNode *new_leaf_node_p = leaf_node_p->GetSplitSibling();
+        // Note: This function takes this as argument since it will
+        // do key comparison
+        const LeafNode *new_leaf_node_p = leaf_node_p->GetSplitSibling(this);
+        
+        // If the new leaf node pointer is nullptr then it means the
+        // although the size of the leaf node exceeds split threshold
+        // but we could not find a spliting point that evenly or almost
+        // evenly divides the key space into two siblings whose sizes
+        // are both larger than the merge threshold (o.w. the node will
+        // be immediately merged)
+        // NOTE: This is a potential problem if a leaf becomes very unbalanced
+        // since all threads will try to split the leaf node when traversing
+        // to it (not for reader threads)
+        if(new_leaf_node_p == nullptr) {
+          bwt_printf("LeafNode size exceeds overhead, "
+                     "but could not find split point\n");
+          
+          return;
+        }
         
         // Since we would like to access its first element to get the low key
         assert(new_leaf_node_p->data_list.size() > 0UL);
@@ -6323,6 +6393,19 @@ try_join_again:
   ForwardIterator Begin(const KeyType &start_key) {
     return ForwardIterator{this, start_key};
   }
+  
+  /*
+   * NullIterator() - Returns an empty iterator that cannot do anything
+   *
+   * This is useful as a placeholder when we are not sure when an iterator
+   * is required but need to use a placeholder.
+   *
+   * NOTE: This iterator can be assigned and destructed (nullptr leaf node will
+   * tell the story) but cannot be moved
+   */
+  ForwardIterator NullIterator() {
+    return ForwardIterator{};
+  }
 
   /*
    * Iterators
@@ -6341,7 +6424,20 @@ try_join_again:
   class ForwardIterator {
    public:
     /*
-     * Default Constructor
+     * Default Constructor - This acts as a place holder for some functions
+     *                       that require a type and an object but we do not
+     *                       want to afford the overhead of loading a page into
+     *                       the iterator
+     *
+     * Only leaf_node_p is initialized to avoid destructor destructing the
+     * iterator, also to avoid assignment operator directly assign to it.
+     */
+    ForwardIterator() :
+      leaf_node_p{nullptr}
+    {}
+    
+    /*
+     * Constructor
      *
      * NOTE: We try to load the first page using -Inf as the next key
      * during construction in order to correctly identify the case where
@@ -6385,6 +6481,8 @@ try_join_again:
     ForwardIterator(BwTree *p_tree_p,
                     const KeyType &start_key) :
       tree_p{p_tree_p},
+      leaf_node_p{nullptr}, // This is used to singal LowerBound() that
+                            // no memory should be freed
       is_end{false} {
       
       // This sets all members, and might return with is_end == true
@@ -6431,11 +6529,18 @@ try_join_again:
       if(this == &other) {
         return *this;
       }
-
-      // First copy the logical node into current instance
-      // DO NOT NEED delete; JUST DO A VALUE COPY
-      // since the storage has already been allocated during construction
-      *leaf_node_p = *other.leaf_node_p;
+      
+      // For an empty iterator this branch is necessary
+      if(leaf_node_p == nullptr) {
+        leaf_node_p = new LeafNode{*other.leaf_node_p};
+      } else {
+        // First copy the logical node into current instance
+        // DO NOT NEED new and delete; JUST DO A VALUE COPY
+        // since the storage has already been allocated during construction
+        // and the old value with be automatically dealt with LeafNode
+        // and vector's assignment operation
+        *leaf_node_p = *other.leaf_node_p;
+      }
 
       // Copy everything that could be copied
       tree_p = other.tree_p;
@@ -6446,6 +6551,42 @@ try_join_again:
       // Move the iterator ahead
       it = leaf_node_p->data_list.begin() + \
            std::distance(((const LeafNode *)other.leaf_node_p)->data_list.begin(), other.it);
+
+      return *this;
+    }
+    
+    /*
+     * Move Assignment - Assigns a temporary iterator object
+     *
+     * NOTE: In move assignment we do not need to move iterator; instead
+     * iterator could be directly copied since the leaf node does not change
+     * and such that the iterator is not invalidated
+     */
+    ForwardIterator &operator=(ForwardIterator &&other) {
+      if(this == &other) {
+        return *this;
+      }
+
+      // For an empty iterator this branch is necessary
+      if(leaf_node_p != nullptr) {
+        delete leaf_node_p;
+      }
+      
+      // Direcrly moves the leaf node pointer without copying
+      leaf_node_p = other.leaf_node_p;
+      
+      // Since the leaf node does not change, the constructor is not invalidated
+      // we could just copy it here
+      it = other.it;
+
+      tree_p = other.tree_p;
+      next_key_pair = other.next_key_pair;
+
+      is_end = other.is_end;
+
+      // This is necessary to avoid the leaf node pointer being
+      // deleted when the other is destructed
+      other.leaf_node_p = nullptr;
 
       return *this;
     }
@@ -6531,10 +6672,9 @@ try_join_again:
      * node, because its memory is not shared between iterators
      */
     ~ForwardIterator() {
-      // This holds even if the tree is empty
-      assert(leaf_node_p != nullptr);
-
-      delete leaf_node_p;
+      if(leaf_node_p != nullptr) {
+        delete leaf_node_p;
+      }
 
       return;
     }
@@ -6662,6 +6802,8 @@ try_join_again:
         // too early
         EpochNode *epoch_node_p = tree_p->epoch_manager.JoinEpoch();
 
+        #ifdef BWTREE_PELOTON
+
         // This is used to avoid segmentation fault
         ItemPointer dummy_ip{0, 0};
         ItemPointer *ip_p = &dummy_ip;
@@ -6669,6 +6811,14 @@ try_join_again:
         // Traverse down the tree to get to leaf node
         Context context{*start_key_p};
         tree_p->Traverse(&context, &ip_p);
+        
+        #else
+        
+        // Traverse down the tree to get to leaf node
+        Context context{*start_key_p};
+        tree_p->Traverse(&context, nullptr);
+        
+        #endif
 
         NodeSnapshot *snapshot_p = tree_p->GetLatestNodeSnapshot(&context);
         const BaseNode *node_p = snapshot_p->node_p;
@@ -6679,6 +6829,15 @@ try_join_again:
         // Set high key pair for next call of this function
         next_key_pair = node_p->GetHighKeyPair();
 
+        // If this is nullptr then we are calling it from the constructor
+        if(leaf_node_p != nullptr) {
+          // Only we call it from the constructor will the start key pointer
+          // be a null pointer
+          assert(start_key_p != nullptr);
+          
+          delete leaf_node_p;
+        }
+        
         // Consolidate the current node
         leaf_node_p = tree_p->CollectAllValuesOnLeaf(snapshot_p);
 
@@ -6719,6 +6878,9 @@ try_join_again:
      * its end. If iterator has reached end then assertion fails.
      */
     inline void MoveAheadByOne() {
+      // Could not do this on an empty iterator
+      assert(leaf_node_p != nullptr);
+      
       // Move the iterator on leaf node data list
       it++;
 
