@@ -163,7 +163,6 @@ class LogicalTile : public Printable {
      * indirection.
      */
     std::shared_ptr<storage::Tile> base_tile;
-    storage::Tile base_tile_ptr;
 
     /** @brief Original column id of this logical tile column in its associated
      * base tile. */
