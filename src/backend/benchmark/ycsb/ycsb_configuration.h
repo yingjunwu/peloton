@@ -49,6 +49,9 @@ class configuration {
   // operation count
   int operation_count;
 
+  // read-only ratio
+  double read_only_ratio;
+
   // update ratio
   double update_ratio;
 
@@ -111,6 +114,8 @@ void ValidateUpdateColumnCount(const configuration &state);
 void ValidateReadColumnCount(const configuration &state);
 
 void ValidateOperationCount(const configuration &state);
+
+void ValidateReadOnlyRatio(const configuration &state);
 
 void ValidateUpdateRatio(const configuration &state);
 

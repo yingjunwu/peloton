@@ -87,7 +87,7 @@ void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto update_ratio = state.update_ratio;
-  //auto operation_count = state.operation_count;
+  auto read_only_ratio = state.read_only_ratio;
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -101,36 +101,55 @@ void RunBackend(oid_t thread_id) {
   if (state.run_mix) {
 
     MixedPlans mixed_plans = PrepareMixedPlan();
-    
-    //int write_count = operation_count * update_ratio;
-    //int read_count = operation_count - write_count;
-
     // backoff
     uint32_t backoff_shifts = 0;
     while (true) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng) == false) {
-        if (is_running == false) {
-          break;
-        }
-        execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
-        }
-      }
-      backoff_shifts >>= 1;
+      auto rng_val = rng.next_uniform();
 
+      if (rng_val < read_only_ratio) {
+        while (RunReadOnly() == false) {
+          if (is_running == false) {
+            break;
+          }
+          execution_count_ref++;
+          // backoff
+          if (state.run_backoff) {
+            if (backoff_shifts < 63) {
+              ++backoff_shifts;
+            }
+            uint64_t spins = 1UL << backoff_shifts;
+            spins *= 100;
+            while (spins) {
+              _mm_pause();
+              --spins;
+            }
+          }
+        }
+        backoff_shifts >>= 1;
+      } else {
+        while (RunMixed(mixed_plans, zipf, rng) == false) {
+          if (is_running == false) {
+            break;
+          }
+          execution_count_ref++;
+          // backoff
+          if (state.run_backoff) {
+            if (backoff_shifts < 63) {
+              ++backoff_shifts;
+            }
+            uint64_t spins = 1UL << backoff_shifts;
+            spins *= 100;
+            while (spins) {
+              _mm_pause();
+              --spins;
+            }
+          }
+        }
+        backoff_shifts >>= 1;
+      }
       transaction_count_ref++;
     }
   } else {
@@ -164,6 +183,7 @@ void RunBackend(oid_t thread_id) {
             }
           }
         }
+        backoff_shifts >>= 1;
       } else {
         while (RunRead(read_plans, zipf) == false) {
           if (is_running == false) {
@@ -183,6 +203,7 @@ void RunBackend(oid_t thread_id) {
             }
           }
         }
+        backoff_shifts >>= 1;
       }
       transaction_count_ref++;
     }

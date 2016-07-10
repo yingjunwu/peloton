@@ -39,6 +39,9 @@ void RunWorkload();
 // TRANSACTION TYPES
 /////////////////////////////////////////////////////////
 
+
+bool RunReadOnly();
+
 /////////////////////////////////////////////////////////
 
 struct ReadPlans {
@@ -124,7 +127,6 @@ struct MixedPlans {
 MixedPlans PrepareMixedPlan();
 
 bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng);
-
 
 /////////////////////////////////////////////////////////
 
