@@ -2,9 +2,9 @@
 //
 //                         PelotonDB
 //
-// optimistic_rb_txn_manager.h
+// occ_central_rb_txn_manager.h
 //
-// Identification: src/backend/concurrency/optimistic_rb_txn_manager.h
+// Identification: src/backend/concurrency/occ_central_rb_txn_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -23,22 +23,21 @@ namespace peloton {
 namespace concurrency {
 
 // Each transaction has a RollbackSegmentPool
-extern thread_local storage::RollbackSegmentPool *current_segment_pool;
-extern thread_local cid_t latest_read_timestamp;
-extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> updated_index_entries;
+extern thread_local cid_t ocrb_latest_read_timestamp;
+extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> ocrb_updated_index_entries;
 //===--------------------------------------------------------------------===//
 // optimistic concurrency control with rollback segment
 //===--------------------------------------------------------------------===//
 
-class OptimisticRbTxnManager : public TransactionManager {
+class OptimisticCentralRbTxnManager : public TransactionManager {
 public:
   typedef char* RBSegType;
 
-  OptimisticRbTxnManager() {}
+  OptimisticCentralRbTxnManager() {}
 
-  virtual ~OptimisticRbTxnManager() {}
+  virtual ~OptimisticCentralRbTxnManager() {}
 
-  static OptimisticRbTxnManager &GetInstance();
+  static OptimisticCentralRbTxnManager &GetInstance();
 
   virtual VisibilityType IsVisible(
       const storage::TileGroupHeader *const tile_group_header,
@@ -79,7 +78,7 @@ public:
   // either the begin commit time of current transaction of the just committed
   // transaction.
   cid_t GetLatestReadTimestamp() {
-    return latest_read_timestamp;
+    return ocrb_latest_read_timestamp;
   }
 
   /**
@@ -177,40 +176,18 @@ public:
     auto eid = EpochManagerFactory::GetInstance().EnterEpoch(begin_cid);
     txn->SetEpochId(eid);
 
-    latest_read_timestamp = begin_cid;
-    // Create current transaction poll
-    current_segment_pool = new storage::RollbackSegmentPool(BACKEND_TYPE_MM);
+    ocrb_latest_read_timestamp = begin_cid;
 
     return txn;
   }
 
   virtual void EndTransaction() {
-    auto result = current_txn->GetResult();
-    auto end_cid = current_txn->GetEndCommitId();
-
-    if (result == RESULT_SUCCESS) {
-      // Committed
-      if (current_txn->IsReadOnly()) {
-        // read only txn, just delete the segment pool because it's empty
-        delete current_segment_pool;
-      } else {
-        // It's not read only txn
-        current_segment_pool->SetPoolTimestamp(end_cid);
-        living_pools_[end_cid] = std::shared_ptr<peloton::storage::RollbackSegmentPool>(current_segment_pool);
-      }
-    } else {
-      // Aborted
-      // TODO: Add coperative GC
-      current_segment_pool->MarkedAsGarbage();
-      garbage_pools_[current_txn->GetBeginCommitId()] = std::shared_ptr<peloton::storage::RollbackSegmentPool>(current_segment_pool);
-    }
-
+    // NOTO: no gc now
     EpochManagerFactory::GetInstance().ExitEpoch(current_txn->GetEpochId());
 
-    updated_index_entries.clear();
+    ocrb_updated_index_entries.clear();
     delete current_txn;
     current_txn = nullptr;
-    current_segment_pool = nullptr;
   }
 
   // Init reserved area of a tuple
@@ -228,7 +205,10 @@ public:
   }
 
   // Get current segment pool of the transaction manager
-  inline storage::RollbackSegmentPool *GetSegmentPool() {return current_segment_pool;}
+  static inline storage::RollbackSegmentPool *GetSegmentPool() {
+    static storage::RollbackSegmentPool *segment_pool = new storage::RollbackSegmentPool(BACKEND_TYPE_MM);
+    return segment_pool;
+  }
 
   inline RBSegType GetRbSeg(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
     LockTuple(tile_group_header, tuple_id);

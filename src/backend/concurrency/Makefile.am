@@ -15,10 +15,13 @@ concurrency_FILES = \
     backend/concurrency/ts_order_n2o_txn_manager.cpp \
     backend/concurrency/optimistic_rb_txn_manager.cpp \
     backend/concurrency/optimistic_n2o_txn_manager.cpp \
+    backend/concurrency/ts_order_full_rb_txn_manager.cpp \
     backend/concurrency/transaction_manager.cpp \
     backend/concurrency/transaction.cpp \
     backend/concurrency/transaction_manager_factory.cpp \
-    backend/concurrency/epoch_manager.cpp
+    backend/concurrency/epoch_manager.cpp \
+    backend/concurrency/optimistic_central_rb_txn_manager.cpp \
+    backend/concurrency/ts_order_central_rb_txn_manager.cpp
     
 concurrency_INCLUDES = \
 					   -I$(srcdir)/concurrency

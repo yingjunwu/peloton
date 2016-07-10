@@ -379,7 +379,10 @@ enum ConcurrencyType {
   CONCURRENCY_TYPE_OCC_N2O = 7,           // optimisitic with new to old version chain
   CONCURRENCY_TYPE_TO_RB = 8,             // timestamp ordering + rollback segment
   CONCURRENCY_TYPE_TO_N2O = 9,            // timestamp ordering with new to old version chain
-  CONCURRENCY_TYPE_PESSIMISTIC_OPT = 10   // pessimistic with optimization
+  CONCURRENCY_TYPE_PESSIMISTIC_OPT = 10,  // pessimistic with optimization
+  CONCURRENCY_TYPE_TO_FULL_RB = 11,       // rollback segment with full tuple storage
+  CONCURRENCY_TYPE_OCC_CENTRAL_RB = 12,   // optimistic + central delta rb
+  CONCURRENCY_TYPE_TO_CENTRAL_RB = 13     // timestamp ordering + central delta rb
 };
 
 enum IsolationLevelType {
@@ -418,7 +421,8 @@ enum IndexType {
   INDEX_TYPE_BWTREE = 2,  // bwtree
   INDEX_TYPE_HASH = 3,    // hash
   INDEX_TYPE_HASH_UNIQUE = 4, // hash for primary index
-  INDEX_TYPE_RBBTREE = 5  // rollback segment btree
+  INDEX_TYPE_RBBTREE = 5,  // rollback segment btree index
+  INDEX_TYPE_RBHASH = 6 // rollback segment hash index
 };
 
 enum IndexConstraintType {

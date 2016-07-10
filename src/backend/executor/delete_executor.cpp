@@ -116,7 +116,10 @@ bool DeleteExecutor::DExecute() {
       }
 
       if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB) {
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB
+        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
         // If we are using rollback segment, what we need to do is flip the delete
         // flag in the master copy.
         transaction_manager.PerformDelete(old_location);

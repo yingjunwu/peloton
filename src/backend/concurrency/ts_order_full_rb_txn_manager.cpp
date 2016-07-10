@@ -2,15 +2,15 @@
 //
 //                         PelotonDB
 //
-// ts_order_rb_txn_manager.cpp
+// ts_order_full_rb_txn_manager.cpp
 //
-// Identification: src/backend/concurrency/ts_order_rb_txn_manager.cpp
+// Identification: src/backend/concurrency/ts_order_full_rb_txn_manager.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
-#include "ts_order_rb_txn_manager.h"
+#include "ts_order_full_rb_txn_manager.h"
 
 #include "backend/common/platform.h"
 #include "backend/logging/log_manager.h"
@@ -23,12 +23,12 @@
 namespace peloton {
 namespace concurrency {
 
-thread_local storage::RollbackSegmentPool *to_current_segment_pool;
-thread_local cid_t to_latest_read_timestamp = INVALID_CID;
-thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> to_updated_index_entries;
+thread_local storage::RollbackSegmentPool *full_to_current_segment_pool;
+thread_local cid_t full_to_latest_read_timestamp = INVALID_CID;
+thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> full_to_updated_index_entries;
 
-TsOrderRbTxnManager &TsOrderRbTxnManager::GetInstance() {
-  static TsOrderRbTxnManager txn_manager;
+TsOrderFullRbTxnManager &TsOrderFullRbTxnManager::GetInstance() {
+  static TsOrderFullRbTxnManager txn_manager;
   return txn_manager;
 }
 
@@ -36,7 +36,7 @@ TsOrderRbTxnManager &TsOrderRbTxnManager::GetInstance() {
 // check whether a tuple is visible to current transaction.
 // in this protocol, we require that a transaction cannot see other
 // transaction's local copy.
-VisibilityType TsOrderRbTxnManager::IsVisible(
+VisibilityType TsOrderFullRbTxnManager::IsVisible(
   const storage::TileGroupHeader *const tile_group_header,
   const oid_t &tuple_id) {
   txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
@@ -90,7 +90,7 @@ VisibilityType TsOrderRbTxnManager::IsVisible(
 
 // check whether the current transaction owns the tuple.
 // this function is called by update/delete executors.
-bool TsOrderRbTxnManager::IsOwner(
+bool TsOrderFullRbTxnManager::IsOwner(
   const storage::TileGroupHeader *const tile_group_header,
   const oid_t &tuple_id) {
   auto tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
@@ -101,7 +101,7 @@ bool TsOrderRbTxnManager::IsOwner(
 // if the tuple is not owned by any transaction and is visible to current
 // transaction.
 // this function is called by update/delete executors.
-bool TsOrderRbTxnManager::IsOwnable(
+bool TsOrderFullRbTxnManager::IsOwnable(
   const storage::TileGroupHeader *const tile_group_header,
   const oid_t &tuple_id) {
   auto tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
@@ -111,9 +111,10 @@ bool TsOrderRbTxnManager::IsOwnable(
 
 // get write lock on a tuple.
 // this is invoked by update/delete executors.
-bool TsOrderRbTxnManager::AcquireOwnership(
+bool TsOrderFullRbTxnManager::AcquireOwnership(
   const storage::TileGroupHeader *const tile_group_header,
-  const oid_t &tile_group_id __attribute__((unused)), const oid_t &tuple_id) {
+  const oid_t &tile_group_id __attribute__((unused)),
+  const oid_t &tuple_id) {
   auto txn_id = current_txn->GetTransactionId();
 
   GetSpinlockField(tile_group_header, tuple_id)->Lock();
@@ -143,7 +144,7 @@ bool TsOrderRbTxnManager::AcquireOwnership(
 // ownership before return false to upper layer.
 // It should not be called if the tuple is in the write set as commit and abort
 // will release the write lock anyway.
-void TsOrderRbTxnManager::YieldOwnership(const oid_t &tile_group_id,
+void TsOrderFullRbTxnManager::YieldOwnership(const oid_t &tile_group_id,
   const oid_t &tuple_id) {
 
   auto &manager = catalog::Manager::GetInstance();
@@ -152,7 +153,7 @@ void TsOrderRbTxnManager::YieldOwnership(const oid_t &tile_group_id,
   tile_group_header->SetTransactionId(tuple_id, INITIAL_TXN_ID);
 }
 
-bool TsOrderRbTxnManager::PerformRead(const ItemPointer &location) {
+bool TsOrderFullRbTxnManager::PerformRead(const ItemPointer &location) {
   oid_t tile_group_id = location.block;
   oid_t tuple_id = location.offset;
 
@@ -176,13 +177,13 @@ bool TsOrderRbTxnManager::PerformRead(const ItemPointer &location) {
   }
 }
 
-bool TsOrderRbTxnManager::PerformInsert(const ItemPointer &location UNUSED_ATTRIBUTE) {
+bool TsOrderFullRbTxnManager::PerformInsert(const ItemPointer &location UNUSED_ATTRIBUTE) {
   assert(false);
 
   return false;
 }
 
-bool TsOrderRbTxnManager::PerformInsert(const ItemPointer &location, index::RBItemPointer *rb_item_ptr) {
+bool TsOrderFullRbTxnManager::PerformInsert(const ItemPointer &location, index::RBItemPointer *rb_item_ptr) {
   LOG_TRACE("Perform insert in RB with rb_itemptr %p", rb_item_ptr);
 
   // assert(rb_item_ptr != nullptr);
@@ -220,7 +221,7 @@ bool TsOrderRbTxnManager::PerformInsert(const ItemPointer &location, index::RBIt
  * @param location Location of the updated tuple
  * @param tuple New tuple
  */
-bool TsOrderRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
+bool TsOrderFullRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
   const ItemPointer &location, const storage::Tuple *tuple) {
   // Index checks and updates
   int index_count = target_table->GetIndexCount();
@@ -240,6 +241,9 @@ bool TsOrderRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
       continue;
     }
 
+    // Get RBBtree index
+    assert(index->GetTypeName() == "RBBtree");
+
     auto index_schema = index->GetKeySchema();
     auto indexed_columns = index_schema->GetIndexedColumns();
     std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
@@ -256,12 +260,12 @@ bool TsOrderRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
           return false;
         }
         // Record into the updated index entry set, used when commit
-        auto itr = to_updated_index_entries.find(location);
-        if (itr != to_updated_index_entries.end()) {
+        auto itr = full_to_updated_index_entries.find(location);
+        if (itr != full_to_updated_index_entries.end()) {
           index->DeleteEntry(key.get(), *rb_itempointer_ptr);
           itr->second = rb_itempointer_ptr;
         } else {
-          to_updated_index_entries.emplace(location, rb_itempointer_ptr);
+          full_to_updated_index_entries.emplace(location, rb_itempointer_ptr);
         }
         
         break;
@@ -270,12 +274,12 @@ bool TsOrderRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
       case INDEX_CONSTRAINT_TYPE_DEFAULT:
       default:
         index->InsertEntry(key.get(), location, &rb_itempointer_ptr);
-        auto itr = to_updated_index_entries.find(location);
-        if (itr != to_updated_index_entries.end()) {
+        auto itr = full_to_updated_index_entries.find(location);
+        if (itr != full_to_updated_index_entries.end()) {
           index->DeleteEntry(key.get(), *rb_itempointer_ptr);
           itr->second = rb_itempointer_ptr;
         } else {
-          to_updated_index_entries.emplace(location, rb_itempointer_ptr);
+          full_to_updated_index_entries.emplace(location, rb_itempointer_ptr);
         }
         // Record into the updated index entry set, used when commit
         break;
@@ -285,7 +289,7 @@ bool TsOrderRbTxnManager::RBInsertVersion(storage::DataTable *target_table,
   return true;
 }
 
-void TsOrderRbTxnManager::PerformUpdateWithRb(const ItemPointer &location, 
+void TsOrderFullRbTxnManager::PerformUpdateWithRb(const ItemPointer &location, 
   char *new_rb_seg) {
 
   oid_t tile_group_id = location.block;
@@ -314,7 +318,25 @@ void TsOrderRbTxnManager::PerformUpdateWithRb(const ItemPointer &location,
   current_txn->RecordUpdate(location);
 }
 
-void TsOrderRbTxnManager::PerformDelete(const ItemPointer &location) {
+void TsOrderFullRbTxnManager::PerformUpdateWithOverwriteRb(const ItemPointer &location,
+  const catalog::Schema *schema, const TargetList &target_list, const AbstractTuple *tuple) {
+
+  oid_t tile_group_id = location.block;
+  oid_t tuple_id = location.offset;
+  auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(tile_group_id)->GetHeader();
+
+  assert(tile_group_header->GetTransactionId(tuple_id) == current_txn->GetTransactionId());
+  assert(tile_group_header->GetEndCommitId(tuple_id) == MAX_CID);
+
+  auto old_rb_seg = GetRbSeg(tile_group_header, tuple_id);
+
+  full_to_current_segment_pool->UpdateSegmentFromTuple(old_rb_seg, schema, target_list, tuple);
+
+  // Add the location to the update set
+  current_txn->RecordUpdate(location);
+}
+
+void TsOrderFullRbTxnManager::PerformDelete(const ItemPointer &location) {
 
   oid_t tile_group_id = location.block;
   oid_t tuple_id = location.offset;
@@ -344,7 +366,7 @@ void TsOrderRbTxnManager::PerformDelete(const ItemPointer &location) {
   }
 }
 
-void TsOrderRbTxnManager::RollbackTuple(std::shared_ptr<storage::TileGroup> tile_group, const oid_t tuple_id) {
+void TsOrderFullRbTxnManager::RollbackTuple(std::shared_ptr<storage::TileGroup> tile_group, const oid_t tuple_id) {
   auto tile_group_header = tile_group->GetHeader();
   auto txn_begin_cid = current_txn->GetBeginCommitId();
 
@@ -365,7 +387,7 @@ void TsOrderRbTxnManager::RollbackTuple(std::shared_ptr<storage::TileGroup> tile
   SetRbSeg(tile_group_header, tuple_id, rb_seg);
 }
 
-void TsOrderRbTxnManager::InstallRollbackSegments(storage::TileGroupHeader *tile_group_header,
+void TsOrderFullRbTxnManager::InstallRollbackSegments(storage::TileGroupHeader *tile_group_header,
                                                       const oid_t tuple_id, const cid_t end_cid) {
   auto txn_begin_cid = current_txn->GetBeginCommitId();
   auto rb_seg = GetRbSeg(tile_group_header, tuple_id);
@@ -380,7 +402,7 @@ void TsOrderRbTxnManager::InstallRollbackSegments(storage::TileGroupHeader *tile
  * @brief Check if begin commit id and end commit id still falls in the same version
  *        as when then transaction starts
  */
-bool TsOrderRbTxnManager::ValidateRead(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &end_cid) {
+bool TsOrderFullRbTxnManager::ValidateRead(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &end_cid) {
   auto tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
   if (IsOwner(tile_group_header, tuple_id) == true) {
@@ -410,7 +432,7 @@ bool TsOrderRbTxnManager::ValidateRead(const storage::TileGroupHeader *const til
   return end_cid >= storage::RollbackSegmentPool::GetTimeStamp(evidence);
 }
 
-Result TsOrderRbTxnManager::CommitTransaction() {
+Result TsOrderFullRbTxnManager::CommitTransaction() {
   LOG_TRACE("Committing peloton txn : %lu ", current_txn->GetTransactionId());
 
   auto &manager = catalog::Manager::GetInstance();
@@ -466,7 +488,7 @@ Result TsOrderRbTxnManager::CommitTransaction() {
   cid_t end_commit_id = current_txn->GetBeginCommitId();
  
   // Set secondary index
-  for (auto itr = to_updated_index_entries.begin(); itr != to_updated_index_entries.end(); itr++) {
+  for (auto itr = full_to_updated_index_entries.begin(); itr != full_to_updated_index_entries.end(); itr++) {
     auto location = itr->first;
     oid_t tile_group_id = location.block;
     oid_t tuple_id = location.offset;
@@ -564,7 +586,7 @@ Result TsOrderRbTxnManager::CommitTransaction() {
   return Result::RESULT_SUCCESS;
 }
 
-Result TsOrderRbTxnManager::AbortTransaction() {
+Result TsOrderFullRbTxnManager::AbortTransaction() {
   LOG_TRACE("Aborting peloton txn : %lu ", current_txn->GetTransactionId());
   auto &manager = catalog::Manager::GetInstance();
 
@@ -572,7 +594,7 @@ Result TsOrderRbTxnManager::AbortTransaction() {
 
   // Delete from secondary index here, currently the workaround is just to 
   // invalidate the index entry by setting its timestamp to 0
-  for (auto itr = to_updated_index_entries.begin(); itr != to_updated_index_entries.end(); itr++) {
+  for (auto itr = full_to_updated_index_entries.begin(); itr != full_to_updated_index_entries.end(); itr++) {
     itr->second->timestamp = 0;
   }
 

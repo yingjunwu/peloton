@@ -24,12 +24,15 @@
 #include "backend/storage/storage_manager.h"
 #include "backend/storage/tile.h"
 #include "backend/storage/tile_group_header.h"
-#include "backend/storage/rollback_segment.h"
 #include "backend/concurrency/transaction_manager_factory.h"
 #include "backend/concurrency/optimistic_rb_txn_manager.h"
 
 namespace peloton {
 namespace storage {
+
+thread_local cid_t last_read_timestamp = INVALID_CID;
+thread_local ItemPointer last_read_location = INVALID_ITEMPOINTER;
+thread_local RBSegType last_read_rb = nullptr;
 
 Tile::Tile(BackendType backend_type, TileGroupHeader *tile_header,
            const catalog::Schema &tuple_schema, TileGroup *tile_group,
@@ -117,6 +120,157 @@ Value Tile::GetValue(const oid_t tuple_offset, const oid_t column_id) {
   // ROLLBACK SEGMENT
   if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_OCC_RB) {
     auto txn_manager = static_cast<concurrency::OptimisticRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
+    cid_t read_ts = txn_manager->GetLatestReadTimestamp();
+    auto tile_group_header = tile_group->GetHeader();
+
+    // The ininitial value of this column is in the master copy
+    Value value = Value::InitFromTupleStorage(field_location, column_type, is_inlined);
+
+    // If self is owner, just return the master version
+    if (txn_manager->IsOwner(tile_group_header, tuple_offset))
+      return value;
+
+    RBSegType rb_seg = txn_manager->GetRbSeg(tile_group_header, tuple_offset);
+
+    // Traverse the RB chain, stop when invisible
+    int traverse_length = 0;
+    while (txn_manager->IsRBVisible(rb_seg, read_ts) == true) {
+      ++traverse_length;
+      auto rb_col_count = storage::RollbackSegmentPool::GetColCount(rb_seg);
+      for (size_t col_idx = 0; col_idx < rb_col_count; col_idx++) {
+        auto col_id = storage::RollbackSegmentPool::GetIdOffsetPair(rb_seg, col_idx)->col_id;
+        // We have found the column in one of the rollback segment
+        if (col_id == column_id) {
+          value = storage::RollbackSegmentPool::GetValue(rb_seg, &schema, col_idx);
+        }
+      }
+
+      rb_seg = storage::RollbackSegmentPool::GetNextPtr(rb_seg);
+    }
+    if (traverse_length > 1) {
+      LOG_TRACE("traverse length=%d, column_id=%u", traverse_length, column_id);
+    }
+    return value;
+  }
+  if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+    auto txn_manager = static_cast<concurrency::OptimisticCentralRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
+    cid_t read_ts = txn_manager->GetLatestReadTimestamp();
+    auto tile_group_header = tile_group->GetHeader();
+
+    // The ininitial value of this column is in the master copy
+    Value value = Value::InitFromTupleStorage(field_location, column_type, is_inlined);
+
+    // If self is owner, just return the master version
+    if (txn_manager->IsOwner(tile_group_header, tuple_offset))
+      return value;
+
+    RBSegType rb_seg = txn_manager->GetRbSeg(tile_group_header, tuple_offset);
+
+    // Traverse the RB chain, stop when invisible
+    int traverse_length = 0;
+    while (txn_manager->IsRBVisible(rb_seg, read_ts) == true) {
+      ++traverse_length;
+      auto rb_col_count = storage::RollbackSegmentPool::GetColCount(rb_seg);
+      for (size_t col_idx = 0; col_idx < rb_col_count; col_idx++) {
+        auto col_id = storage::RollbackSegmentPool::GetIdOffsetPair(rb_seg, col_idx)->col_id;
+        // We have found the column in one of the rollback segment
+        if (col_id == column_id) {
+          value = storage::RollbackSegmentPool::GetValue(rb_seg, &schema, col_idx);
+        }
+      }
+
+      rb_seg = storage::RollbackSegmentPool::GetNextPtr(rb_seg);
+    }
+    if (traverse_length > 1) {
+      LOG_TRACE("traverse length=%d, column_id=%u", traverse_length, column_id);
+    }
+    return value;
+  }
+  if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+    auto txn_manager = static_cast<concurrency::TsOrderCentralRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
+    cid_t read_ts = txn_manager->GetLatestReadTimestamp();
+    auto tile_group_header = tile_group->GetHeader();
+
+    // The ininitial value of this column is in the master copy
+    Value value = Value::InitFromTupleStorage(field_location, column_type, is_inlined);
+
+    // If self is owner, just return the master version
+    if (txn_manager->IsOwner(tile_group_header, tuple_offset))
+      return value;
+
+    RBSegType rb_seg = txn_manager->GetRbSeg(tile_group_header, tuple_offset);
+
+    // Traverse the RB chain, stop when invisible
+    int traverse_length = 0;
+    while (txn_manager->IsRBVisible(rb_seg, read_ts) == true) {
+      ++traverse_length;
+      auto rb_col_count = storage::RollbackSegmentPool::GetColCount(rb_seg);
+      for (size_t col_idx = 0; col_idx < rb_col_count; col_idx++) {
+        auto col_id = storage::RollbackSegmentPool::GetIdOffsetPair(rb_seg, col_idx)->col_id;
+        // We have found the column in one of the rollback segment
+        if (col_id == column_id) {
+          value = storage::RollbackSegmentPool::GetValue(rb_seg, &schema, col_idx);
+        }
+      }
+
+      rb_seg = storage::RollbackSegmentPool::GetNextPtr(rb_seg);
+    }
+    if (traverse_length > 1) {
+      LOG_TRACE("traverse length=%d, column_id=%u", traverse_length, column_id);
+    }
+    return value;
+  }
+  if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_FULL_RB) {
+    auto txn_manager = static_cast<concurrency::TsOrderFullRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
+    cid_t read_ts = txn_manager->GetLatestReadTimestamp();
+    // Try from cache
+    if (last_read_timestamp == read_ts 
+      && last_read_location == ItemPointer(tile_group->GetTileGroupId(), tuple_offset)) {
+      if (last_read_rb == nullptr) // Read from master version
+        return Value::InitFromTupleStorage(field_location, column_type, is_inlined);
+      else // Read from RB
+        return storage::RollbackSegmentPool::GetValue(last_read_rb, &schema, column_id);
+    }
+
+    // No cache
+    auto tile_group_header = tile_group->GetHeader();
+
+    last_read_timestamp = read_ts;
+    last_read_location = ItemPointer(tile_group->GetTileGroupId(), tuple_offset);
+
+    // The ininitial value of this column is in the master copy
+    Value value = Value::InitFromTupleStorage(field_location, column_type, is_inlined);
+
+    // If self is owner, just return the master version, record in cache
+    if (txn_manager->IsOwner(tile_group_header, tuple_offset)) {
+      last_read_rb = nullptr;
+      return value;
+    }
+
+    RBSegType rb_seg = txn_manager->GetRbSeg(tile_group_header, tuple_offset);
+
+    if (!txn_manager->IsRBVisible(rb_seg, read_ts)) {
+      last_read_rb = nullptr;
+      return value;
+    }
+
+    // Traverse the RB chain, stop when invisible
+    while (true) {
+      RBSegType next_rb_seg = storage::RollbackSegmentPool::GetNextPtr(rb_seg);
+      if (!txn_manager->IsRBVisible(next_rb_seg, read_ts)) {
+        // Found right RB
+        last_read_rb = rb_seg;
+        return storage::RollbackSegmentPool::GetValue(rb_seg, &schema, column_id);
+      }
+
+      rb_seg = next_rb_seg;
+    }
+    // Shouldn't be here
+    PL_ASSERT(false);
+    return value;
+  }
+  if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_RB) {
+    auto txn_manager = static_cast<concurrency::TsOrderRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
     cid_t read_ts = txn_manager->GetLatestReadTimestamp();
     auto tile_group_header = tile_group->GetHeader();
 
