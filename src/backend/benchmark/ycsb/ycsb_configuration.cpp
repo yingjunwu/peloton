@@ -27,7 +27,7 @@ void Usage(FILE *out) {
   fprintf(out,
           "Command line options : ycsb <options> \n"
           "   -h --help              :  Print help message \n"
-          "   -i --index             :  index type could be btree or bwtree\n"
+          "   -i --index             :  index type could be hash, btree, or bwtree\n"
           "   -k --scale_factor      :  # of tuples \n"
           "   -d --duration          :  execution duration \n"
           "   -s --snapshot_duration :  snapshot duration \n"
