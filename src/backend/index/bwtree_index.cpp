@@ -161,27 +161,47 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
 
   LOG_TRACE("Special case : %d ", special_case);
 
-  auto scan_begin_itr = container.Begin();
+  // This is only a placeholder that cannot be moved but can be assigned to
+  auto scan_begin_itr = container.NullIterator();
+  
   std::unique_ptr<storage::Tuple> start_key;
   bool all_constraints_are_equal = false;
 
-  //printf("******* Got scan begin iter\n");
-
   // If it is a special case, we can figure out the range to scan in the index
   if (special_case == true) {
-    //printf("****** Special case\n");
     start_key.reset(new storage::Tuple(metadata->GetKeySchema(), true));
 
     // Construct the lower bound key tuple
     all_constraints_are_equal = ConstructLowerBoundTuple(
         start_key.get(), values, key_column_ids, expr_types);
+        
     LOG_TRACE("All constraints are equal : %d ", all_constraints_are_equal);
+    
     index_key.SetFromKey(start_key.get());
+    
+    // If it is point query then we just do a GetValue() since GetValue()
+    // is way more faster than scanning using iterator
+    if(all_constraints_are_equal == true) {
+      std::vector<ItemPointer *> item_p_list{};
+      
+      // This retrieves a list of ItemPointer *
+      container.GetValue(index_key, item_p_list);
+
+      // To reduce allocation
+      result.reserve(item_p_list.size());
+      
+      // Dereference pointers one by one
+      for(auto p : item_p_list) {
+        result.push_back(*p);
+      }
+      
+      return;
+    }
 
     // This returns an iterator pointing to index_key's values
     scan_begin_itr = container.Begin(index_key);
-
-    //printf("******* Got special case scan begin iter\n");
+  } else {
+    scan_begin_itr = container.Begin();
   }
   
   //printf("Start scanning\n");
@@ -281,7 +301,9 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
 
   LOG_TRACE("Special case : %d ", special_case);
 
-  auto scan_begin_itr = container.Begin();
+  // This is only a placeholder that cannot be moved but can be assigned to
+  auto scan_begin_itr = container.NullIterator();
+
   std::unique_ptr<storage::Tuple> start_key;
   bool all_constraints_are_equal = false;
 
@@ -292,11 +314,26 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
     // Construct the lower bound key tuple
     all_constraints_are_equal = ConstructLowerBoundTuple(
         start_key.get(), values, key_column_ids, expr_types);
+
     LOG_TRACE("All constraints are equal : %d ", all_constraints_are_equal);
+
     index_key.SetFromKey(start_key.get());
+/*
+    // If it is point query then we just do a GetValue() since GetValue()
+    // is way more faster than scanning using iterator
+    if(all_constraints_are_equal == true) {
+      // This retrieves a list of ItemPointer *
+      container.GetValue(index_key, result);
+
+      return;
+    }
+*/
+    //printf("Non special case\n");
 
     // This returns an iterator pointing to index_key's values
     scan_begin_itr = container.Begin(index_key);
+  } else {
+    scan_begin_itr = container.Begin();
   }
 
   switch (scan_direction) {

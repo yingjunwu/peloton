@@ -6393,6 +6393,19 @@ try_join_again:
   ForwardIterator Begin(const KeyType &start_key) {
     return ForwardIterator{this, start_key};
   }
+  
+  /*
+   * NullIterator() - Returns an empty iterator that cannot do anything
+   *
+   * This is useful as a placeholder when we are not sure when an iterator
+   * is required but need to use a placeholder.
+   *
+   * NOTE: This iterator can be assigned and destructed (nullptr leaf node will
+   * tell the story) but cannot be moved
+   */
+  ForwardIterator NullIterator() {
+    return ForwardIterator{};
+  }
 
   /*
    * Iterators
@@ -6411,7 +6424,20 @@ try_join_again:
   class ForwardIterator {
    public:
     /*
-     * Default Constructor
+     * Default Constructor - This acts as a place holder for some functions
+     *                       that require a type and an object but we do not
+     *                       want to afford the overhead of loading a page into
+     *                       the iterator
+     *
+     * Only leaf_node_p is initialized to avoid destructor destructing the
+     * iterator, also to avoid assignment operator directly assign to it.
+     */
+    ForwardIterator() :
+      leaf_node_p{nullptr}
+    {}
+    
+    /*
+     * Constructor
      *
      * NOTE: We try to load the first page using -Inf as the next key
      * during construction in order to correctly identify the case where
@@ -6503,13 +6529,18 @@ try_join_again:
       if(this == &other) {
         return *this;
       }
-
-      // First copy the logical node into current instance
-      // DO NOT NEED new and delete; JUST DO A VALUE COPY
-      // since the storage has already been allocated during construction
-      // and the old value with be automatically dealt with LeafNode
-      // and vector's assignment operation
-      *leaf_node_p = *other.leaf_node_p;
+      
+      // For an empty iterator this branch is necessary
+      if(leaf_node_p == nullptr) {
+        leaf_node_p = new LeafNode{*other.leaf_node_p};
+      } else {
+        // First copy the logical node into current instance
+        // DO NOT NEED new and delete; JUST DO A VALUE COPY
+        // since the storage has already been allocated during construction
+        // and the old value with be automatically dealt with LeafNode
+        // and vector's assignment operation
+        *leaf_node_p = *other.leaf_node_p;
+      }
 
       // Copy everything that could be copied
       tree_p = other.tree_p;
@@ -6520,6 +6551,42 @@ try_join_again:
       // Move the iterator ahead
       it = leaf_node_p->data_list.begin() + \
            std::distance(((const LeafNode *)other.leaf_node_p)->data_list.begin(), other.it);
+
+      return *this;
+    }
+    
+    /*
+     * Move Assignment - Assigns a temporary iterator object
+     *
+     * NOTE: In move assignment we do not need to move iterator; instead
+     * iterator could be directly copied since the leaf node does not change
+     * and such that the iterator is not invalidated
+     */
+    ForwardIterator &operator=(ForwardIterator &&other) {
+      if(this == &other) {
+        return *this;
+      }
+
+      // For an empty iterator this branch is necessary
+      if(leaf_node_p != nullptr) {
+        delete leaf_node_p;
+      }
+      
+      // Direcrly moves the leaf node pointer without copying
+      leaf_node_p = other.leaf_node_p;
+      
+      // Since the leaf node does not change, the constructor is not invalidated
+      // we could just copy it here
+      it = other.it;
+
+      tree_p = other.tree_p;
+      next_key_pair = other.next_key_pair;
+
+      is_end = other.is_end;
+
+      // This is necessary to avoid the leaf node pointer being
+      // deleted when the other is destructed
+      other.leaf_node_p = nullptr;
 
       return *this;
     }
@@ -6605,10 +6672,9 @@ try_join_again:
      * node, because its memory is not shared between iterators
      */
     ~ForwardIterator() {
-      // This holds even if the tree is empty
-      assert(leaf_node_p != nullptr);
-
-      delete leaf_node_p;
+      if(leaf_node_p != nullptr) {
+        delete leaf_node_p;
+      }
 
       return;
     }
@@ -6812,6 +6878,9 @@ try_join_again:
      * its end. If iterator has reached end then assertion fails.
      */
     inline void MoveAheadByOne() {
+      // Could not do this on an empty iterator
+      assert(leaf_node_p != nullptr);
+      
       // Move the iterator on leaf node data list
       it++;
 
