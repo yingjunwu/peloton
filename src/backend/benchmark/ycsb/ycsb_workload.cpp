@@ -82,12 +82,13 @@ volatile bool is_running = true;
 oid_t *abort_counts;
 oid_t *commit_counts;
 
+oid_t *ro_abort_counts;
+oid_t *ro_commit_counts;
 
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto update_ratio = state.update_ratio;
-  auto read_only_ratio = state.read_only_ratio;
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -107,49 +108,26 @@ void RunBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      auto rng_val = rng.next_uniform();
-
-      if (rng_val < read_only_ratio) {
-        while (RunReadOnly() == false) {
-          if (is_running == false) {
-            break;
+      while (RunMixed(mixed_plans, zipf, rng) == false) {
+        if (is_running == false) {
+          break;
+        }
+        execution_count_ref++;
+        // backoff
+        if (state.run_backoff) {
+          if (backoff_shifts < 63) {
+            ++backoff_shifts;
           }
-          execution_count_ref++;
-          // backoff
-          if (state.run_backoff) {
-            if (backoff_shifts < 63) {
-              ++backoff_shifts;
-            }
-            uint64_t spins = 1UL << backoff_shifts;
-            spins *= 100;
-            while (spins) {
-              _mm_pause();
-              --spins;
-            }
+          uint64_t spins = 1UL << backoff_shifts;
+          spins *= 100;
+          while (spins) {
+            _mm_pause();
+            --spins;
           }
         }
-        backoff_shifts >>= 1;
-      } else {
-        while (RunMixed(mixed_plans, zipf, rng) == false) {
-          if (is_running == false) {
-            break;
-          }
-          execution_count_ref++;
-          // backoff
-          if (state.run_backoff) {
-            if (backoff_shifts < 63) {
-              ++backoff_shifts;
-            }
-            uint64_t spins = 1UL << backoff_shifts;
-            spins *= 100;
-            while (spins) {
-              _mm_pause();
-              --spins;
-            }
-          }
-        }
-        backoff_shifts >>= 1;
       }
+      backoff_shifts >>= 1;
+
       transaction_count_ref++;
     }
   } else {
@@ -210,16 +188,62 @@ void RunBackend(oid_t thread_id) {
   }
 }
 
+
+void RunReadOnlyBackend(oid_t thread_id) {
+  PinToCore(thread_id);
+
+  oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
+  oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
+
+  // backoff
+  uint32_t backoff_shifts = 0;
+  while (true) {
+    if (is_running == false) {
+      break;
+    }
+    while (RunReadOnly() == false) {
+      if (is_running == false) {
+        break;
+      }
+      ro_execution_count_ref++;
+      // backoff
+      if (state.run_backoff) {
+        if (backoff_shifts < 63) {
+          ++backoff_shifts;
+        }
+        uint64_t spins = 1UL << backoff_shifts;
+        spins *= 100;
+        while (spins) {
+          _mm_pause();
+          --spins;
+        }
+      }
+    }
+    backoff_shifts >>= 1;
+    ro_transaction_count_ref++;
+  }
+}
+
+
 void RunWorkload() {
   // Execute the workload to build the log
   std::vector<std::thread> thread_group;
   oid_t num_threads = state.backend_count;
+  oid_t num_ro_threads = state.read_only_backend_count;
 
   abort_counts = new oid_t[num_threads];
   memset(abort_counts, 0, sizeof(oid_t) * num_threads);
 
   commit_counts = new oid_t[num_threads];
   memset(commit_counts, 0, sizeof(oid_t) * num_threads);
+
+
+  ro_abort_counts = new oid_t[num_threads];
+  memset(ro_abort_counts, 0, sizeof(oid_t) * num_threads);
+
+  ro_commit_counts = new oid_t[num_threads];
+  memset(ro_commit_counts, 0, sizeof(oid_t) * num_threads);
+
 
   size_t snapshot_round = (size_t)(state.duration / state.snapshot_duration);
 
@@ -234,10 +258,15 @@ void RunWorkload() {
   }
 
   // Launch a group of threads
-  for (oid_t thread_itr = 0; thread_itr < num_threads; ++thread_itr) {
+  for (oid_t thread_itr = 0; thread_itr < num_ro_threads; ++thread_itr) {
+    thread_group.push_back(std::move(std::thread(RunReadOnlyBackend, thread_itr)));
+  }
+
+  for (oid_t thread_itr = num_ro_threads; thread_itr < num_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 
+  //////////////////////////////////////
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
     std::this_thread::sleep_for(
         std::chrono::milliseconds(int(state.snapshot_duration * 1000)));
@@ -307,6 +336,19 @@ void RunWorkload() {
   state.throughput = total_commit_count * 1.0 / state.duration;
   state.abort_rate = total_abort_count * 1.0 / total_commit_count;
 
+  oid_t total_ro_commit_count = 0;
+  for (size_t i = 0; i < num_ro_threads; ++i) {
+    total_ro_commit_count += ro_commit_counts[i];
+  }
+
+  oid_t total_ro_abort_count = 0;
+  for (size_t i = 0; i < num_ro_threads; ++i) {
+    total_ro_abort_count += ro_abort_counts[i];
+  }
+
+  state.ro_throughput = total_ro_commit_count * 1.0 / state.duration;
+  state.ro_abort_rate = total_ro_abort_count * 1.0 / total_ro_commit_count;
+
   // cleanup everything.
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
     delete[] abort_counts_snapshots[round_id];
@@ -326,6 +368,11 @@ void RunWorkload() {
   abort_counts = nullptr;
   delete[] commit_counts;
   commit_counts = nullptr;
+
+  delete[] ro_abort_counts;
+  ro_abort_counts = nullptr;
+  delete[] ro_commit_counts;
+  ro_commit_counts = nullptr;
 }
 
 

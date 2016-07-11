@@ -49,8 +49,8 @@ class configuration {
   // operation count
   int operation_count;
 
-  // read-only ratio
-  double read_only_ratio;
+  // number of read-only backends
+  int read_only_backend_count;
 
   // update ratio
   double update_ratio;
@@ -73,6 +73,10 @@ class configuration {
   double throughput;
 
   double abort_rate;
+
+  double ro_throughput;
+
+  double ro_abort_rate;
 
   // Theta in zipf distribution to control skewness
   double zipf_theta;
@@ -115,7 +119,7 @@ void ValidateReadColumnCount(const configuration &state);
 
 void ValidateOperationCount(const configuration &state);
 
-void ValidateReadOnlyRatio(const configuration &state);
+void ValidateReadOnlyBackendCount(const configuration &state);
 
 void ValidateUpdateRatio(const configuration &state);
 
