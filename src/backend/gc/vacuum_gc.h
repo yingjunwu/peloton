@@ -32,10 +32,12 @@ public:
       gc_thread_count_(thread_count),
       gc_threads_(thread_count),
       unlink_queues_(),
+      local_unlink_queues_(),
       reclaim_maps_(thread_count){
     for (int i = 0; i < gc_thread_count_; ++i) {
       std::shared_ptr<LockfreeQueue<TupleMetadata>> unlink_queue(new LockfreeQueue<TupleMetadata>(MAX_QUEUE_LENGTH));
       unlink_queues_.push_back(unlink_queue);
+      local_unlink_queues_.emplace_back();
     }
     StartGC();
   }
@@ -118,6 +120,7 @@ private:
   std::vector<std::unique_ptr<std::thread>> gc_threads_;
 
   std::vector<std::shared_ptr<LockfreeQueue<TupleMetadata>>> unlink_queues_;
+  std::vector<std::list<TupleMetadata>> local_unlink_queues_;
 
   // Map of actual grabage.
   // The key is the timestamp when the garbage is identified, value is the
