@@ -146,6 +146,19 @@ void N2O_GCManager::Unlink(int thread_id, const cid_t &max_cid) {
 
   std::vector<TupleMetadata> garbages;
 
+
+  // First iterate the local unlink queue
+  local_unlink_queues_[thread_id].remove_if(
+    [this, &garbages, &tuple_counter, max_cid](const TupleMetadata& t) -> bool {
+      bool res = t.tuple_end_cid  < max_cid;
+      if (res) {
+        garbages.push_back(t);
+        tuple_counter++;
+      }
+      return res;
+    }
+  );
+
   for (size_t i = 0; i < MAX_ATTEMPT_COUNT; ++i) {
     
     TupleMetadata tuple_metadata;
@@ -165,8 +178,8 @@ void N2O_GCManager::Unlink(int thread_id, const cid_t &max_cid) {
       tuple_counter++;
 
     } else {
-      // if a tuple cannot be reclaimed, then add it back to the list.
-      unlink_queues_[thread_id]->Enqueue(tuple_metadata);
+      // if a tuple cannot be reclaimed, then collect it to the local garbage list
+      local_unlink_queues_[thread_id].push_back(tuple_metadata);
     }
   }  // end for
 
@@ -229,7 +242,7 @@ ItemPointer N2O_GCManager::ReturnFreeSlot(const oid_t &table_id) {
 
 
 void N2O_GCManager::ClearGarbage(int thread_id) {
-  while(!unlink_queues_[thread_id]->IsEmpty()) {
+  while(!unlink_queues_[thread_id]->IsEmpty() || !local_unlink_queues_[thread_id].empty()) {
     Unlink(thread_id, MAX_CID);
   }
 
