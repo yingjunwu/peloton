@@ -56,6 +56,11 @@ class GCManager {
 
   virtual ~GCManager() {};
 
+  virtual void CreateGCContext() {};
+
+  // WARNING: This function must be called before the current_txn is distructed
+  virtual void EndGCContext(cid_t ts __attribute__((unused))) {};
+
   // Get status of whether GC thread is running or not
   virtual bool GetStatus() = 0;
 

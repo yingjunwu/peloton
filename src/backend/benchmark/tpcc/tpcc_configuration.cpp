@@ -38,8 +38,8 @@ void Usage(FILE *out) {
           "   -p --protocol          :  choose protocol, default OCC\n"
           "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, to_central_rb and ton2o\n"
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
-          "                             gc protocol could be off, co, va, and n2o\n"
-          "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va\n"
+          "                             gc protocol could be off, co, va, n2o and n2otxn\n"
+          "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -121,7 +121,9 @@ void ValidateProtocol(const configuration &state) {
       exit(EXIT_FAILURE);
     }
   } else {
-    if (state.gc_protocol != GC_TYPE_OFF && state.gc_protocol != GC_TYPE_N2O) {
+    if (state.gc_protocol != GC_TYPE_OFF
+    && state.gc_protocol != GC_TYPE_N2O
+    && state.gc_protocol != GC_TYPE_N2O_TXN) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
     }
@@ -230,6 +232,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.gc_protocol = GC_TYPE_CO;
         }else if (strcmp(gc_protocol, "n2o") == 0) {
           state.gc_protocol = GC_TYPE_N2O;
+        } else if(strcmp(gc_protocol, "n2otxn") == 0) {
+          state.gc_protocol = GC_TYPE_N2O_TXN;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);

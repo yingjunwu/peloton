@@ -60,7 +60,8 @@ enum GCType {
   GC_TYPE_OFF = 0,
   GC_TYPE_CO,
   GC_TYPE_VACUUM,
-  GC_TYPE_N2O
+  GC_TYPE_N2O,
+  GC_TYPE_N2O_TXN,
 };
 
 //===--------------------------------------------------------------------===//

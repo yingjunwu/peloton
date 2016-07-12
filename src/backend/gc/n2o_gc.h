@@ -98,8 +98,8 @@ private:
   void RecycleInvalidTupleSlot(const oid_t &table_id, const oid_t &tile_group_id,
                                        const oid_t &tuple_id, int thread_id);
 
-  inline int HashToThread(const oid_t &tuple_id) {
-    return tuple_id % gc_thread_count_;
+  inline unsigned int HashToThread(const oid_t &tuple_id) {
+    return (unsigned int)tuple_id % gc_thread_count_;
   }
 
   void ClearGarbage(int thread_id);
