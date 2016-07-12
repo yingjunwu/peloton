@@ -106,8 +106,8 @@ namespace peloton {
 
       void StopGC(int thread_id);
 
-      inline int HashToThread(const cid_t &ts) {
-        return (int)ts % gc_thread_count_;
+      inline unsigned int HashToThread(const cid_t &ts) {
+        return (unsigned int)ts % gc_thread_count_;
       }
 
       void ClearGarbage(int thread_id);

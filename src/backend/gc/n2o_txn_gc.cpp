@@ -182,7 +182,7 @@ namespace peloton {
 
         } else {
           // if a tuple cannot be reclaimed, then add it back to the list.
-          unlink_queues_[thread_id]->Enqueue(garbage_ctx);
+          local_unlink_queues_[thread_id].push_back(garbage_ctx);
         }
       }  // end for
 
@@ -236,7 +236,7 @@ namespace peloton {
 
 
     void N2OTxn_GCManager::ClearGarbage(int thread_id) {
-      while(!unlink_queues_[thread_id]->IsEmpty()) {
+      while(!unlink_queues_[thread_id]->IsEmpty() || !local_unlink_queues_[thread_id].empty()) {
         Unlink(thread_id, MAX_CID);
       }
 
