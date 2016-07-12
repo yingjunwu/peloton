@@ -577,6 +577,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 
   Result ret = current_txn->GetResult();
 
+  gc::GCManagerFactory::GetInstance().EndGCContext(end_commit_id);
   EndTransaction();
 
   return ret;
@@ -757,6 +758,8 @@ Result TsOrderN2OTxnManager::AbortTransaction() {
      RecycleOldTupleSlot(item_pointer.block, item_pointer.offset, next_commit_id);
   }
 
+  // Need to change next_commit_id to INVALID_CID if disable the recycle of aborted version
+  gc::GCManagerFactory::GetInstance().EndGCContext(next_commit_id);
   EndTransaction();
   return Result::RESULT_ABORTED;
 }

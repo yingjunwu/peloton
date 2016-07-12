@@ -82,6 +82,8 @@ public:
 
     current_txn = txn;
 
+    gc::GCManagerFactory::GetInstance().CreateGCContext();
+
     return txn;
   }
 
