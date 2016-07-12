@@ -81,6 +81,8 @@ class TsOrderN2OTxnManager : public TransactionManager {
 
     current_txn = txn;
 
+    gc::GCManagerFactory::GetInstance().CreateGCContext();
+
     return txn;
   }
 
