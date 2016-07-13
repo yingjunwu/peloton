@@ -19,6 +19,7 @@ namespace index {
 #endif
 
 bool print_flag = false;
+NodeID INVALID_NODE_ID = 0;
 
 #ifdef BWTREE_PELOTON
 }  // End index namespace
