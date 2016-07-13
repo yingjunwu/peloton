@@ -239,6 +239,7 @@ static DummyOutObject dummy_out;
 using NodeID = uint64_t;
 
 extern bool print_flag;
+extern NodeID INVALID_NODE_ID;
 
 /*
  * class BwTree - Lock-free BwTree index implementation
@@ -357,10 +358,6 @@ class BwTree {
   constexpr static size_t LEAF_NODE_SIZE_LOWER_THRESHOLD = 16;
 
   constexpr static int max_thread_count = 0x7FFFFFFF;
-  
-  // This constant represents INVALID_NODE_ID which is used as an indication
-  // that the node is actually the last node on that level
-  constexpr static NodeID INVALID_NODE_ID = 0;
   
   // The NodeID for the first leaf is fixed, which is 2
   constexpr static NodeID FIRST_LEAF_NODE_ID = 2;
