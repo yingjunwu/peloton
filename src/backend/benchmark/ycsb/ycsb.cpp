@@ -58,13 +58,19 @@ extern storage::DataTable *user_table;
 std::ofstream out("outputfile.summary", std::ofstream::out);
 
 static void WriteOutput() {
-  if (state.read_only_backend_count == 0) {
-    LOG_INFO("%lf %d %d :: %lf tps, %lf, %d", state.update_ratio, state.scale_factor,
-             state.column_count, state.throughput, state.abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
-  } else {
-    LOG_INFO("%lf %d %d :: %lf tps, %lf, %lf tps, %lf, %d", state.update_ratio, state.scale_factor,
-             state.column_count, state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
-  }
+  // if (state.read_only_backend_count == 0 && state.reverse_backend_count == 0) {
+  //   LOG_INFO("%lf %d %d :: %lf tps, %lf, %d", state.update_ratio, state.scale_factor,
+  //            state.column_count, state.throughput, state.abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
+  // } else if (state.read_only_backend_count == 0 && state.reverse_backend_count != 0) {
+  //   LOG_INFO("%lf %d %d :: %lf tps, %lf, %lf tps, %lf, %d", state.update_ratio, state.scale_factor,
+  //            state.column_count, state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
+  // } else if (state.read_only_backend_count != 0 && state.reverse_backend_count == 0) {
+  //   LOG_INFO("%lf %d %d :: %lf tps, %lf, %lf tps, %lf, %d", state.update_ratio, state.scale_factor,
+  //            state.column_count, state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
+  // } else {
+    LOG_INFO("%lf %d %d :: %lf tps, %lf; %lf tps, %lf; %lf tps, %lf, %d", state.update_ratio, state.scale_factor,
+             state.column_count, state.throughput, state.abort_rate, state.reverse_throughput, state.reverse_abort_rate, state.ro_throughput, state.ro_abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
+  // }
 
   // out << state.update_ratio << " ";
   // out << state.scale_factor << " ";
@@ -82,10 +88,13 @@ static void WriteOutput() {
 
   out << state.throughput << " ";
   out << state.abort_rate << " ";
-  if (state.read_only_backend_count != 0) {
-    out << state.ro_throughput << " ";
-    out << state.ro_abort_rate << " ";
-  }
+
+  out << state.reverse_throughput << " ";
+  out << state.reverse_abort_rate << " ";
+
+  out << state.ro_throughput << " ";
+  out << state.ro_abort_rate << " ";
+  
   out << state.snapshot_memory[state.snapshot_throughput.size() - 1] <<"\n";
   out.flush();
   out.close();
