@@ -783,7 +783,9 @@ typedef uint64_t cid_t;
 
 static const cid_t INVALID_CID = 0;
 
-static const cid_t START_CID = 1;
+static const cid_t READ_ONLY_START_CID = 1;
+
+static const cid_t START_CID = 2;
 
 static const cid_t MAX_CID = std::numeric_limits<cid_t>::max();
 
