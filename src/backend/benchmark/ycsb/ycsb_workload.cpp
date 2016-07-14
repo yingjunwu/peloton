@@ -92,6 +92,7 @@ void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto update_ratio = state.update_ratio;
+  auto operation_count = state.operation_count;
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -111,7 +112,7 @@ void RunBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng, update_ratio) == false) {
+      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count) == false) {
         if (is_running == false) {
           break;
         }
@@ -195,6 +196,7 @@ void RunReverseBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto update_ratio = 1 - state.update_ratio;
+  auto operation_count = 100;
 
   oid_t &reverse_execution_count_ref = reverse_abort_counts[thread_id];
   oid_t &reverse_transaction_count_ref = reverse_commit_counts[thread_id];
@@ -214,7 +216,7 @@ void RunReverseBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng, update_ratio) == false) {
+      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count) == false) {
         if (is_running == false) {
           break;
         }
@@ -483,7 +485,7 @@ void RunWorkload() {
     state.ro_throughput = total_ro_commit_count * 1.0 / state.duration;
     state.ro_abort_rate = total_ro_abort_count * 1.0 / total_ro_commit_count;
   }
-  
+
   //////////////////////////////////////////////////
 
   // cleanup everything.

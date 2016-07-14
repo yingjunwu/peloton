@@ -312,7 +312,7 @@ const bool adapt_table = false;
 const bool is_inlined = true;
 const bool unique_index = false;
 const bool allocate = true;
-const size_t preallocate_scale = 1000;
+const size_t preallocate_scale = 10;
 
 static IndexType GetSKeyIndexType() {
   if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
