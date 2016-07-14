@@ -144,11 +144,15 @@ bool SeqScanExecutor::DExecute() {
           // if the tuple is visible, then perform predicate evaluation.
           if (predicate_ == nullptr) {
             position_list.push_back(tuple_id);
-            auto res = transaction_manager.PerformRead(location);
-            if (!res) {
-              transaction_manager.SetTransactionResult(RESULT_FAILURE);
-              return res;
+
+            if (concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
+              auto res = transaction_manager.PerformRead(location);
+              if (!res) {
+                transaction_manager.SetTransactionResult(RESULT_FAILURE);
+                return res;
+              }
             }
+
           } else {
             expression::ContainerTuple<storage::TileGroup> tuple(
                 tile_group.get(), tuple_id);
@@ -156,10 +160,13 @@ bool SeqScanExecutor::DExecute() {
                             .IsTrue();
             if (eval == true) {
               position_list.push_back(tuple_id);
-              auto res = transaction_manager.PerformRead(location);
-              if (!res) {
-                transaction_manager.SetTransactionResult(RESULT_FAILURE);
-                return res;
+
+              if (concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
+                auto res = transaction_manager.PerformRead(location);
+                if (!res) {
+                  transaction_manager.SetTransactionResult(RESULT_FAILURE);
+                  return res;
+                }
               }
             }
           }

@@ -143,7 +143,29 @@ class TransactionManager {
   //for use by recovery
   void SetNextCid(cid_t cid) { next_cid_ = cid; }
 
+  Transaction *BeginReadonlyTransaction() {
+    txn_id_t txn_id = READONLY_TXN_ID;
+    auto &epoch_manager = EpochManagerFactory::GetInstance();
+    cid_t begin_cid = epoch_manager.GetReadOnlyTxnCid();
+    Transaction *txn = new Transaction(txn_id, true);
+
+    auto eid = epoch_manager.EnterReadOnlyEpoch(begin_cid);
+    txn->SetEpochId(eid);
+
+    current_txn = txn;
+    return txn;
+  }
+
   virtual Transaction *BeginTransaction() = 0;
+
+  Result EndReadonlyTransaction() {
+    EpochManagerFactory::GetInstance().ExitReadOnlyEpoch(current_txn->GetEpochId());
+
+    delete current_txn;
+    current_txn = nullptr;
+
+    return RESULT_SUCCESS;
+  }
 
   virtual void EndTransaction() = 0;
 

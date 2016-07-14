@@ -192,7 +192,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
         if (predicate_ == nullptr) {
           visible_tuples[tuple_location.block].push_back(tuple_location.offset);
 
-          if (is_blind_write_ == false) {
+          if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
             auto res = transaction_manager.PerformRead(tuple_location);
             if (!res) {
               transaction_manager.SetTransactionResult(RESULT_FAILURE);
@@ -208,7 +208,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
           if (eval == true) {
             visible_tuples[tuple_location.block].push_back(tuple_location.offset);
 
-            if (is_blind_write_ == false) {
+            if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
               auto res = transaction_manager.PerformRead(tuple_location);
               if (!res) {
                 transaction_manager.SetTransactionResult(RESULT_FAILURE);
@@ -422,7 +422,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
       if (predicate_ == nullptr) {
         visible_tuples[tile_group_id].push_back(tuple_id);
 
-        if (is_blind_write_ == false) {
+        if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
           auto res = transaction_manager.PerformRead(tuple_location);
           if (!res) {
             transaction_manager.SetTransactionResult(RESULT_FAILURE);
@@ -438,7 +438,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
         if (eval == true) {
           visible_tuples[tile_group_id].push_back(tuple_id);
           
-          if (is_blind_write_ == false) {
+          if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
             auto res = transaction_manager.PerformRead(tuple_location);
             if (!res) {
               transaction_manager.SetTransactionResult(RESULT_FAILURE);

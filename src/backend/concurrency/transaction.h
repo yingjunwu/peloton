@@ -46,6 +46,7 @@ class Transaction : public Printable {
       : txn_id_(INVALID_TXN_ID),
         begin_cid_(INVALID_CID),
         end_cid_(MAX_CID),
+        static_read_only_(false),
         is_written_(false),
         insert_count_(0) {}
 
@@ -53,13 +54,24 @@ class Transaction : public Printable {
       : txn_id_(txn_id),
         begin_cid_(INVALID_CID),
         end_cid_(MAX_CID),
+        static_read_only_(false),
         is_written_(false),
         insert_count_(0) {}
+
+  Transaction(const txn_id_t &txn_id, bool read_only)
+    : txn_id_(txn_id),
+      begin_cid_(INVALID_CID),
+      end_cid_(MAX_CID),
+      static_read_only_(read_only),
+      is_written_(false),
+      insert_count_(0) {}
+
 
   Transaction(const txn_id_t &txn_id, const cid_t &begin_cid)
       : txn_id_(txn_id),
         begin_cid_(begin_cid),
         end_cid_(MAX_CID),
+        static_read_only_(false),
         is_written_(false),
         insert_count_(0) {}
 
@@ -98,6 +110,10 @@ class Transaction : public Printable {
   // Get a string representation for debugging
   const std::string GetInfo() const;
 
+  inline bool IsStaticReadOnlyTxn() const {
+    return static_read_only_;
+  }
+
   // Set result and status
   inline void SetResult(Result result) { result_ = result; }
 
@@ -124,6 +140,9 @@ class Transaction : public Printable {
 
   // epoch id
   size_t epoch_id_;
+
+  // read only flag
+  bool static_read_only_;
 
   // in the protocols we have implemented, there's no need to maintain an ordered rw-set.
   // this is because the optimistic mechanism locks writes and handles aborts aggressively.
