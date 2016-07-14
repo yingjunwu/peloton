@@ -37,6 +37,7 @@ void Usage(FILE *out) {
           "   -r --read_col_count    :  # of read columns \n"
           "   -o --operation_count   :  # of operations \n"
           "   -y --read_only         :  # of read-only backends \n"
+          "   -v --reverse           :  # of reverse backends \n"
           "   -u --write_ratio       :  Fraction of updates \n"
           "   -z --zipf_theta        :  theta to control skewness \n"
           "   -m --mix_txn           :  run read/write mix txn \n"
@@ -61,6 +62,7 @@ static struct option opts[] = {
     {"read_col_count", optional_argument, NULL, 'r'},
     {"operation_count", optional_argument, NULL, 'o'},
     {"read_only_backend_count", optional_argument, NULL, 'y'},
+    {"reverse_backend_count", optional_argument, NULL, 'v'},
     {"update_ratio", optional_argument, NULL, 'u'},
     {"backend_count", optional_argument, NULL, 'b'},
     {"zipf_theta", optional_argument, NULL, 'z'},
@@ -117,15 +119,6 @@ void ValidateOperationCount(const configuration &state) {
   LOG_TRACE("%s : %d", "operation_count", state.operation_count);
 }
 
-void ValidateReadOnlyBackendCount(const configuration &state) {
-  if (state.read_only_backend_count > state.backend_count) {
-    LOG_ERROR("Invalid read_only_backend_count :: %d", state.read_only_backend_count);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_TRACE("%s : %d", "read_only_backend_count", state.read_only_backend_count);
-}
-
 void ValidateUpdateRatio(const configuration &state) {
   if (state.update_ratio < 0 || state.update_ratio > 1) {
     LOG_ERROR("Invalid update_ratio :: %lf", state.update_ratio);
@@ -140,7 +133,10 @@ void ValidateBackendCount(const configuration &state) {
     LOG_ERROR("Invalid backend_count :: %d", state.backend_count);
     exit(EXIT_FAILURE);
   }
-
+  if (state.read_only_backend_count + state.reverse_backend_count > state.backend_count) {
+    LOG_ERROR("Invalid backend_count :: %d, %d", state.reverse_backend_count, state.read_only_backend_count);
+    exit(EXIT_FAILURE);
+  }
   LOG_TRACE("%s : %d", "backend_count", state.backend_count);
 }
 
@@ -204,6 +200,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.read_column_count = 1;
   state.operation_count = 10;
   state.read_only_backend_count = 0;
+  state.reverse_backend_count = 0;
   state.update_ratio = 0.5;
   state.backend_count = 2;
   state.zipf_theta = 0.0;
@@ -218,7 +215,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:", opts, &idx);
+    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:", opts, &idx);
 
     if (c == -1) break;
 
@@ -249,6 +246,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'y':
         state.read_only_backend_count = atoi(optarg);
+        break;
+      case 'v':
+        state.reverse_backend_count = atoi(optarg);
         break;
       case 'u':
         state.update_ratio = atof(optarg);
@@ -353,7 +353,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateUpdateColumnCount(state);
   ValidateReadColumnCount(state);
   ValidateOperationCount(state);
-  ValidateReadOnlyBackendCount(state);
   ValidateUpdateRatio(state);
   ValidateBackendCount(state);
   ValidateDuration(state);

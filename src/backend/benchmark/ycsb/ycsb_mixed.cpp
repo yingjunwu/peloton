@@ -177,7 +177,7 @@ MixedPlans PrepareMixedPlan() {
   return mixed_plans;
 }
   
-bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng) {
+bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count) {
 
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
@@ -190,11 +190,11 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng)
 
 
 
-  for (int i = 0; i < state.operation_count; i++) {
+  for (int i = 0; i < operation_count; i++) {
 
     auto rng_val = rng.next_uniform();
 
-    if (rng_val < state.update_ratio) {
+    if (rng_val < update_ratio) {
       /////////////////////////////////////////////////////////
       // PERFORM UPDATE
       /////////////////////////////////////////////////////////

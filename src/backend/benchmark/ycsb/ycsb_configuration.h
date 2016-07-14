@@ -52,6 +52,9 @@ class configuration {
   // number of read-only backends
   int read_only_backend_count;
 
+  // number of reverse backends
+  int reverse_backend_count;
+
   // update ratio
   double update_ratio;
 
@@ -70,13 +73,17 @@ class configuration {
 
   std::vector<int> snapshot_memory;
 
-  double throughput;
+  double throughput = 0;
 
-  double abort_rate;
+  double abort_rate = 0;
 
-  double ro_throughput;
+  double reverse_throughput = 0;
 
-  double ro_abort_rate;
+  double reverse_abort_rate = 0;
+
+  double ro_throughput = 0;
+
+  double ro_abort_rate = 0;
 
   // Theta in zipf distribution to control skewness
   double zipf_theta;
@@ -118,8 +125,6 @@ void ValidateUpdateColumnCount(const configuration &state);
 void ValidateReadColumnCount(const configuration &state);
 
 void ValidateOperationCount(const configuration &state);
-
-void ValidateReadOnlyBackendCount(const configuration &state);
 
 void ValidateUpdateRatio(const configuration &state);
 
