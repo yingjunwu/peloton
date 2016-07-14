@@ -40,6 +40,7 @@ void Transaction::RecordRead(const ItemPointer &location) {
 }
 
 void Transaction::RecordUpdate(const ItemPointer &location) {
+  PL_ASSERT(static_read_only_ == false);
 
   oid_t tile_group_id = location.block;
   oid_t tuple_id = location.offset;
@@ -76,6 +77,7 @@ void Transaction::RecordUpdate(const ItemPointer &location) {
 }
 
 void Transaction::RecordInsert(const ItemPointer &location) {
+  PL_ASSERT(static_read_only_ == false);
 
   oid_t tile_group_id = location.block;
   oid_t tuple_id = location.offset;
@@ -92,6 +94,8 @@ void Transaction::RecordInsert(const ItemPointer &location) {
 }
 
 bool Transaction::RecordDelete(const ItemPointer &location) {
+  PL_ASSERT(static_read_only_ == false);
+
   oid_t tile_group_id = location.block;
   oid_t tuple_id = location.offset;
 
@@ -136,6 +140,7 @@ const std::string Transaction::GetInfo() const {
   os << "\tTxn :: @" << this << " ID : " << std::setw(4) << txn_id_
      << " Begin Commit ID : " << std::setw(4) << begin_cid_
      << " End Commit ID : " << std::setw(4) << end_cid_
+     << " Static Readonly: " << ((static_read_only_) ? "True" : "False")
      << " Result : " << result_;
 
   return os.str();

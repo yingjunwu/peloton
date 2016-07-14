@@ -26,18 +26,15 @@ namespace concurrency {
 struct Epoch {
   std::atomic<int> ro_txn_ref_count_;
   std::atomic<int> rw_txn_ref_count_;
-  cid_t ro_max_cid_;
-  cid_t rw_max_cid_;
+  cid_t max_cid_;
 
   Epoch()
-    :ro_txn_ref_count_(0), rw_txn_ref_count_(0),
-     ro_max_cid_(0), rw_max_cid_(0) {}
+    :ro_txn_ref_count_(0), rw_txn_ref_count_(0),max_cid_(0) {}
 
   void Init() {
     ro_txn_ref_count_ = 0;
     rw_txn_ref_count_ = 0;
-    ro_max_cid_ = 0;
-    rw_max_cid_ = 0;
+    max_cid_ = 0;
   }
 };
 
@@ -58,6 +55,9 @@ struct Epoch {
 */
 
 class EpochManager {
+  EpochManager(const EpochManager&) = delete;
+  static const int safety_interval_ = 2;
+
  public:
   EpochManager()
  : epoch_queue_(epoch_queue_size_),
@@ -95,7 +95,7 @@ class EpochManager {
     epoch_queue_[epoch_idx].ro_txn_ref_count_++;
 
     // Set the max cid in the tuple
-    auto max_cid_ptr = &(epoch_queue_[epoch_idx].ro_max_cid_);
+    auto max_cid_ptr = &(epoch_queue_[epoch_idx].max_cid_);
     AtomicMax(max_cid_ptr, begin_cid);
 
     return epoch;
@@ -108,7 +108,7 @@ class EpochManager {
     epoch_queue_[epoch_idx].rw_txn_ref_count_++;
 
     // Set the max cid in the tuple
-    auto max_cid_ptr = &(epoch_queue_[epoch_idx].rw_max_cid_);
+    auto max_cid_ptr = &(epoch_queue_[epoch_idx].max_cid_);
     AtomicMax(max_cid_ptr, begin_cid);
 
     return epoch;
@@ -135,6 +135,11 @@ class EpochManager {
     IncreaseQueueTail();
     IncreaseReclaimTail();
     return max_cid_gc_;
+
+    // Note: Comment out the above three lines and uncomment the following
+    // 2 lines to disable 2 phase epoch
+//    cid_t res = GetReadOnlyTxnCid();
+//    return (res > START_CID) ? res : 0;
   }
 
   cid_t GetReadOnlyTxnCid() {
@@ -150,6 +155,7 @@ class EpochManager {
 
       auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
       auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
+
       if(next_idx  == tail_idx) {
         // overflow
         // in this case, just increase tail
@@ -179,7 +185,7 @@ class EpochManager {
     auto tail = reclaim_tail_.load();
 
     while(true) {
-      if(tail + 1 == current) {
+      if(tail + safety_interval_ >= current) {
         break;
       }
 
@@ -191,7 +197,7 @@ class EpochManager {
       }
 
       // save max cid
-      auto max = epoch_queue_[idx].ro_max_cid_;
+      auto max = epoch_queue_[idx].max_cid_;
       AtomicMax(&max_cid_gc_, max);
       tail++;
     }
@@ -216,7 +222,7 @@ class EpochManager {
     auto tail = queue_tail_.load();
 
     while(true) {
-      if(tail + 1 == current) {
+      if(tail + safety_interval_ >= current) {
         break;
       }
 
@@ -228,7 +234,7 @@ class EpochManager {
       }
 
       // save max cid
-      auto max = epoch_queue_[idx].rw_max_cid_;
+      auto max = epoch_queue_[idx].max_cid_;
       AtomicMax(&max_cid_ro_, max);
       tail++;
     }
@@ -263,9 +269,8 @@ class EpochManager {
       epoch_queue_[i].Init();
     }
 
-    epoch_queue_[2].ro_max_cid_ = READ_ONLY_START_CID;
-    current_epoch_ = 4;
-    queue_tail_ = 2;
+    current_epoch_ = 0;
+    queue_tail_ = 0;
     reclaim_tail_ = 0;
   }
 

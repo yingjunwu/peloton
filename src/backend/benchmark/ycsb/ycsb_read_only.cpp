@@ -95,7 +95,7 @@ bool RunReadOnly() {
   
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   
-  auto txn = txn_manager.BeginTransaction();
+  auto txn = txn_manager.BeginReadonlyTransaction();
 
   executor::SeqScanExecutor executor(&node, context.get());
 
@@ -119,7 +119,7 @@ bool RunReadOnly() {
   // transaction passed execution.
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
-  auto result = txn_manager.CommitTransaction();
+  auto result = txn_manager.EndReadonlyTransaction();
 
   if (result == Result::RESULT_SUCCESS) {
     return true;
