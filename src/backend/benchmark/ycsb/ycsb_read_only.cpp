@@ -83,15 +83,24 @@ bool RunReadOnly() {
       new executor::ExecutorContext(nullptr));
   
   // Column ids to be added to logical tile after scan.
-  std::vector<oid_t> column_ids;
-  oid_t column_count = state.column_count + 1;
 
-  for (oid_t col_itr = 0; col_itr < column_count; col_itr++) {
-    column_ids.push_back(col_itr);
+  oid_t begin_read_column_id = 1;
+  oid_t end_read_column_id = begin_read_column_id + state.read_column_count - 1;
+  
+  std::vector<oid_t> read_column_ids;
+  for (oid_t col_itr = begin_read_column_id; col_itr <= end_read_column_id; col_itr++) {
+    read_column_ids.push_back(col_itr);
   }
+
+  // std::vector<oid_t> column_ids;
+  // oid_t column_count = state.column_count + 1;
+
+  // for (oid_t col_itr = 0; col_itr < column_count; col_itr++) {
+  //   column_ids.push_back(col_itr);
+  // }
   
   // Create plan node.
-  planner::SeqScanPlan node(user_table, nullptr, column_ids);
+  planner::SeqScanPlan node(user_table, nullptr, read_column_ids);
   
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   
