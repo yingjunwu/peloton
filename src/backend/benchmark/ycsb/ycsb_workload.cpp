@@ -198,7 +198,7 @@ void RunReverseBackend(oid_t thread_id) {
   // auto update_ratio = 1 - state.update_ratio;
   double update_ratio = 0;
   // auto operation_count = state.operation_count;
-  int operation_count = 0;
+  int operation_count = 100;
 
   oid_t &reverse_execution_count_ref = reverse_abort_counts[thread_id];
   oid_t &reverse_transaction_count_ref = reverse_commit_counts[thread_id];

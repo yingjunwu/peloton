@@ -156,6 +156,15 @@ class EpochManager {
       auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
       auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
 
+//      if (current_epoch_.load() % 10 == 0) {
+//        fprintf(stderr, "head = %d, queue_tail = %d, reclaim_tail = %d\n",
+//                (int)current_epoch_.load(),
+//                (int)queue_tail_.load(),
+//                (int)reclaim_tail_.load()
+//        );
+//        fprintf(stderr, "gc_ts = %d, ro_ts = %d\n", (int)max_cid_gc_, (int)max_cid_ro_);
+//      }
+
       if(next_idx  == tail_idx) {
         // overflow
         // in this case, just increase tail

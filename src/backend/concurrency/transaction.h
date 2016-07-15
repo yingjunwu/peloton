@@ -58,9 +58,9 @@ class Transaction : public Printable {
         is_written_(false),
         insert_count_(0) {}
 
-  Transaction(const txn_id_t &txn_id, bool read_only)
+  Transaction(const txn_id_t &txn_id, bool read_only, const cid_t &begin_cid)
     : txn_id_(txn_id),
-      begin_cid_(INVALID_CID),
+      begin_cid_(begin_cid),
       end_cid_(MAX_CID),
       static_read_only_(read_only),
       is_written_(false),

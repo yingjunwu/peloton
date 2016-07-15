@@ -147,7 +147,7 @@ class TransactionManager {
     txn_id_t txn_id = READONLY_TXN_ID;
     auto &epoch_manager = EpochManagerFactory::GetInstance();
     cid_t begin_cid = epoch_manager.GetReadOnlyTxnCid();
-    Transaction *txn = new Transaction(txn_id, true);
+    Transaction *txn = new Transaction(txn_id, true, begin_cid);
 
     auto eid = epoch_manager.EnterReadOnlyEpoch(begin_cid);
     txn->SetEpochId(eid);

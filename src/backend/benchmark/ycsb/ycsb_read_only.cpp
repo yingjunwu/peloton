@@ -126,6 +126,7 @@ bool RunReadOnly() {
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
   auto result = txn_manager.EndReadonlyTransaction();
+  // auto result = txn_manager.CommitTransaction();
 
   if (result == Result::RESULT_SUCCESS) {
     return true;
