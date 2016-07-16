@@ -155,10 +155,10 @@ void LoadYCSBDatabase() {
   LOG_INFO("============TABLE SIZES==========");
   LOG_INFO("user count = %u", user_table->GetAllCurrentTupleCount());
 
-  if (state.read_only_backend_count != 0) {
+  //if (state.read_only_backend_count != 0) {
     LOG_INFO("Sleep for a while to generate a read only snap shot");
     std::this_thread::sleep_for(std::chrono::seconds(1));
-  }
+  //}
 }
 
 }  // namespace ycsb

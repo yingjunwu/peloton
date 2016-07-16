@@ -112,7 +112,7 @@ void RunBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count) == false) {
+      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, false) == false) {
         if (is_running == false) {
           break;
         }
@@ -218,7 +218,7 @@ void RunReverseBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count) == false) {
+      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, true) == false) {
         if (is_running == false) {
           break;
         }
@@ -298,7 +298,7 @@ void RunReverseBackend(oid_t thread_id) {
   }
 }
 
-void RunReadOnlyBackend(oid_t thread_id) {
+void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
@@ -310,7 +310,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
     if (is_running == false) {
       break;
     }
-    while (RunReadOnly() == false) {
+    while (RunScan() == false) {
       if (is_running == false) {
         break;
       }
@@ -374,7 +374,7 @@ void RunWorkload() {
 
   // Launch a group of threads
   for (oid_t thread_itr = 0; thread_itr < num_ro_threads; ++thread_itr) {
-    thread_group.push_back(std::move(std::thread(RunReadOnlyBackend, thread_itr)));
+    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
   }
 
   for (oid_t thread_itr = num_ro_threads; thread_itr < num_ro_threads + num_reverse_threads; ++thread_itr) {
@@ -549,8 +549,8 @@ ExecuteReadTest(executor::AbstractExecutor* executor) {
                                                                   tuple_id);
       std::vector<Value> tuple_values;
       for (oid_t column_itr = 0; column_itr < column_count; column_itr++){
-        auto value = cur_tuple.GetValue(column_itr);
-        tuple_values.push_back(value);
+         auto value = cur_tuple.GetValue(column_itr);
+         tuple_values.push_back(value);
       }
 
       // Move the tuple list

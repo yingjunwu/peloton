@@ -177,7 +177,7 @@ MixedPlans PrepareMixedPlan() {
   return mixed_plans;
 }
   
-bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count) {
+bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count, bool is_read_only) {
 
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
@@ -186,9 +186,15 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
-  auto txn = txn_manager.BeginTransaction();
-
-
+  concurrency::Transaction *txn = nullptr;
+  if (is_read_only == true) {
+    if (update_ratio != 0) {
+      LOG_ERROR("update ratio must be 0!");
+    }
+    txn = txn_manager.BeginReadonlyTransaction();
+  } else {
+    txn = txn_manager.BeginTransaction();
+  }
 
   for (int i = 0; i < operation_count; i++) {
 
@@ -265,6 +271,11 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
   // transaction passed execution.
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
+
+  if (is_read_only == true) {
+    txn_manager.EndReadonlyTransaction();
+    return true;
+  }
 
   auto result = txn_manager.CommitTransaction();
 

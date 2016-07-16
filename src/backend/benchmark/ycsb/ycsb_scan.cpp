@@ -77,7 +77,7 @@ namespace peloton {
 namespace benchmark {
 namespace ycsb {
 
-bool RunReadOnly() {
+bool RunScan() {
 
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));

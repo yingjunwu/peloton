@@ -40,7 +40,7 @@ void RunWorkload();
 /////////////////////////////////////////////////////////
 
 
-bool RunReadOnly();
+bool RunScan();
 
 /////////////////////////////////////////////////////////
 
@@ -126,7 +126,7 @@ struct MixedPlans {
 
 MixedPlans PrepareMixedPlan();
 
-bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count);
+bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count, bool is_read_only);
 
 /////////////////////////////////////////////////////////
 

@@ -58,7 +58,7 @@ ycsb_SOURCES =  \
                     backend/benchmark/ycsb/ycsb_read.cpp \
                     backend/benchmark/ycsb/ycsb_update.cpp \
                     backend/benchmark/ycsb/ycsb_mixed.cpp \
-                    backend/benchmark/ycsb/ycsb_read_only.cpp
+                    backend/benchmark/ycsb/ycsb_scan.cpp
 
 ycsb_LDFLAGS =
 ycsb_CPPFLAGS = $(benchmark_common_cppflags)
