@@ -44,6 +44,7 @@ index::Index *BuildIndex(const bool unique_keys) {
   IndexType index_type = INDEX_TYPE_BTREE;
   // FIXME: Try to use BWTREE
   // index_type = INDEX_TYPE_BWTREE;
+  index_type = INDEX_TYPE_HASH;
 
   catalog::Column column1(VALUE_TYPE_INTEGER, GetTypeSize(VALUE_TYPE_INTEGER),
                           "A", true);
@@ -496,11 +497,13 @@ TEST_F(IndexTests, NonUniqueKeyMultiThreadedTest) {
   locations.clear();
 
   // FORWARD SCAN
-      index->Scan({key1->GetValue(0)}, {0}, {EXPRESSION_TYPE_COMPARE_EQUAL},
-                  SCAN_DIRECTION_TYPE_FORWARD, locations);
-  EXPECT_EQ(locations.size(), 3 * num_threads);
-  locations.clear();
-
+  if (index->GetIndexMethodType() != INDEX_TYPE_HASH) {
+    index->Scan({key1->GetValue(0)}, {0}, {EXPRESSION_TYPE_COMPARE_EQUAL},
+                SCAN_DIRECTION_TYPE_FORWARD, locations);
+    EXPECT_EQ(locations.size(), 3 * num_threads);
+    locations.clear();  
+  }
+  
   index->Scan(
       {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
       {EXPRESSION_TYPE_COMPARE_EQUAL, EXPRESSION_TYPE_COMPARE_EQUAL},
@@ -508,12 +511,14 @@ TEST_F(IndexTests, NonUniqueKeyMultiThreadedTest) {
   EXPECT_EQ(locations.size(), 2 * num_threads);
   locations.clear();
 
-  index->Scan(
-      {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
-      {EXPRESSION_TYPE_COMPARE_EQUAL, EXPRESSION_TYPE_COMPARE_GREATERTHAN},
-      SCAN_DIRECTION_TYPE_FORWARD, locations);
-  EXPECT_EQ(locations.size(), 1 * num_threads);
-  locations.clear();
+  if (index->GetIndexMethodType() != INDEX_TYPE_HASH) {
+    index->Scan(
+        {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
+        {EXPRESSION_TYPE_COMPARE_EQUAL, EXPRESSION_TYPE_COMPARE_GREATERTHAN},
+        SCAN_DIRECTION_TYPE_FORWARD, locations);
+    EXPECT_EQ(locations.size(), 1 * num_threads);
+    locations.clear();
+  }
 
   index->Scan(
       {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
@@ -523,10 +528,12 @@ TEST_F(IndexTests, NonUniqueKeyMultiThreadedTest) {
   locations.clear();
 
   // REVERSE SCAN
-      index->Scan({key1->GetValue(0)}, {0}, {EXPRESSION_TYPE_COMPARE_EQUAL},
+  if (index->GetIndexMethodType() != INDEX_TYPE_HASH) {
+    index->Scan({key1->GetValue(0)}, {0}, {EXPRESSION_TYPE_COMPARE_EQUAL},
                   SCAN_DIRECTION_TYPE_BACKWARD, locations);
-  EXPECT_EQ(locations.size(), 3 * num_threads);
-  locations.clear();
+    EXPECT_EQ(locations.size(), 3 * num_threads);
+    locations.clear();
+  }
 
   index->Scan(
       {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
@@ -535,12 +542,14 @@ TEST_F(IndexTests, NonUniqueKeyMultiThreadedTest) {
   EXPECT_EQ(locations.size(), 2 * num_threads);
   locations.clear();
 
-  index->Scan(
-      {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
-      {EXPRESSION_TYPE_COMPARE_EQUAL, EXPRESSION_TYPE_COMPARE_GREATERTHAN},
-      SCAN_DIRECTION_TYPE_BACKWARD, locations);
-  EXPECT_EQ(locations.size(), 1 * num_threads);
-  locations.clear();
+  if (index->GetIndexMethodType() != INDEX_TYPE_HASH) {
+    index->Scan(
+        {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
+        {EXPRESSION_TYPE_COMPARE_EQUAL, EXPRESSION_TYPE_COMPARE_GREATERTHAN},
+        SCAN_DIRECTION_TYPE_BACKWARD, locations);
+    EXPECT_EQ(locations.size(), 1 * num_threads);
+    locations.clear();
+  }
 
   index->Scan(
       {key1->GetValue(0), key1->GetValue(1)}, {0, 1},
