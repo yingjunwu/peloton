@@ -133,6 +133,7 @@ bool IndexScanExecutor::DExecute() {
 }
 
 bool IndexScanExecutor::ExecPrimaryIndexLookup() {
+  LOG_TRACE("Exec primary index lookup");
   assert(!done_);
 
   std::vector<ItemPointer *> tuple_location_ptrs;
@@ -148,7 +149,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
 
 
   if (tuple_location_ptrs.size() == 0) {
-    // LOG_TRACE("no tuple is retrieved from index.");
+    LOG_TRACE("no tuple is retrieved from index.");
     return false;
   }
 
@@ -387,20 +388,33 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
 }
 
 bool IndexScanExecutor::ExecSecondaryIndexLookup() {
+  LOG_TRACE("ExecSecondaryIndexLookup");
   assert(!done_);
 
   std::vector<ItemPointer> tuple_locations;
-
+  std::vector<index::RBItemPointer> rb_tuple_locations;
   assert(index_->GetIndexType() != INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
 
   if (0 == key_column_ids_.size()) {
-    index_->ScanAllKeys(tuple_locations);
+    if (concurrency::TransactionManagerFactory::IsRB()) {
+      index_->ScanAllKeys(rb_tuple_locations);
+      for (auto &rb_item_ptr : rb_tuple_locations) {
+        tuple_locations.push_back(rb_item_ptr.location);
+      }
+    } else {
+      index_->ScanAllKeys(tuple_locations);  
+    }
   } else {
-    index_->Scan(values_, key_column_ids_, expr_types_,
-                 SCAN_DIRECTION_TYPE_FORWARD, tuple_locations);
+    if (concurrency::TransactionManagerFactory::IsRB()) {
+      index_->Scan(values_, key_column_ids_, expr_types_,SCAN_DIRECTION_TYPE_FORWARD, rb_tuple_locations);
+      for (auto &rb_item_ptr : rb_tuple_locations) {
+        tuple_locations.push_back(rb_item_ptr.location);
+      }
+    } else {
+      index_->Scan(values_, key_column_ids_, expr_types_,SCAN_DIRECTION_TYPE_FORWARD, tuple_locations);  
+    }
+    
   }
-
-  LOG_TRACE("Tuple_locations.size(): %lu", tuple_locations.size());
 
   if (tuple_locations.size() == 0) return false;
 

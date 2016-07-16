@@ -66,6 +66,7 @@ bool RBBTreeIndex<KeyType, ValueType, KeyComparator,
 
     // Insert the key, val pair
     container.insert(entry);
+    LOG_INFO("InsertedEntry: %d, %d", (int)GetOid(), (int)container.size());
 
     index_lock.Unlock();
   }
@@ -305,15 +306,14 @@ RBBTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys
 
     // scan all entries
     while (itr != container.end()) {
-
       RBItemPointer *item_pointer = itr->second;
-
       if (item_pointer->timestamp > concurrency::current_txn->GetBeginCommitId()) {
-        auto itr = result_map.find(item_pointer->location);
-        if (itr == result_map.end() || itr->second->timestamp < item_pointer->timestamp) {
+        auto res = result_map.find(item_pointer->location);
+        if (res == result_map.end() || res->second->timestamp < item_pointer->timestamp) {
           result_map.emplace(item_pointer->location, item_pointer);
         }
       }
+      itr++;
     }
 
     index_lock.Unlock();

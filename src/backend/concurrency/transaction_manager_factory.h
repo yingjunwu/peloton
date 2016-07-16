@@ -73,6 +73,14 @@ class TransactionManagerFactory {
 
   static IsolationLevelType GetIsolationLevel() { return isolation_level_; }
 
+  static bool IsRB() {
+    return protocol_ == CONCURRENCY_TYPE_TO_RB ||
+           protocol_ == CONCURRENCY_TYPE_OCC_RB ||
+           protocol_ == CONCURRENCY_TYPE_OCC_CENTRAL_RB ||
+           protocol_ == CONCURRENCY_TYPE_TO_CENTRAL_RB ||
+           protocol_ == CONCURRENCY_TYPE_TO_FULL_RB;
+  }
+
  private:
   static ConcurrencyType protocol_;
   static IsolationLevelType isolation_level_;
