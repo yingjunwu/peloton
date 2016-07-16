@@ -20,12 +20,13 @@
 #include "backend/index/bwtree_index.h"
 #include "backend/index/btree_index.h"
 #include "backend/index/hash_index.h"
-// #include "backend/index/hash_unique_index.h"
 #include "backend/index/rb_btree_index.h"
 #include "backend/index/rb_hash_index.h"
 
 namespace peloton {
 namespace index {
+
+SecondaryIndexType IndexFactory::secondary_index_type_ = SECONDARY_INDEX_TYPE_VERSION;
 
 Index *IndexFactory::GetInstance(IndexMetadata *metadata, const size_t &preallocate_size) {
   bool ints_only = false;

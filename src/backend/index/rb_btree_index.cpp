@@ -66,7 +66,6 @@ bool RBBTreeIndex<KeyType, ValueType, KeyComparator,
 
     // Insert the key, val pair
     container.insert(entry);
-    LOG_INFO("InsertedEntry: %d, %d", (int)GetOid(), (int)container.size());
 
     index_lock.Unlock();
   }
