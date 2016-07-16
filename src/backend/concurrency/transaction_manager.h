@@ -36,6 +36,7 @@ namespace peloton {
 namespace concurrency {
 
 extern thread_local Transaction *current_txn;
+extern thread_local cid_t latest_read_ts;
 
 #define RUNNING_TXN_BUCKET_NUM 10
 
@@ -148,6 +149,8 @@ class TransactionManager {
     auto &epoch_manager = EpochManagerFactory::GetInstance();
     cid_t begin_cid = epoch_manager.GetReadOnlyTxnCid();
     Transaction *txn = new Transaction(txn_id, true, begin_cid);
+
+    latest_read_ts = begin_cid;
 
     auto eid = epoch_manager.EnterReadOnlyEpoch(begin_cid);
     txn->SetEpochId(eid);

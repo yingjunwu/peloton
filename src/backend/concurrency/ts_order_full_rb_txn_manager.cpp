@@ -24,7 +24,6 @@ namespace peloton {
 namespace concurrency {
 
 thread_local storage::RollbackSegmentPool *full_to_current_segment_pool;
-thread_local cid_t full_to_latest_read_timestamp = INVALID_CID;
 thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> full_to_updated_index_entries;
 
 TsOrderFullRbTxnManager &TsOrderFullRbTxnManager::GetInstance() {
