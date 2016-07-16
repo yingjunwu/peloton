@@ -14,7 +14,7 @@ namespace peloton {
 
 namespace concurrency {
 
-thread_local cid_t ocrb_latest_read_timestamp = INVALID_CID;
+
 thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> ocrb_updated_index_entries;
 
 OptimisticCentralRbTxnManager &OptimisticCentralRbTxnManager::GetInstance() {

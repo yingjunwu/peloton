@@ -25,7 +25,6 @@ namespace peloton {
 namespace concurrency {
 
 thread_local storage::RollbackSegmentPool *current_segment_pool;
-thread_local cid_t latest_read_timestamp = INVALID_CID;
 thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> updated_index_entries;
 
 OptimisticRbTxnManager &OptimisticRbTxnManager::GetInstance() {

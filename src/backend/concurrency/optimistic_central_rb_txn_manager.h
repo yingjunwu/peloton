@@ -23,7 +23,6 @@ namespace peloton {
 namespace concurrency {
 
 // Each transaction has a RollbackSegmentPool
-extern thread_local cid_t ocrb_latest_read_timestamp;
 extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> ocrb_updated_index_entries;
 //===--------------------------------------------------------------------===//
 // optimistic concurrency control with rollback segment
@@ -78,7 +77,7 @@ public:
   // either the begin commit time of current transaction of the just committed
   // transaction.
   cid_t GetLatestReadTimestamp() {
-    return ocrb_latest_read_timestamp;
+    return latest_read_ts;
   }
 
   /**
@@ -176,7 +175,7 @@ public:
     auto eid = EpochManagerFactory::GetInstance().EnterEpoch(begin_cid);
     txn->SetEpochId(eid);
 
-    ocrb_latest_read_timestamp = begin_cid;
+    latest_read_ts = begin_cid;
 
     return txn;
   }

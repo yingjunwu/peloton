@@ -23,7 +23,6 @@ namespace concurrency {
 
 // Each transaction has a RollbackSegmentPool
 extern thread_local storage::RollbackSegmentPool *full_to_current_segment_pool;
-extern thread_local cid_t full_to_latest_read_timestamp;
 extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> full_to_updated_index_entries;
 //===--------------------------------------------------------------------===//
 // timestamp ordering with rollback segment
@@ -78,7 +77,7 @@ public:
   // either the begin commit time of current transaction of the just committed
   // transaction.
   cid_t GetLatestReadTimestamp() {
-    return full_to_latest_read_timestamp;
+    return latest_read_ts;
   }
 
   /**
@@ -180,7 +179,7 @@ public:
     auto eid = EpochManagerFactory::GetInstance().EnterEpoch(begin_cid);
     txn->SetEpochId(eid);
 
-    full_to_latest_read_timestamp = begin_cid;
+    latest_read_ts = begin_cid;
     // Create current transaction poll
     full_to_current_segment_pool = new storage::RollbackSegmentPool(BACKEND_TYPE_MM);
 
