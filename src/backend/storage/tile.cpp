@@ -117,12 +117,13 @@ Value Tile::GetValue(const oid_t tuple_offset, const oid_t column_id) {
   const char *field_location = tuple_location + schema.GetOffset(column_id);
   const bool is_inlined = schema.IsInlined(column_id);
 
-  PL_ASSERT(tile_group != nullptr);
   // ROLLBACK SEGMENT
   if (concurrency::TransactionManagerFactory::IsRB()) {
     if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_FULL_RB) {
       auto txn_manager = static_cast<concurrency::TsOrderFullRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
       cid_t read_ts = txn_manager->GetLatestReadTimestamp();
+      if (tile_group == nullptr)
+        return Value::InitFromTupleStorage(field_location, column_type, is_inlined);
       // Try from cache
       if (last_read_timestamp == read_ts 
         && last_read_location == ItemPointer(tile_group->GetTileGroupId(), tuple_offset)) {
@@ -171,10 +172,13 @@ Value Tile::GetValue(const oid_t tuple_offset, const oid_t column_id) {
     } else {
       auto txn_manager = static_cast<concurrency::RBTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
       cid_t read_ts = txn_manager->GetLatestReadTimestamp();
-      auto tile_group_header = tile_group->GetHeader();
-
       // The ininitial value of this column is in the master copy
       Value value = Value::InitFromTupleStorage(field_location, column_type, is_inlined);
+
+      if (tile_group == nullptr)
+        return value;
+
+      auto tile_group_header = tile_group->GetHeader();
 
       // If self is owner, just return the master version
       if (txn_manager->IsOwner(tile_group_header, tuple_offset))

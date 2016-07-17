@@ -393,6 +393,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
 
   std::vector<ItemPointer> tuple_locations;
   std::vector<index::RBItemPointer> rb_tuple_locations;
+  auto &manager = catalog::Manager::GetInstance();
   assert(index_->GetIndexType() != INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
 
   if (0 == key_column_ids_.size()) {
@@ -400,6 +401,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
       index_->ScanAllKeys(rb_tuple_locations);
       for (auto &rb_item_ptr : rb_tuple_locations) {
         tuple_locations.push_back(rb_item_ptr.location);
+        assert(manager.GetTileGroup(rb_item_ptr.location.block) != nullptr);
       }
     } else {
       index_->ScanAllKeys(tuple_locations);  
@@ -408,6 +410,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
     if (concurrency::TransactionManagerFactory::IsRB()) {
       index_->Scan(values_, key_column_ids_, expr_types_,SCAN_DIRECTION_TYPE_FORWARD, rb_tuple_locations);
       for (auto &rb_item_ptr : rb_tuple_locations) {
+        assert(manager.GetTileGroup(rb_item_ptr.location.block) != nullptr);
         tuple_locations.push_back(rb_item_ptr.location);
       }
     } else {
