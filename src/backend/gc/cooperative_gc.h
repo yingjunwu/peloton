@@ -32,16 +32,21 @@ namespace gc {
 
 class Cooperative_GCManager : public GCManager {
 public:
-  Cooperative_GCManager()
+  Cooperative_GCManager(int thread_count)
     : is_running_(true),
-      reclaim_queue_(MAX_QUEUE_LENGTH) {
+      gc_thread_count_(thread_count),
+      gc_threads_(thread_count) {
+    for(int i = 0; i < thread_count; i++) {
+      std::shared_ptr<LockfreeQueue<TupleMetadata>> queue(new LockfreeQueue<TupleMetadata>(MAX_QUEUE_LENGTH));
+      reclaim_queues_.emplace_back(queue);
+    }
     StartGC();
   }
 
   virtual ~Cooperative_GCManager() { StopGC(); }
 
-  static Cooperative_GCManager &GetInstance() {
-    static Cooperative_GCManager gcManager;
+  static Cooperative_GCManager &GetInstance(int thread_count = 1) {
+    static Cooperative_GCManager gcManager(thread_count);
     return gcManager;
   }
 
@@ -73,11 +78,15 @@ public:
 private:
   void ClearGarbage();
   
-  void Running();
+  void Running(int thread_id);
 
   void AddToRecycleMap(const TupleMetadata &tuple_metadata);
 
   bool ResetTuple(const TupleMetadata &);
+
+  inline int HashToThread(const oid_t &tuple_id) {
+    return tuple_id % gc_thread_count_;
+  }
 
 private:
   //===--------------------------------------------------------------------===//
@@ -85,10 +94,10 @@ private:
   //===--------------------------------------------------------------------===//
   volatile bool is_running_;
 
-  std::unique_ptr<std::thread> gc_thread_;
+  const int gc_thread_count_;
+  std::vector<std::unique_ptr<std::thread>> gc_threads_;
 
-  // TODO: use shared pointer to reduce memory copy
-  LockfreeQueue<TupleMetadata> reclaim_queue_;
+  std::vector<std::shared_ptr<LockfreeQueue<TupleMetadata>>> reclaim_queues_;
 
   // TODO: use shared pointer to reduce memory copy
   // cuckoohash_map<oid_t, std::shared_ptr<LockfreeQueue<TupleMetadata>>> recycle_queue_map_;

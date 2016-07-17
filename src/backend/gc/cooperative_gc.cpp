@@ -35,13 +35,17 @@ GCBuffer::~GCBuffer(){
 void Cooperative_GCManager::StartGC() {
   LOG_TRACE("Starting GC");
   this->is_running_ = true;
-  gc_thread_.reset(new std::thread(&Cooperative_GCManager::Running, this));
+  for (int i = 0; i < gc_thread_count_; i++) {
+    gc_threads_[i].reset(new std::thread(&Cooperative_GCManager::Running, this, i));
+  }
 }
 
 void Cooperative_GCManager::StopGC() {
   LOG_TRACE("Stopping GC");
   this->is_running_ = false;
-  this->gc_thread_->join();
+  for (int i = 0; i < gc_thread_count_; i++) {
+    this->gc_threads_[i]->join();
+  }
   ClearGarbage();
 }
 
@@ -99,23 +103,30 @@ void Cooperative_GCManager::AddToRecycleMap(const TupleMetadata &tuple_metadata)
   recycle_queue_map_[tuple_metadata.table_id]->Enqueue(tuple_metadata);
 }
 
-void Cooperative_GCManager::Running() {
+void Cooperative_GCManager::Running(int thread_id) {
   // Check if we can move anything from the possibly free list to the free list.
 
   // We use a local buffer to store all possible garbage handled by this gc worker
   std::list<TupleMetadata> local_reclaim_queue;
 
   while (true) {
-    std::this_thread::sleep_for(
-      std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
+    TupleMetadata tuple_metadata;
+
+    if (reclaim_queues_[thread_id]->Dequeue(tuple_metadata) == false) {
+      // queue is empty, sleep a while to wait for garbage
+      std::this_thread::sleep_for(
+        std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
+    } else {
+      local_reclaim_queue.push_back(tuple_metadata);
+    }
 
     LOG_TRACE("reclaim tuple thread...");
 
     // First load every possible garbage into the list
     // This step move all garbage from the global reclaim queue to the worker's local queue
     for (size_t i = 0; i < MAX_ATTEMPT_COUNT; ++i) {
-      TupleMetadata tuple_metadata;
-      if (reclaim_queue_.Dequeue(tuple_metadata) == false) {
+
+      if (reclaim_queues_[thread_id]->Dequeue(tuple_metadata) == false) {
         break;
       }
       LOG_TRACE("Collect tuple (%u, %u) of table %u into local list",
@@ -133,7 +144,7 @@ void Cooperative_GCManager::Running() {
     int attempt = 0;
     auto queue_itr = local_reclaim_queue.begin();
 
-    while (queue_itr != local_reclaim_queue.end() && attempt < MAX_ATTEMPT_COUNT) {
+    while (queue_itr != local_reclaim_queue.end()) {
       if (queue_itr->tuple_end_cid <= max_cid) {
         // add the tuple to recycle map
         LOG_TRACE("Add tuple(%u, %u) in table %u to recycle map", queue_itr->tile_group_id,
@@ -177,7 +188,8 @@ void Cooperative_GCManager::RecycleOldTupleSlot(const oid_t &table_id,
   tuple_metadata.tuple_slot_id = tuple_id;
   tuple_metadata.tuple_end_cid = tuple_end_cid;
 
-  reclaim_queue_.Enqueue(tuple_metadata);
+  auto thread_id = HashToThread(tuple_id);
+  reclaim_queues_[thread_id]->Enqueue(tuple_metadata);
   LOG_TRACE("Marked tuple(%u, %u) in table %u as possible garbage",
            tuple_metadata.tile_group_id, tuple_metadata.tuple_slot_id,
            tuple_metadata.table_id);
@@ -225,11 +237,14 @@ void Cooperative_GCManager::ClearGarbage() {
   // iterate reclaim queue and reclaim every thing because it's the end of the world now.
   TupleMetadata tuple_metadata;
   int counter = 0;
-  while (reclaim_queue_.Dequeue(tuple_metadata) == true) {
-    // In such case, we assume it's the end of the world and every possible
-    // garbage is actually garbage
-    AddToRecycleMap(tuple_metadata);
-    counter++;
+
+  for (int i = 0; i < gc_thread_count_; i++) {
+    while (reclaim_queues_[i]->Dequeue(tuple_metadata) == true) {
+      // In such case, we assume it's the end of the world and every possible
+      // garbage is actually garbage
+      AddToRecycleMap(tuple_metadata);
+      counter++;
+    }
   }
 
   LOG_TRACE("Cooperative_GCManager finally recyle %d tuples", counter);
