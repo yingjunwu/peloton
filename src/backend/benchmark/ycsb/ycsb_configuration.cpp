@@ -38,6 +38,7 @@ void Usage(FILE *out) {
           "   -o --operation_count   :  # of operations \n"
           "   -y --read_only         :  # of read-only backends \n"
           "   -v --reverse           :  # of reverse backends \n"
+          "   -n --sindex_count      :  # of secondary index\n"
           "   -u --write_ratio       :  Fraction of updates \n"
           "   -z --zipf_theta        :  theta to control skewness \n"
           "   -m --mix_txn           :  run read/write mix txn \n"
@@ -72,6 +73,7 @@ static struct option opts[] = {
     {"protocol", optional_argument, NULL, 'p'},
     {"gc_protocol", optional_argument, NULL, 'g'},
     {"gc_thread", optional_argument, NULL, 't'},
+    {"sindex_count", optional_argument, NULL, 'n'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -190,6 +192,18 @@ void ValidateIndex(const configuration &state) {
   }
 }
 
+void ValidateSecondaryIndex(const configuration &state) {
+  if (state.sindex_count < 0) {
+    LOG_ERROR("Secondary index number should >= 0");
+    exit(EXIT_FAILURE);
+  } else if (state.sindex_count > state.column_count) {
+    // Fixme (Runshen Zhu): <= column count - 1 ?
+    // const oid_t col_count = state.column_count + 1; in constructing table
+    LOG_ERROR("Secondary index number should <= column count");
+    exit(EXIT_FAILURE);
+  }
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -209,17 +223,20 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.blind_write = false;
   state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
   state.gc_protocol = GC_TYPE_OFF;
-  state.index = INDEX_TYPE_BTREE;
+  state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
-
+  state.sindex_count = 0;
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:", opts, &idx);
+    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'n':
+        state.sindex_count = atoi(optarg);
+        break;
       case 't':
         state.gc_thread_count = atoi(optarg);
         break;
@@ -360,6 +377,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateZipfTheta(state);
   ValidateProtocol(state);
   ValidateIndex(state);
+  ValidateSecondaryIndex(state);
 
   LOG_TRACE("%s : %d", "Run mix query", state.run_mix);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);

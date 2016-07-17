@@ -109,6 +109,22 @@ void CreateYCSBDatabase() {
 
   index::Index *pkey_index = index::IndexFactory::GetInstance(index_metadata);
   user_table->AddIndex(pkey_index);
+
+
+  // Secondary index
+  // FIXME (Runshen Zhu): double check range
+  for (int i = 1; i <= state.sindex_count; i++) {
+    key_attrs.clear(); key_attrs.push_back(i);
+    key_schema = catalog::Schema::CopySchema(tuple_schema, key_attrs);
+    key_schema->SetIndexedColumns(key_attrs);
+
+    index_metadata = new index::IndexMetadata(
+      "sindex_" + i, ycsb_table_sindex_begin_oid + i, state.index,
+      INDEX_CONSTRAINT_TYPE_INVALID, tuple_schema, key_schema, false);
+
+    index::Index *skey_index = index::IndexFactory::GetInstance(index_metadata);
+    user_table->AddIndex(skey_index);
+  }
 }
 
 void LoadYCSBDatabase() {
