@@ -133,7 +133,7 @@ bool UpdateExecutor::DExecute() {
         if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
           // If it's not an inserted tuple,
           // create a new rollback segment based on the old one and the old tuple
-          auto rb_seg = concurrency::OptimisticCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
+          auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
             schema, project_info_->GetTargetList(), &old_tuple);
 
           // TODO: rb_seg == nullptr may be resulted from an optimization to be done
@@ -247,7 +247,7 @@ bool UpdateExecutor::DExecute() {
         auto rb_txn_manager = (concurrency::OptimisticCentralRbTxnManager*)&transaction_manager;
 
         // Create a rollback segment based on the old tuple
-        auto rb_seg = concurrency::OptimisticCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
+        auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
           schema, project_info_->GetTargetList(), &old_tuple);
 
         // Ask the txn manager to append the rollback segment

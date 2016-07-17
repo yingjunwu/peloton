@@ -104,7 +104,7 @@ public:
   }
 
   // Get current segment pool of the transaction manager
-  inline storage::RollbackSegmentPool *GetSegmentPool() {return current_segment_pool;}
+  virtual inline storage::RollbackSegmentPool *GetSegmentPool() {return current_segment_pool;}
 
  protected:
   static const size_t LAST_READER_OFFSET = LOCK_OFFSET + 8; // actually the lock also only occupies one byte.

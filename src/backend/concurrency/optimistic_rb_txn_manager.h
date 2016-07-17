@@ -108,7 +108,7 @@ public:
   }
 
   // Get current segment pool of the transaction manager
-  inline storage::RollbackSegmentPool *GetSegmentPool() {
+  virtual inline storage::RollbackSegmentPool *GetSegmentPool() {
     return current_segment_pool;
   }
 };
