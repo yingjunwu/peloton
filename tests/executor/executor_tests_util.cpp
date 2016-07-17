@@ -209,11 +209,7 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
     index::RBItemPointer *rb_itemptr_ptr = nullptr;
     peloton::ItemPointer location;
 
-    if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+    if (concurrency::TransactionManagerFactory::IsRB()) {
       location = table->InsertTuple(tuple.get(), &rb_itemptr_ptr);
       assert(rb_itemptr_ptr != nullptr);
     } else {
@@ -226,19 +222,11 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
     if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O) {
       // If we are using OCC N2O txn manager, use another form of perform insert
       res = ((concurrency::OptimisticN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB) {
-      res = ((concurrency::OptimisticRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
-      res = ((concurrency::OptimisticCentralRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
-      res = ((concurrency::TsOrderCentralRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
     } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
       // If we are using TO N2O txn manager, use another form of perform insert
       res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB) {
-      res = ((concurrency::TsOrderRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB) {
-      res = ((concurrency::TsOrderFullRbTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+    } else if (concurrency::TransactionManagerFactory::IsRB()) {
+      res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
     } else {
       res = transaction_manager.PerformInsert(location);
     }
@@ -365,11 +353,7 @@ storage::DataTable *ExecutorTestsUtil::CreateTable(
     key_schema->SetIndexedColumns(key_attrs);
 
     unique = false;
-    if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB
-      || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+    if (concurrency::TransactionManagerFactory::IsRB()) {
       index_metadata = new index::IndexMetadata(
           "secondary_btree_index", 124, INDEX_TYPE_RBBTREE,
           INDEX_CONSTRAINT_TYPE_DEFAULT, tuple_schema, key_schema, unique);

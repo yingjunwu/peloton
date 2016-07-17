@@ -245,11 +245,7 @@ void RunBenchmark() {
   // Validate MVCC storage
   if (state.protocol != CONCURRENCY_TYPE_OCC_N2O 
     && state.protocol != CONCURRENCY_TYPE_TO_N2O 
-    && state.protocol != CONCURRENCY_TYPE_OCC_RB
-    && state.protocol != CONCURRENCY_TYPE_OCC_CENTRAL_RB
-    && state.protocol != CONCURRENCY_TYPE_TO_CENTRAL_RB
-    && state.protocol != CONCURRENCY_TYPE_TO_RB
-    && state.protocol != CONCURRENCY_TYPE_TO_FULL_RB) {
+    && concurrency::TransactionManagerFactory::IsRB()) {
     ValidateMVCC();
   }
 
@@ -259,11 +255,7 @@ void RunBenchmark() {
   // Validate MVCC storage
   if (state.protocol != CONCURRENCY_TYPE_OCC_N2O 
     && state.protocol != CONCURRENCY_TYPE_TO_N2O 
-    && state.protocol != CONCURRENCY_TYPE_OCC_RB
-    && state.protocol != CONCURRENCY_TYPE_OCC_CENTRAL_RB
-    && state.protocol != CONCURRENCY_TYPE_TO_CENTRAL_RB
-    && state.protocol != CONCURRENCY_TYPE_TO_RB
-    && state.protocol != CONCURRENCY_TYPE_TO_FULL_RB) {
+    && concurrency::TransactionManagerFactory::IsRB()) {
     ValidateMVCC();
   }
 
@@ -277,7 +269,6 @@ void RunBenchmark() {
 int main(int argc, char **argv) {
   peloton::benchmark::ycsb::ParseArguments(argc, argv,
                                            peloton::benchmark::ycsb::state);
-
   peloton::benchmark::ycsb::RunBenchmark();
 
   return 0;
