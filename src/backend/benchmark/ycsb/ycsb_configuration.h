@@ -32,6 +32,8 @@ static const oid_t user_table_pkey_index_oid = 2001;
 
 static const oid_t ycsb_field_length = 100;
 
+static const oid_t ycsb_table_sindex_begin_oid = 3000;
+
 class configuration {
  public:
   // size of the table
@@ -66,6 +68,9 @@ class configuration {
 
   // number of backends
   int backend_count;
+
+  // number of secondary index
+  int sindex_count;
 
   std::vector<double> snapshot_throughput;
 
