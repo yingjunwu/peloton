@@ -115,7 +115,7 @@ class EpochManager {
   }
 
   void ExitReadOnlyEpoch(size_t epoch) {
-    PL_ASSERT(epoch > reclaim_tail_);
+    PL_ASSERT(epoch >= reclaim_tail_);
     PL_ASSERT(epoch <= queue_tail_);
 
     auto epoch_idx = epoch % epoch_queue_size_;
@@ -123,7 +123,7 @@ class EpochManager {
   }
 
   void ExitEpoch(size_t epoch) {
-    PL_ASSERT(epoch > queue_tail_);
+    PL_ASSERT(epoch >= queue_tail_);
     PL_ASSERT(epoch <= current_epoch_);
 
     auto epoch_idx = epoch % epoch_queue_size_;
