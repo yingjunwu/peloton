@@ -71,6 +71,24 @@ BWTREE_INDEX_TYPE::InsertEntry(const storage::Tuple *key,
   return ret;
 }
 
+BWTREE_TEMPLATE_ARGUMENTS
+bool
+BWTREE_INDEX_TYPE::InsertEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location) {
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  ItemPointer *item_p = location;
+
+  bool ret = container.Insert(index_key, item_p);
+  // If insertion fails we just delete the new value and return false
+  // to notify the caller
+  if(ret == false) {
+    delete item_p;
+  }
+
+  return ret;
+}
+
 /*
  * DeleteEntry() - Removes a key-value pair
  *
@@ -90,6 +108,31 @@ BWTREE_INDEX_TYPE::DeleteEntry(const storage::Tuple *key,
   // it is unnecessary for us to allocate memory
   bool ret = container.DeleteExchange(index_key, &ip_p);
   
+  // IF delete succeeds then DeleteExchange() will exchange the deleted
+  // value into this variable
+  if(ret == true) {
+    //delete ip_p;
+  } else {
+    // This will delete the unused memory
+    delete ip_p;
+  }
+
+  return ret;
+}
+
+BWTREE_TEMPLATE_ARGUMENTS
+bool
+BWTREE_INDEX_TYPE::DeleteEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location) {
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  // Must allocate new memory here
+  ItemPointer *ip_p = location;
+
+  // In Delete() since we just use the value for comparison (i.e. read-only)
+  // it is unnecessary for us to allocate memory
+  bool ret = container.DeleteExchange(index_key, &ip_p);
+
   // IF delete succeeds then DeleteExchange() will exchange the deleted
   // value into this variable
   if(ret == true) {
@@ -137,6 +180,26 @@ BWTREE_INDEX_TYPE::CondInsertEntry(const storage::Tuple *key,
     delete item_p;
   }
 
+  return ret;
+}
+
+BWTREE_TEMPLATE_ARGUMENTS
+bool
+BWTREE_INDEX_TYPE::CondInsertEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location,
+                                   std::function<bool(const void *)> predicate) {
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  ItemPointer *item_p = location;
+  bool predicate_satisfied = false;
+
+  // This function will complete them in one step
+  // predicate will be set to nullptr if the predicate
+  // returns true for some value
+  bool ret = container.ConditionalInsert(index_key,
+                                         item_p,
+                                         predicate,
+                                         &predicate_satisfied);
   return ret;
 }
 
