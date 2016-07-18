@@ -101,7 +101,9 @@ class DataTable : public AbstractTable {
   //===--------------------------------------------------------------------===//
   // insert version in table
   ItemPointer InsertEmptyVersion(const Tuple *tuple);
-  ItemPointer InsertVersion(const Tuple *tuple);
+  ItemPointer InsertVersion(const Tuple *tuple,
+             // Only for tuple type secondary index
+             const TargetList *targets_ptr = nullptr, ItemPointer *master_ptr = nullptr);
   // insert tuple in table
   ItemPointer InsertTuple(const Tuple *tuple, ItemPointer **itemptr_ptr = nullptr);
   // For RB
@@ -244,6 +246,9 @@ class DataTable : public AbstractTable {
 
   bool InsertInSecondaryIndexes(const storage::Tuple *tuple,
                                 ItemPointer location);
+
+  bool InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, ItemPointer location,
+          const TargetList *targetes_ptr, ItemPointer *masterPtr);
 
   // check the foreign key constraints
   bool CheckForeignKeyConstraints(const storage::Tuple *tuple);

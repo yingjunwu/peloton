@@ -23,6 +23,7 @@
 #include "backend/storage/tile_group_header.h"
 #include "backend/storage/tile.h"
 #include "backend/storage/rollback_segment.h"
+#include "backend/index/index_factory.h"
 
 namespace peloton {
 namespace executor {
@@ -186,8 +187,14 @@ bool UpdateExecutor::DExecute() {
         // CopyTuple? -- RX
         rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
       } else {
+        ItemPointer new_location;
         // finally insert updated tuple into the table
-        ItemPointer new_location = target_table_->InsertVersion(new_tuple.get());
+        if (index::IndexFactory::GetSecondaryIndexType()) {
+          ItemPointer *master_ptr = tile_group_header->GetMasterPointer(old_location.offset);
+          new_location = target_table_->InsertVersion(new_tuple.get(), &(project_info_->GetTargetList()), master_ptr);
+        } else {
+          new_location = target_table_->InsertVersion(new_tuple.get());
+        }
         // FIXME: PerformUpdate() will not be executed if the insertion failed,
         // There is a write lock acquired, but it is not in the write set.
         // the acquired lock can't be released when the txn is aborted.

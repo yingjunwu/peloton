@@ -15,6 +15,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <backend/index/index_factory.h>
 
 #include "backend/common/types.h"
 #include "backend/executor/logical_tile.h"
@@ -471,7 +472,7 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
     auto tuple_id = tuple_location.offset;
 
     // if the tuple is visible.
-    if (transaction_manager.IsVisible(tile_group_header, tuple_id)) {
+    if (transaction_manager.IsVisible(tile_group_header, tuple_id) == VISIBILITY_OK) {
       // perform predicate evaluation.
       if (predicate_ == nullptr) {
         visible_tuples[tile_group_id].push_back(tuple_id);
@@ -526,6 +527,134 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
 
   return true;
 }
+
+
+bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
+  LOG_TRACE("ExecTupleSecondaryIndexLookup");
+  PL_ASSERT(!done_);
+
+  std::vector<ItemPointer *> tuple_location_ptrs;
+
+  PL_ASSERT(index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
+  PL_ASSERT(index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE);
+
+  if (0 == key_column_ids_.size()) {
+    index_->ScanAllKeys(tuple_location_ptrs);
+  } else {
+    index_->Scan(values_, key_column_ids_, expr_types_,
+                 SCAN_DIRECTION_TYPE_FORWARD, tuple_location_ptrs);
+  }
+
+  if (tuple_location_ptrs.size() == 0) {
+    LOG_TRACE("no tuple is retrieved from index.");
+    return false;
+  }
+
+  auto &transaction_manager =
+    concurrency::TransactionManagerFactory::GetInstance();
+
+  std::map<oid_t, std::vector<oid_t>> visible_tuples;
+
+  for (auto tuple_location_ptr : tuple_location_ptrs) {
+    ItemPointer tuple_location = *tuple_location_ptr;
+
+    auto &manager = catalog::Manager::GetInstance();
+    auto tile_group = manager.GetTileGroup(tuple_location.block);
+    auto tile_group_header = tile_group.get()->GetHeader();
+
+    size_t chain_length = 0;
+
+    while (true) {
+      // check the version chain
+      ++chain_length;
+
+      auto visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
+
+      if (visibility != VISIBILITY_OK) {
+        LOG_TRACE("Invisible read: %u, %u", tuple_location.block,
+                  tuple_location.offset);
+      } else {
+        LOG_TRACE("perform read: %u, %u", tuple_location.block,
+                  tuple_location.offset);
+
+        // Further check if the version has the secondary key
+        storage::Tuple key_tuple(index_->GetKeySchema(), true);
+        expression::ContainerTuple<storage::TileGroup> candidate_tuple(
+          tile_group.get(), tuple_location.offset
+        );
+        // Construct the key tuple
+        auto &indexed_columns = index_->GetKeySchema()->GetIndexedColumns();
+
+        oid_t this_col_itr = 0;
+        for (auto col : indexed_columns) {
+          key_tuple.SetValue(this_col_itr, candidate_tuple.GetValue(col), index_->GetPool());
+          this_col_itr++;
+        }
+
+        // Compare the key tuple and the key
+        if (index_->Compare(key_tuple, key_column_ids_, expr_types_, values_) == false) {
+          LOG_TRACE("Secondary key mismatch: %u, %u", tuple_location.block, tuple_location.offset);
+          break;
+        }
+
+        // perform predicate evaluation.
+        if (predicate_ == nullptr) {
+          visible_tuples[tuple_location.block].push_back(tuple_location.offset);
+
+          if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
+            auto res = transaction_manager.PerformRead(tuple_location);
+            if (!res) {
+              transaction_manager.SetTransactionResult(RESULT_FAILURE);
+              transaction_manager.AddOneReadAbort();
+              return res;
+            }
+          }
+        } else {
+          expression::ContainerTuple<storage::TileGroup> tuple(
+            tile_group.get(), tuple_location.offset);
+          auto eval =
+            predicate_->Evaluate(&tuple, nullptr, executor_context_).IsTrue();
+          if (eval == true) {
+            visible_tuples[tuple_location.block].push_back(tuple_location.offset);
+
+            if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
+              auto res = transaction_manager.PerformRead(tuple_location);
+              if (!res) {
+                transaction_manager.SetTransactionResult(RESULT_FAILURE);
+                transaction_manager.AddOneReadAbort();
+                return res;
+              }
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // Construct a logical tile for each block
+  for (auto tuples : visible_tuples) {
+    auto &manager = catalog::Manager::GetInstance();
+    auto tile_group = manager.GetTileGroup(tuples.first);
+
+    std::unique_ptr<LogicalTile> logical_tile(LogicalTileFactory::GetTile());
+    // Add relevant columns to logical tile
+    logical_tile->AddColumns(tile_group, full_column_ids_);
+    logical_tile->AddPositionList(std::move(tuples.second));
+    if (column_ids_.size() != 0) {
+      logical_tile->ProjectColumns(full_column_ids_, column_ids_);
+    }
+
+    result_.push_back(logical_tile.release());
+  }
+
+  done_ = true;
+
+  LOG_TRACE("Result tiles : %lu", result_.size());
+
+  return true;
+}
+
 
 }  // namespace executor
 }  // namespace peloton
