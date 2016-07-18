@@ -104,7 +104,6 @@ bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
         break;
       }
     } else {
-      assert(false);
       switch (index->GetIndexType()) {
       case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY:
         break;
@@ -291,7 +290,7 @@ bool RBTxnManager::PerformRead(const ItemPointer &location) {
   return true;
 }
 
-bool RBTxnManager::PerformInsert(const ItemPointer &location, index::RBItemPointer *rb_item_ptr) {
+bool RBTxnManager::PerformInsert(const ItemPointer &location, void *item_ptr) {
   LOG_TRACE("Perform insert in RB with rb_itemptr %p", rb_item_ptr);
 
   // PL_ASSERT(rb_item_ptr != nullptr);
@@ -314,7 +313,7 @@ bool RBTxnManager::PerformInsert(const ItemPointer &location, index::RBItemPoint
   // init the reserved field
   InitTupleReserved(tile_group_header, tuple_id);
 
-  SetSIndexPtr(tile_group_header, tuple_id, rb_item_ptr);
+  SetSIndexPtr(tile_group_header, tuple_id, item_ptr);
 
   // Add the new tuple into the insert set
   current_txn->RecordInsert(location);

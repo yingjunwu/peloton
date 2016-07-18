@@ -237,6 +237,7 @@ static void ValidateMVCC() {
 void RunBenchmark() {
   gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
   concurrency::TransactionManagerFactory::Configure(state.protocol);
+  index::IndexFactory::Configure(state.sindex);
   // Create and load the user table
   CreateYCSBDatabase();
 

@@ -26,7 +26,7 @@
 namespace peloton {
 namespace index {
 
-SecondaryIndexType IndexFactory::secondary_index_type_ = SECONDARY_INDEX_TYPE_VERSION;
+SecondaryIndexType IndexFactory::secondary_index_type_ = SECONDARY_INDEX_TYPE_TUPLE;
 
 Index *IndexFactory::GetInstance(IndexMetadata *metadata, const size_t &preallocate_size) {
   bool ints_only = false;

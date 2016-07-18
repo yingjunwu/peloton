@@ -64,7 +64,7 @@ public:
 
   virtual bool PerformInsert(const ItemPointer &location UNUSED_ATTRIBUTE) { PL_ASSERT(false); return false; };
 
-  virtual bool PerformInsert(const ItemPointer &location, index::RBItemPointer *rb_item_ptr);
+  virtual bool PerformInsert(const ItemPointer &location, void *item_ptr);
 
   // Get the read timestamp of the latest transaction on this thread, it is 
   // either the begin commit time of current transaction of the just committed

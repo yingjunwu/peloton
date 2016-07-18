@@ -49,6 +49,7 @@ void Usage(FILE *out) {
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/n2otxn/va\n"
+          "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -74,6 +75,7 @@ static struct option opts[] = {
     {"gc_protocol", optional_argument, NULL, 'g'},
     {"gc_thread", optional_argument, NULL, 't'},
     {"sindex_count", optional_argument, NULL, 'n'},
+    {"sindex_mode", optional_argument, NULL, 'q'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -226,10 +228,11 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
   state.sindex_count = 0;
+  state.sindex = SECONDARY_INDEX_TYPE_VERSION;
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:", opts, &idx);
+    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:", opts, &idx);
 
     if (c == -1) break;
 
@@ -349,6 +352,18 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.index = INDEX_TYPE_HASH;
         } else {
           fprintf(stderr, "\nUnknown index: %s\n", index);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'q': {
+        char *sindex = optarg;
+        if (strcmp(sindex, "version") == 0) {
+          state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+        } else if (strcmp(sindex, "tuple") == 0) {
+          state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
+        } else {
+          fprintf(stderr, "\n Unknown sindex: %s\n", sindex);
           exit(EXIT_FAILURE);
         }
         break;
