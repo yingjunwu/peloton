@@ -58,9 +58,7 @@ bool RBBTreeIndex<KeyType, ValueType, KeyComparator,
 
   index_key.SetFromKey(key);
   *result = new RBItemPointer(location, MAX_CID);
-  std::pair<KeyType, ValueType> entry(index_key,
-                                      *result);
-
+  std::pair<KeyType, ValueType> entry(index_key, *result);
   {
     index_lock.Lock();
 

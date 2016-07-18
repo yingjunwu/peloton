@@ -23,6 +23,7 @@
 #include "backend/expression/abstract_expression.h"
 #include "backend/expression/container_tuple.h"
 #include "backend/index/index.h"
+#include "backend/index/index_factory.h"
 #include "backend/storage/data_table.h"
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
@@ -387,36 +388,73 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
   return true;
 }
 
+// Verify that the locations in RB is REALLY visible (key match) by traversing
+// the RB chain.
+void IndexScanExecutor::RBVerifyVisible(std::vector<ItemPointer> &tuple_locations) {
+  auto &indexed_columns = index_->GetMetadata()->GetKeySchema()->GetIndexedColumns();
+  auto &manager = catalog::Manager::GetInstance();
+
+  // Map from table columns to index key columns
+  std::unordered_map<oid_t, oid_t> id_map;
+  for(size_t i = 0; i < indexed_columns.size(); i++){
+    id_map[indexed_columns[i]] = (oid_t)i;
+  }
+
+  for (auto itr = tuple_locations.begin(); itr != tuple_locations.end();) {
+    storage::Tuple key_tuple(index_->GetMetadata()->GetKeySchema(), true);
+
+    // For each column in the index key, extract indexed column' value from the 
+    // tuple to compare with index key
+    for (oid_t indexed_column : indexed_columns) {
+      auto tile_group = manager.GetTileGroup(itr->block);
+      Value value = tile_group->GetValue(itr->offset, indexed_column);
+      key_tuple.SetValue(id_map[indexed_column], value, executor_context_->GetExecutorContextPool());
+    }
+    // Compare the tuple with the expression
+    if (true) {
+      itr++;
+    } else {
+      itr = tuple_locations.erase(itr);
+    }
+  }
+}
+
 bool IndexScanExecutor::ExecSecondaryIndexLookup() {
   LOG_TRACE("ExecSecondaryIndexLookup");
   assert(!done_);
 
   std::vector<ItemPointer> tuple_locations;
   std::vector<index::RBItemPointer> rb_tuple_locations;
-  auto &manager = catalog::Manager::GetInstance();
   assert(index_->GetIndexType() != INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
 
   if (0 == key_column_ids_.size()) {
     if (concurrency::TransactionManagerFactory::IsRB()) {
-      index_->ScanAllKeys(rb_tuple_locations);
-      for (auto &rb_item_ptr : rb_tuple_locations) {
-        tuple_locations.push_back(rb_item_ptr.location);
-        assert(manager.GetTileGroup(rb_item_ptr.location.block) != nullptr);
+      if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+        index_->ScanAllKeys(rb_tuple_locations);
+        for (auto &rb_item_ptr : rb_tuple_locations) {
+          tuple_locations.push_back(rb_item_ptr.location);
+        }  
+      } else {
+        index_->ScanAllKeys(tuple_locations);
       }
     } else {
       index_->ScanAllKeys(tuple_locations);  
     }
   } else {
     if (concurrency::TransactionManagerFactory::IsRB()) {
-      index_->Scan(values_, key_column_ids_, expr_types_,SCAN_DIRECTION_TYPE_FORWARD, rb_tuple_locations);
-      for (auto &rb_item_ptr : rb_tuple_locations) {
-        assert(manager.GetTileGroup(rb_item_ptr.location.block) != nullptr);
-        tuple_locations.push_back(rb_item_ptr.location);
+      if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+        index_->Scan(values_, key_column_ids_, expr_types_, SCAN_DIRECTION_TYPE_FORWARD, rb_tuple_locations);  
+          for (auto &rb_item_ptr : rb_tuple_locations) {
+          assert(manager.GetTileGroup(rb_item_ptr.location.block) != nullptr);
+          tuple_locations.push_back(rb_item_ptr.location);
+        }
+      } else {
+        index_->Scan(values_, key_column_ids_, expr_types_, SCAN_DIRECTION_TYPE_FORWARD, tuple_locations);
+        RBVerifyVisible(tuple_locations);
       }
     } else {
       index_->Scan(values_, key_column_ids_, expr_types_,SCAN_DIRECTION_TYPE_FORWARD, tuple_locations);  
     }
-    
   }
 
   if (tuple_locations.size() == 0) return false;

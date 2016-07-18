@@ -209,7 +209,8 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
     index::RBItemPointer *rb_itemptr_ptr = nullptr;
     peloton::ItemPointer location;
 
-    if (concurrency::TransactionManagerFactory::IsRB()) {
+    if (concurrency::TransactionManagerFactory::IsRB()
+       && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
       location = table->InsertTuple(tuple.get(), &rb_itemptr_ptr);
       assert(rb_itemptr_ptr != nullptr);
     } else {
@@ -353,9 +354,10 @@ storage::DataTable *ExecutorTestsUtil::CreateTable(
     key_schema->SetIndexedColumns(key_attrs);
 
     unique = false;
-    if (concurrency::TransactionManagerFactory::IsRB()) {
+    if (concurrency::TransactionManagerFactory::IsRB()
+        && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
       index_metadata = new index::IndexMetadata(
-          "secondary_btree_index", 124, INDEX_TYPE_RBBTREE,
+          "secondary_rbbtree_index", 124, INDEX_TYPE_RBBTREE,
           INDEX_CONSTRAINT_TYPE_DEFAULT, tuple_schema, key_schema, unique);
     } else {
       index_metadata = new index::IndexMetadata(

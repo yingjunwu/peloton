@@ -19,13 +19,14 @@
 #include "backend/catalog/manager.h"
 #include "backend/common/exception.h"
 #include "backend/common/logger.h"
+#include "backend/index/index_factory.h"
 
 namespace peloton {
 
 namespace concurrency {
 
 thread_local storage::RollbackSegmentPool *current_segment_pool;
-thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> updated_index_entries;
+thread_local std::unordered_map<ItemPointer, void *> updated_index_entries;
 
 /**
  * @brief Insert a tuple into secondary index. Notice that we only support at
@@ -37,6 +38,10 @@ thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> updated_ind
  */
 bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
   const ItemPointer &location, const storage::Tuple *tuple) {
+
+  bool is_sindex_version = (index::IndexFactory::GetSecondaryIndexType() == 
+    SECONDARY_INDEX_TYPE_VERSION);
+
   // Index checks and updates
   int index_count = target_table->GetIndexCount();
 
@@ -61,7 +66,10 @@ bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
     key->SetFromTuple(tuple, indexed_columns, index->GetPool());
 
     index::RBItemPointer *rb_itempointer_ptr = nullptr;
-    switch (index->GetIndexType()) {
+    // ItemPointer *itempointer_ptr = nullptr;
+
+    if (is_sindex_version) {
+      switch (index->GetIndexType()) {
       case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY:
         break;
       case INDEX_CONSTRAINT_TYPE_UNIQUE: {
@@ -94,7 +102,44 @@ bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
         }
         // Record into the updated index entry set, used when commit
         break;
+      }
+    } else {
+      switch (index->GetIndexType()) {
+      case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY:
+        break;
+      case INDEX_CONSTRAINT_TYPE_UNIQUE: {
+        // if in this index there has been a visible or uncommitted
+        // <key, location> pair, this constraint is violated
+        if (index->CondInsertEntry(key.get(), location, fn, &rb_itempointer_ptr) == false) {
+          return false;
+        }
+        // Record into the updated index entry set, used when commit
+        auto itr = updated_index_entries.find(location);
+        if (itr != updated_index_entries.end()) {
+          index->DeleteEntry(key.get(), *rb_itempointer_ptr);
+          itr->second = rb_itempointer_ptr;
+        } else {
+          updated_index_entries.emplace(location, rb_itempointer_ptr);
+        }
+        
+        break;
+      }
+
+      case INDEX_CONSTRAINT_TYPE_DEFAULT:
+      default:
+        index->InsertEntry(key.get(), location, &rb_itempointer_ptr);
+        auto itr = updated_index_entries.find(location);
+        if (itr != updated_index_entries.end()) {
+          index->DeleteEntry(key.get(), *rb_itempointer_ptr);
+          itr->second = rb_itempointer_ptr;
+        } else {
+          updated_index_entries.emplace(location, rb_itempointer_ptr);
+        }
+        // Record into the updated index entry set, used when commit
+        break;
+      }
     }
+    
     LOG_TRACE("Index constraint check on %s passed.", index->GetName().c_str());
   }
   return true;
@@ -313,9 +358,12 @@ void RBTxnManager::InstallSecondaryIndex(cid_t end_commit_id) {
     oid_t tile_group_id = location.block;
     oid_t tuple_id = location.offset;
     auto tile_group_header = manager.GetTileGroup(tile_group_id)->GetHeader();
-    index::RBItemPointer *old_index_ptr = GetSIndexPtr(tile_group_header, tuple_id);
-    assert(old_index_ptr != nullptr);
-    old_index_ptr->timestamp = end_commit_id;
+
+    if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+      index::RBItemPointer *old_index_ptr = (index::RBItemPointer *)GetSIndexPtr(tile_group_header, tuple_id);
+      old_index_ptr->timestamp = end_commit_id;
+    }
+
     SetSIndexPtr(tile_group_header, tuple_id, itr->second);
   }
 }

@@ -105,8 +105,8 @@ void Tile::InsertTuple(const oid_t tuple_offset, Tuple *tuple) {
 
 /**
  * Returns value present at slot
+ * column id is a 0-based column number
  */
-// column id is a 0-based column number
 Value Tile::GetValue(const oid_t tuple_offset, const oid_t column_id) {
   PL_ASSERT(tuple_offset < GetAllocatedTupleCount());
   PL_ASSERT(column_id < schema.GetColumnCount());

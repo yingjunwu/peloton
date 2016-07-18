@@ -22,6 +22,7 @@
 #include "backend/planner/insert_plan.h"
 #include "backend/storage/data_table.h"
 #include "backend/storage/tuple_iterator.h"
+#include "backend/index/index_factory.h"
 
 namespace peloton {
 namespace executor {
@@ -95,7 +96,8 @@ bool InsertExecutor::DExecute() {
       index::RBItemPointer *rb_itemptr_ptr = nullptr;
       peloton::ItemPointer location;
       
-      if (concurrency::TransactionManagerFactory::IsRB()) {
+      if (concurrency::TransactionManagerFactory::IsRB()
+         && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
         location = target_table->InsertTuple(tuple.get(), &rb_itemptr_ptr);
         assert(rb_itemptr_ptr != nullptr);
       } else {
@@ -114,7 +116,8 @@ bool InsertExecutor::DExecute() {
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
         // If we are using TO N2O txn manager, use another form of perform insert
         res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-      } else if (concurrency::TransactionManagerFactory::IsRB()) {
+      } else if (concurrency::TransactionManagerFactory::IsRB()
+        && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
         res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       }  else {
         res = transaction_manager.PerformInsert(location);
@@ -168,7 +171,8 @@ bool InsertExecutor::DExecute() {
       index::RBItemPointer *rb_itemptr_ptr = nullptr;
       peloton::ItemPointer location;
       
-      if (concurrency::TransactionManagerFactory::IsRB()) {
+      if (concurrency::TransactionManagerFactory::IsRB()
+         && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
         location = target_table->InsertTuple(tuple, &rb_itemptr_ptr);
         if (target_table->GetIndexCount() > 1)
           assert(rb_itemptr_ptr != nullptr);
@@ -188,7 +192,8 @@ bool InsertExecutor::DExecute() {
       } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
         // If we are using TO N2O txn manager, use another form of perform insert
         res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-      } else if (concurrency::TransactionManagerFactory::IsRB()) {
+      } else if (concurrency::TransactionManagerFactory::IsRB()
+        && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
         res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
       } else {
         res = transaction_manager.PerformInsert(location);

@@ -23,7 +23,7 @@ namespace peloton {
 namespace concurrency {
 
 extern thread_local storage::RollbackSegmentPool *current_segment_pool;
-extern thread_local std::unordered_map<ItemPointer, index::RBItemPointer *> updated_index_entries;
+extern thread_local std::unordered_map<ItemPointer, void *> updated_index_entries;
 
 //===--------------------------------------------------------------------===//
 // optimistic concurrency control with rollback segment
@@ -225,13 +225,13 @@ public:
   }
 
   inline void SetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
-                          index::RBItemPointer *ptr) {
-    index::RBItemPointer **index_ptr = (index::RBItemPointer **)(tile_group_header->GetReservedFieldRef(tuple_id) + SINDEX_PTR_OFFSET);
+                          void *ptr) {
+    void **index_ptr = (void **)(tile_group_header->GetReservedFieldRef(tuple_id) + SINDEX_PTR_OFFSET);
     *index_ptr = ptr;
   }
 
-  inline index::RBItemPointer *GetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
-    index::RBItemPointer **index_ptr = (index::RBItemPointer **)(tile_group_header->GetReservedFieldRef(tuple_id) + SINDEX_PTR_OFFSET);
+  inline void *GetSIndexPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    void **index_ptr = (void **)(tile_group_header->GetReservedFieldRef(tuple_id) + SINDEX_PTR_OFFSET);
     return *index_ptr;
   }
 

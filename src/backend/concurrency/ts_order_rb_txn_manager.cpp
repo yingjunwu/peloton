@@ -161,9 +161,11 @@ Result TsOrderRbTxnManager::CommitTransaction() {
         ClearDeleteFlag(tile_group_header, tuple_slot);
 
         // Set the timestamp of the entry corresponding to the latest version
-        index::RBItemPointer *index_ptr = GetSIndexPtr(tile_group_header, tuple_slot);
-        if (index_ptr != nullptr)
-          index_ptr->timestamp = end_commit_id;
+        if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+          index::RBItemPointer *index_ptr = (index::RBItemPointer *)GetSIndexPtr(tile_group_header, tuple_slot);
+          if (index_ptr != nullptr)
+            index_ptr->timestamp = end_commit_id;
+        }
 
         COMPILER_MEMORY_FENCE;
 
@@ -209,8 +211,10 @@ Result TsOrderRbTxnManager::AbortTransaction() {
 
   // Delete from secondary index here, currently the workaround is just to 
   // invalidate the index entry by setting its timestamp to 0
-  for (auto itr = updated_index_entries.begin(); itr != updated_index_entries.end(); itr++) {
-    itr->second->timestamp = 0;
+  if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+    for (auto itr = updated_index_entries.begin(); itr != updated_index_entries.end(); itr++) {
+      ((index::RBItemPointer *)itr->second)->timestamp = 0;
+    }
   }
 
   for (auto &tile_group_entry : rw_set) {

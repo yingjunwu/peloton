@@ -131,6 +131,9 @@ bool UpdateExecutor::DExecute() {
         } else {
           auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
 
+          rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
+            project_info_->GetTargetList(), new_tuple.get());
+
           // Overwrite the master copy
           tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
 

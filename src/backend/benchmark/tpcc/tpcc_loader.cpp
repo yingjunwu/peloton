@@ -315,12 +315,13 @@ const bool allocate = true;
 const size_t preallocate_scale = 10;
 
 static IndexType GetSKeyIndexType() {
-  if (concurrency::TransactionManagerFactory::IsRB()) {
+  if (concurrency::TransactionManagerFactory::IsRB() 
+      && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
     if (state.index == INDEX_TYPE_BTREE)
       return INDEX_TYPE_RBBTREE;
     if (state.index == INDEX_TYPE_HASH)
       return INDEX_TYPE_RBHASH;
-    return INDEX_TYPE_RBBTREE;
+    return INDEX_TYPE_RBBTREE;  
   } else {
     return state.index;
   }
