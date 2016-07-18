@@ -411,7 +411,7 @@ void IndexScanExecutor::RBVerifyVisible(std::vector<ItemPointer> &tuple_location
       key_tuple.SetValue(id_map[indexed_column], value, executor_context_->GetExecutorContextPool());
     }
     // Compare the tuple with the expression
-    if (true) {
+    if (index_->Compare(key_tuple, key_column_ids_, expr_types_, values_) == true) {
       itr++;
     } else {
       itr = tuple_locations.erase(itr);
