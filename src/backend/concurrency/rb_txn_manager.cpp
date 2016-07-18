@@ -66,7 +66,7 @@ bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
     key->SetFromTuple(tuple, indexed_columns, index->GetPool());
 
     index::RBItemPointer *rb_itempointer_ptr = nullptr;
-    // ItemPointer *itempointer_ptr = nullptr;
+    ItemPointer *itempointer_ptr = nullptr;
 
     if (is_sindex_version) {
       switch (index->GetIndexType()) {
@@ -104,22 +104,23 @@ bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
         break;
       }
     } else {
+      assert(false);
       switch (index->GetIndexType()) {
       case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY:
         break;
       case INDEX_CONSTRAINT_TYPE_UNIQUE: {
         // if in this index there has been a visible or uncommitted
         // <key, location> pair, this constraint is violated
-        if (index->CondInsertEntry(key.get(), location, fn, &rb_itempointer_ptr) == false) {
+        if (index->CondInsertEntry(key.get(), location, fn, &itempointer_ptr) == false) {
           return false;
         }
         // Record into the updated index entry set, used when commit
         auto itr = updated_index_entries.find(location);
         if (itr != updated_index_entries.end()) {
-          index->DeleteEntry(key.get(), *rb_itempointer_ptr);
-          itr->second = rb_itempointer_ptr;
+          index->DeleteEntry(key.get(), *itempointer_ptr);
+          itr->second = itempointer_ptr;
         } else {
-          updated_index_entries.emplace(location, rb_itempointer_ptr);
+          updated_index_entries.emplace(location, itempointer_ptr);
         }
         
         break;
@@ -127,13 +128,13 @@ bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
 
       case INDEX_CONSTRAINT_TYPE_DEFAULT:
       default:
-        index->InsertEntry(key.get(), location, &rb_itempointer_ptr);
+        index->InsertEntry(key.get(), location, &itempointer_ptr);
         auto itr = updated_index_entries.find(location);
         if (itr != updated_index_entries.end()) {
-          index->DeleteEntry(key.get(), *rb_itempointer_ptr);
-          itr->second = rb_itempointer_ptr;
+          index->DeleteEntry(key.get(), *itempointer_ptr);
+          itr->second = itempointer_ptr;
         } else {
-          updated_index_entries.emplace(location, rb_itempointer_ptr);
+          updated_index_entries.emplace(location, itempointer_ptr);
         }
         // Record into the updated index entry set, used when commit
         break;

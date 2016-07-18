@@ -532,7 +532,8 @@ bool RBBTreeIndex<KeyType, ValueType, KeyComparator,
                  KeyEqualityChecker>::InsertEntry(UNUSED_ATTRIBUTE const
                                                   storage::Tuple *key,
                                                   UNUSED_ATTRIBUTE const
-                                                  ItemPointer &location) {
+                                                  ItemPointer &location,
+                                                  UNUSED_ATTRIBUTE ItemPointer **itempointer_ptr) {
   // Add your implementation here
   return false;
 }

@@ -445,7 +445,6 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
       if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
         index_->Scan(values_, key_column_ids_, expr_types_, SCAN_DIRECTION_TYPE_FORWARD, rb_tuple_locations);  
           for (auto &rb_item_ptr : rb_tuple_locations) {
-          assert(manager.GetTileGroup(rb_item_ptr.location.block) != nullptr);
           tuple_locations.push_back(rb_item_ptr.location);
         }
       } else {

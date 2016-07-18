@@ -46,12 +46,17 @@ template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 bool BTreeIndex<KeyType, ValueType, KeyComparator,
                 KeyEqualityChecker>::InsertEntry(const storage::Tuple *key,
-                                                 const ItemPointer &location) {
+                                                 const ItemPointer &location,
+                                                 ItemPointer **itempointer_ptr) {
   KeyType index_key;
 
   index_key.SetFromKey(key);
+  ItemPointer *itempointer = new ItemPointer(location);
   std::pair<KeyType, ValueType> entry(index_key,
-                                      new ItemPointer(location));
+                                      itempointer);
+  if (itempointer_ptr != nullptr) {
+    *itempointer_ptr = itempointer;
+  }
 
   {
     index_lock.Lock();

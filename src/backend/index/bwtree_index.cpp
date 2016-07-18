@@ -49,17 +49,23 @@ BWTREE_INDEX_TYPE::~BWTreeIndex() {
 BWTREE_TEMPLATE_ARGUMENTS
 bool
 BWTREE_INDEX_TYPE::InsertEntry(const storage::Tuple *key,
-                               const ItemPointer &location) {
+                               const ItemPointer &location,
+                              ItemPointer **itempointer_ptr) {
   KeyType index_key;
+
   index_key.SetFromKey(key);
+  ItemPointer *itempointer = new ItemPointer(location);
+  std::pair<KeyType, ValueType> entry(index_key,
+                                      itempointer);
+  if (itempointer_ptr != nullptr) {
+    *itempointer_ptr = itempointer;
+  }
   
-  ItemPointer *item_p = new ItemPointer{location};
-  
-  bool ret = container.Insert(index_key, item_p);
+  bool ret = container.Insert(index_key, itempointer);
   // If insertion fails we just delete the new value and return false
   // to notify the caller
   if(ret == false) {
-    delete item_p;
+    delete itempointer;
   }
 
   return ret;

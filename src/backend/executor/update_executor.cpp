@@ -107,6 +107,17 @@ bool UpdateExecutor::DExecute() {
       // Check if we are using rollback segment
       if (concurrency::TransactionManagerFactory::IsRB()) {
         if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+          auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
+
+          rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
+            project_info_->GetTargetList(), new_tuple.get());
+
+          // Overwrite the master copy
+          tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
+
+          // Insert into secondary index
+          rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
+        } else {
           auto rb_txn_manager = (concurrency::RBTxnManager*)&transaction_manager;
 
           if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
@@ -122,17 +133,6 @@ bool UpdateExecutor::DExecute() {
               rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
             }
           }
-
-          // Overwrite the master copy
-          tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
-
-          // Insert into secondary index
-          rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-        } else {
-          auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
-
-          rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
-            project_info_->GetTargetList(), new_tuple.get());
 
           // Overwrite the master copy
           tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
@@ -167,8 +167,14 @@ bool UpdateExecutor::DExecute() {
         auto rb_txn_manager = (concurrency::RBTxnManager*)&transaction_manager;
 
         // Create a rollback segment based on the old tuple
-        auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-          schema, project_info_->GetTargetList(), &old_tuple);
+        char *rb_seg = nullptr;
+        if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+          rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
+            schema, &old_tuple);
+        } else {
+          rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
+            schema, project_info_->GetTargetList(), &old_tuple);  
+        }
 
         // Ask the txn manager to append the rollback segment
         rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);

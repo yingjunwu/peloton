@@ -53,12 +53,16 @@ template <typename KeyType, typename ValueType, class KeyHasher,
           class KeyComparator, class KeyEqualityChecker>
 bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
                KeyEqualityChecker>::InsertEntry(const storage::Tuple *key,
-                                                const ItemPointer &location) {
+                                                const ItemPointer &location,
+                                                ItemPointer **itempointer_ptr) {
   KeyType index_key;
 
   index_key.SetFromKey(key);
 
   ItemPointer *new_location = new ItemPointer(location);
+  if (itempointer_ptr != nullptr) {
+    *itempointer_ptr = new_location;
+  }
   // std::vector<ValueType> val;
   // val.push_back(new_location);
   // if there's no key in the hash map, then insert a vector containing location.

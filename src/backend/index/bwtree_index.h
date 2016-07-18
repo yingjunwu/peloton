@@ -87,7 +87,7 @@ class BWTreeIndex : public Index {
 
   ~BWTreeIndex();
 
-  bool InsertEntry(const storage::Tuple *key, const ItemPointer &location);
+  bool InsertEntry(const storage::Tuple *key, const ItemPointer &location, ItemPointer **itempointer_ptr);
 
   bool DeleteEntry(const storage::Tuple *key, const ItemPointer &location);
 
