@@ -107,7 +107,7 @@ BWTREE_INDEX_TYPE::CondInsertEntry(const storage::Tuple *key,
   
   ItemPointer *item_p = new ItemPointer{location};
   bool predicate_satisfied = false;
-
+  
   // This function will complete them in one step
   // predicate will be set to nullptr if the predicate
   // returns true for some value
@@ -318,16 +318,18 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
     LOG_TRACE("All constraints are equal : %d ", all_constraints_are_equal);
 
     index_key.SetFromKey(start_key.get());
-/*
+
     // If it is point query then we just do a GetValue() since GetValue()
     // is way more faster than scanning using iterator
     if(all_constraints_are_equal == true) {
+      //printf("All constraints are equal\n");
+      
       // This retrieves a list of ItemPointer *
       container.GetValue(index_key, result);
 
       return;
     }
-*/
+
     //printf("Non special case\n");
 
     // This returns an iterator pointing to index_key's values
