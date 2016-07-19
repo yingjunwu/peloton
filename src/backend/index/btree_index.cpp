@@ -37,8 +37,10 @@ BTreeIndex<KeyType, ValueType, KeyComparator,
   // as the underlying index is unaware of shared_ptr,
   // memory allocated should be managed carefully by programmers.
   for (auto entry = container.begin(); entry != container.end(); ++entry) {
-    delete entry->second;
-    entry->second = nullptr;
+    if (metadata->index_type == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+      delete entry->second;
+      entry->second = nullptr;
+    }
   }
 }
 
@@ -331,6 +333,7 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
 
     index_lock.Unlock();
   }
+  LOG_TRACE("DONE\n");
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -435,9 +438,12 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
         // Scan the index entries in forward direction
         for (auto scan_itr = scan_begin_itr; scan_itr != container.end();
              scan_itr++) {
+         // fprintf(stdout, "Fuck for loop\n");
+         // fprintf(stdout, "Itempointer: %u, %d\n", scan_itr->second->block, scan_itr->second->offset);
           auto scan_current_key = scan_itr->first;
           auto tuple =
               scan_current_key.GetTupleForComparison(metadata->GetKeySchema());
+         // fprintf(stdout, "Fuck for loop again\n");
 
           // Compare the current key in the scan with "values" based on
           // "expression types"
@@ -451,6 +457,7 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
               break;
             }
           }
+         // fprintf(stdout, "Fuck for loop almost finish\n");
         }
 
       } break;
@@ -461,6 +468,7 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
         break;
     }
 
+   // fprintf(stdout, "Done\n");
     index_lock.Unlock();
   }
 }

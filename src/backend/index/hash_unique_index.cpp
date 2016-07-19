@@ -40,8 +40,10 @@ HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
   // memory allocated should be managed carefully by programmers.
   auto lt = container.lock_table();
   for (const auto &entry : lt) {
-    delete entry;
-    entry = nullptr;
+    if (metadata->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+      delete entry;
+      entry = nullptr;
+    }
   }
 }
 

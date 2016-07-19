@@ -391,7 +391,7 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
  *primary/unique).
  */
 bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
-                                ItemPointer location,ItemPointer ** itempointer_ptr) {
+                                ItemPointer location, ItemPointer ** itempointer_ptr) {
   *itempointer_ptr = nullptr;
   ItemPointer *temp_ptr = nullptr;
 
@@ -407,6 +407,7 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
   // FIXME Since this is NOT protected by a lock, concurrent insert may happen.
   if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
     *itempointer_ptr = new ItemPointer(location);
+
     bool res = true;
     int success_count = 0;
 
@@ -495,7 +496,7 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
   return true;
 }
 
-bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, ItemPointer location,
+bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSED_ATTRIBUTE ItemPointer location,
               const TargetList *targets_ptr, ItemPointer *master_ptr) {
   int index_count = GetIndexCount();
   auto &transaction_manager = concurrency::TransactionManagerFactory::GetInstance();
@@ -895,7 +896,7 @@ std::shared_ptr<storage::TileGroup> DataTable::GetTileGroupById(
 
 oid_t DataTable::GetAllCurrentTupleCount() {
   // for (auto index : indexes_) {
-  //   LOG_INFO("index size = %lu", index->GetIndexSize());
+  //   LOG_TRACE("index size = %lu", index->GetIndexSize());
   // }
 
   oid_t count = 0;

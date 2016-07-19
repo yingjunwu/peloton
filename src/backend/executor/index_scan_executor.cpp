@@ -114,7 +114,8 @@ bool IndexScanExecutor::DExecute() {
       auto status = ExecPrimaryIndexLookup();
       if (status == false) return false;
     } else {
-      auto status = ExecSecondaryIndexLookup();
+      bool status;
+      status = ExecSecondaryIndexLookup();
       if (status == false) return false;
     }
   }
@@ -424,6 +425,11 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
   LOG_TRACE("ExecSecondaryIndexLookup");
   assert(!done_);
 
+  if (concurrency::TransactionManagerFactory::IsRB() == false &&
+      index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+    return ExecTupleSecondaryIndexLookup();
+  }
+
   std::vector<ItemPointer> tuple_locations;
   std::vector<index::RBItemPointer> rb_tuple_locations;
   assert(index_->GetIndexType() != INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
@@ -472,7 +478,8 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
     auto tuple_id = tuple_location.offset;
 
     // if the tuple is visible.
-    if (transaction_manager.IsVisible(tile_group_header, tuple_id) == VISIBILITY_OK) {
+    auto visibility = transaction_manager.IsVisible(tile_group_header, tuple_id);
+    if (visibility  == VISIBILITY_OK) {
       // perform predicate evaluation.
       if (predicate_ == nullptr) {
         visible_tuples[tile_group_id].push_back(tuple_id);
@@ -550,30 +557,105 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
     return false;
   }
 
+  //fprintf(stdout, "What the fuck are you looping on?\n");
+  //fprintf(stdout, "Get result of size %d\n", (int) tuple_location_ptrs.size());
+
   auto &transaction_manager =
     concurrency::TransactionManagerFactory::GetInstance();
 
   std::map<oid_t, std::vector<oid_t>> visible_tuples;
 
   for (auto tuple_location_ptr : tuple_location_ptrs) {
+    //fprintf(stdout, "Can you at least enter the for loop?\n");
+
     ItemPointer tuple_location = *tuple_location_ptr;
 
     auto &manager = catalog::Manager::GetInstance();
+    //fprintf(stdout, "Here?\n");
+
+    //fprintf(stdout, "location %u, %u\n", tuple_location.block, tuple_location.offset);
+    //fprintf(stdout, "Protocol %d\n", (int)concurrency::TransactionManagerFactory::GetProtocol());
     auto tile_group = manager.GetTileGroup(tuple_location.block);
+    //fprintf(stdout, "Or here?\n");
+
     auto tile_group_header = tile_group.get()->GetHeader();
+    //fprintf(stdout, "Can you at least enter the for loop?\n");
 
     size_t chain_length = 0;
 
     while (true) {
+      //fprintf(stdout, "Enter while loop\n");
       // check the version chain
       ++chain_length;
 
       auto visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
 
-      if (visibility != VISIBILITY_OK) {
+      if (visibility == VISIBILITY_DELETED) {
+        LOG_TRACE("encounter deleted tuple: %u, %u", tuple_location.block, tuple_location.offset);
+        break;
+      }
+      if (visibility == VISIBILITY_INVISIBLE) {
         LOG_TRACE("Invisible read: %u, %u", tuple_location.block,
                   tuple_location.offset);
+
+        // Break for new to old
+        if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O
+            && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
+            && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
+          // See an invisible version that does not belong to any one in a new to old version chain.
+          // In such case, we assert that there should be either a deleted version or a newly updated version.
+          // So we just wire back using the index head ptr stored in the reserve field.
+          tuple_location = *((concurrency::OptimisticN2OTxnManager*)(&transaction_manager))->
+            GetHeadPtr(tile_group_header, tuple_location.offset);
+          tile_group = manager.GetTileGroup(tuple_location.block);
+          tile_group_header = tile_group.get()->GetHeader();
+          chain_length = 0;
+          continue;
+        }
+
+        // Break for new to old
+        if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O
+            && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
+            && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
+          // See an invisible version that does not belong to any one in a new to old version chain
+          // Wire back
+          tuple_location = *((concurrency::TsOrderN2OTxnManager*)(&transaction_manager))->
+            GetHeadPtr(tile_group_header, tuple_location.offset);
+          tile_group = manager.GetTileGroup(tuple_location.block);
+          tile_group_header = tile_group.get()->GetHeader();
+          chain_length = 0;
+          continue;
+        }
+
+        ItemPointer old_item = tuple_location;
+        tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+
+        // there must exist a visible version.
+
+        if(tuple_location.IsNull()) {
+          // FIXME:
+          // For an index scan on a version chain, the result should be one of the following:
+          //    (1) find a visible version
+          //    (2) find a deleted version
+          //    (3) find an aborted version with chain length equal to one
+          if (chain_length == 1) {
+            break;
+          }
+
+          // If we have traversed through the chain and still can not fulfill one of the above conditions,
+          // something wrong must happen.
+          // For speculative read, a transaction may incidentally miss a visible tuple due to a non-atomic
+          // timestamp update. In such case, we just return false and abort the txn.
+          transaction_manager.SetTransactionResult(RESULT_FAILURE);
+          transaction_manager.AddOneReadAbort();
+          return false;
+        }
+
+        tile_group = manager.GetTileGroup(tuple_location.block);
+        tile_group_header = tile_group.get()->GetHeader();
+        continue;
       } else {
+        PL_ASSERT(visibility == VISIBILITY_OK);
         LOG_TRACE("perform read: %u, %u", tuple_location.block,
                   tuple_location.offset);
 

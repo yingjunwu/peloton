@@ -41,8 +41,10 @@ HashIndex<KeyType, ValueType, KeyHasher, KeyComparator,
   auto lt = container.lock_table();
   for (const auto &entry_vector : lt) {
     for (auto entry : entry_vector.second) {
-      delete entry;
-      entry = nullptr;
+      if (metadata->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+        delete entry;
+        entry = nullptr;
+      }
     }
   }
 }
