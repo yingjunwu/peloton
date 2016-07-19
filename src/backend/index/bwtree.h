@@ -1168,7 +1168,7 @@ class BwTree {
       int central_index = static_cast<int>(data_list.size()) / 2;
       assert(central_index > 1);
 
-      // This will used as upper_bound and lower_bound key
+      // This will be used as upper_bound and lower_bound key
       const KeyValuePair &central_kvp = data_list[central_index];
 
       // Move it to the element before data_list
@@ -1247,6 +1247,11 @@ class BwTree {
       // We need to substract this value from the prefix sum in the new
       // inner node
       int split_item_index = FindSplitPoint(t);
+      
+      // Could not split because we could not find a split point
+      if(split_item_index == -1) {
+        return nullptr;
+      }
 
       // This is an iterator pointing to the split point in the vector
       // note that std::advance() operates efficiently on std::vector's
@@ -4527,6 +4532,8 @@ abort_traverse:
       // updated
       parent_snapshot_p->node_p = insert_node_p;
 
+      //printf("size = %d\n", ((DeltaNode *)GetLatestNodeSnapshot(context_p)->node_p)->child_node_p->GetItemCount());
+      //printf("sibling size = %d\n", GetNode(insert_item.second)->GetItemCount());
       ConsolidateNode(GetLatestNodeSnapshot(context_p));
 
       return true;
