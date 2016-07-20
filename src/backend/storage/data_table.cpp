@@ -221,7 +221,8 @@ ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
   }
 
   // Index checks and updates
-  if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+  if ( concurrency::TransactionManagerFactory::IsRB() == false
+      && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
     if (InsertInSecondaryTupleIndexes(tuple, location, targets_ptr, master_ptr) == false) {
       LOG_TRACE("Index constraint violated when inserting secondary index");
       return INVALID_ITEMPOINTER;

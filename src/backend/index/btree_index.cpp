@@ -161,7 +161,7 @@ bool BTreeIndex<KeyType, ValueType, KeyComparator,
         ItemPointer *value = iterator->second;
 
         if (value == location) {
-          delete iterator->second;
+          // delete iterator->second;
           iterator->second = nullptr;
           container.erase(iterator);
           // Set try again

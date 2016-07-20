@@ -189,7 +189,7 @@ bool UpdateExecutor::DExecute() {
       } else {
         ItemPointer new_location;
         // finally insert updated tuple into the table
-        if (index::IndexFactory::GetSecondaryIndexType()) {
+        if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
           ItemPointer *master_ptr = tile_group_header->GetMasterPointer(old_location.offset);
           new_location = target_table_->InsertVersion(new_tuple.get(), &(project_info_->GetTargetList()), master_ptr);
         } else {

@@ -266,10 +266,10 @@ class TileGroupHeader : public Printable {
 
   // FIXME: there is no space reserved for index count?
   static const size_t header_entry_size = sizeof(txn_id_t) + 2 * sizeof(cid_t) +
-                                          2 * sizeof(ItemPointer) + reserved_size +
+                                          2 * sizeof(ItemPointer) + sizeof(ItemPointer *) + reserved_size +
                                           2 * sizeof(bool);
   static const size_t txn_id_offset = 0;
-  static const size_t begin_cid_offset = sizeof(txn_id_t);
+  static const size_t begin_cid_offset = txn_id_offset + sizeof(txn_id_t);
   static const size_t end_cid_offset = begin_cid_offset + sizeof(cid_t);
   static const size_t next_pointer_offset = end_cid_offset + sizeof(cid_t);
   static const size_t prev_pointer_offset =

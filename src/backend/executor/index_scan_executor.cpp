@@ -542,7 +542,7 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
 
   std::vector<ItemPointer *> tuple_location_ptrs;
 
-  PL_ASSERT(index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
+  PL_ASSERT(index_->GetIndexType() != INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
   PL_ASSERT(index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE);
 
   if (0 == key_column_ids_.size()) {

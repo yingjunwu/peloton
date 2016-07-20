@@ -135,12 +135,12 @@ BWTREE_INDEX_TYPE::DeleteEntryInTupleIndex(const storage::Tuple *key, ItemPointe
 
   // IF delete succeeds then DeleteExchange() will exchange the deleted
   // value into this variable
-  if(ret == true) {
-    //delete ip_p;
-  } else {
-    // This will delete the unused memory
-    delete ip_p;
-  }
+//  if(ret == true) {
+//    //delete ip_p;
+//  } else {
+//    // This will delete the unused memory
+//    // delete ip_p;
+//  }
 
   return ret;
 }
