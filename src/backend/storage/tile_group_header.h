@@ -167,7 +167,7 @@ class TileGroupHeader : public Printable {
   }
 
   inline ItemPointer * GetMasterPointer(const oid_t &tuple_slot_id) const {
-    return (ItemPointer *)(TUPLE_HEADER_LOCATION + master_pointer_offset);
+    return *(ItemPointer **)(TUPLE_HEADER_LOCATION + master_pointer_offset);
   }
 
   // Setters
@@ -272,14 +272,11 @@ class TileGroupHeader : public Printable {
   static const size_t begin_cid_offset = txn_id_offset + sizeof(txn_id_t);
   static const size_t end_cid_offset = begin_cid_offset + sizeof(cid_t);
   static const size_t next_pointer_offset = end_cid_offset + sizeof(cid_t);
-  static const size_t prev_pointer_offset =
-      next_pointer_offset + sizeof(ItemPointer);
-  static const size_t master_pointer_offset = prev_pointer_offset + sizeof(ItemPointer *);
-  static const size_t reserved_field_offset =
-      master_pointer_offset + sizeof(ItemPointer);
+  static const size_t prev_pointer_offset = next_pointer_offset + sizeof(ItemPointer);
+  static const size_t master_pointer_offset = prev_pointer_offset + sizeof(ItemPointer);
+  static const size_t reserved_field_offset = master_pointer_offset + sizeof(ItemPointer*);
   static const size_t insert_commit_offset = reserved_field_offset + reserved_size;
-  static const size_t delete_commit_offset =
-      insert_commit_offset + sizeof(bool);
+  static const size_t delete_commit_offset = insert_commit_offset + sizeof(bool);
 
 private:
   //===--------------------------------------------------------------------===//

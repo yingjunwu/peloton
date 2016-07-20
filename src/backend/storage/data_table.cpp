@@ -284,6 +284,8 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
   auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
   tg_hdr->SetMasterPointer(location.offset, *itemptr_ptr);
 
+  PL_ASSERT((*itemptr_ptr)->block == location.block && (*itemptr_ptr)->offset == location.offset);
+
   // Increase the table's number of tuples by 1
   IncreaseNumberOfTuplesBy(1);
   // Increase the indexes' number of tuples by 1 as well

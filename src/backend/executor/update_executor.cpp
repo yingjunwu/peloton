@@ -141,6 +141,9 @@ bool UpdateExecutor::DExecute() {
           // Insert into secondary index
           rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
         }
+      } else {
+        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
+        transaction_manager.PerformUpdate(old_location);
       }
     } else if (transaction_manager.IsOwnable(tile_group_header,
                                              physical_tuple_id) == true) {
