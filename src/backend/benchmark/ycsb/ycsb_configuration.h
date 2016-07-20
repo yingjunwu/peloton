@@ -102,6 +102,9 @@ class configuration {
   // enable blind write
   bool blind_write;
 
+  // use secondary index to scan
+  bool sindex_scan;
+
   // protocol type
   ConcurrencyType protocol;
 
