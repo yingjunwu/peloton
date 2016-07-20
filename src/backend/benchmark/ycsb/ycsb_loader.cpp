@@ -114,7 +114,8 @@ void CreateYCSBDatabase() {
   // Secondary index
   // FIXME (Runshen Zhu): double check range
   for (int i = 1; i <= state.sindex_count; i++) {
-    key_attrs.clear(); key_attrs.push_back(i);
+    key_attrs.clear();
+    key_attrs.push_back(i);
     key_schema = catalog::Schema::CopySchema(tuple_schema, key_attrs);
     key_schema->SetIndexedColumns(key_attrs);
 
@@ -134,7 +135,7 @@ void LoadYCSBDatabase() {
   // Pick the user table
   auto table_schema = user_table->GetSchema();
   // std::string field_raw_value(ycsb_field_length - 1, 'o');
-  int field_raw_value = 1;
+  // int field_raw_value = 1;
 
   /////////////////////////////////////////////////////////
   // Load in the data
@@ -153,11 +154,11 @@ void LoadYCSBDatabase() {
     std::unique_ptr<storage::Tuple> tuple(
         new storage::Tuple(table_schema, allocate));
     auto key_value = ValueFactory::GetIntegerValue(rowid);
-    auto field_value = ValueFactory::GetIntegerValue(field_raw_value);
+    //auto field_value = ValueFactory::GetIntegerValue(field_raw_value);
 
     tuple->SetValue(0, key_value, nullptr);
     for (oid_t col_itr = 1; col_itr < col_count; col_itr++) {
-      tuple->SetValue(col_itr, field_value, nullptr);
+      tuple->SetValue(col_itr, key_value, nullptr);
     }
 
     planner::InsertPlan node(user_table, std::move(tuple));
