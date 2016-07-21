@@ -107,12 +107,22 @@ bool UpdateExecutor::DExecute() {
 
       // Check if we are using rollback segment
       if (concurrency::TransactionManagerFactory::IsRB()) {
-        if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+        if ((concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB
+             || concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB)) {
           auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
 
-          rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
-            project_info_->GetTargetList(), new_tuple.get());
-
+          // This is an inserted tuple, create a full rb and perform update
+          if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id)) {
+            expression::ContainerTuple<storage::TileGroup> old_tuple(
+              tile_group, physical_tuple_id);
+            char *rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
+              schema, &old_tuple);
+            rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
+          } else {
+            rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
+              project_info_->GetTargetList(), new_tuple.get());  
+          }
+          
           // Overwrite the master copy
           tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
 
@@ -172,7 +182,8 @@ bool UpdateExecutor::DExecute() {
 
         // Create a rollback segment based on the old tuple
         char *rb_seg = nullptr;
-        if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+        if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB ||
+            concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB) {
           rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
             schema, &old_tuple);
         } else {

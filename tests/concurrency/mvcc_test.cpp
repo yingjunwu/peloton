@@ -35,11 +35,12 @@ static std::vector<ConcurrencyType> TEST_TYPES = {
   // CONCURRENCY_TYPE_TO,
   // CONCURRENCY_TYPE_OCC_N2O,
   // CONCURRENCY_TYPE_TO_N2O,
-  CONCURRENCY_TYPE_OCC_RB,
-  CONCURRENCY_TYPE_TO_RB,
+  // CONCURRENCY_TYPE_OCC_RB,
+  // CONCURRENCY_TYPE_TO_RB,
   // CONCURRENCY_TYPE_TO_FULL_RB,
-  CONCURRENCY_TYPE_OCC_CENTRAL_RB,
-  CONCURRENCY_TYPE_TO_CENTRAL_RB
+  // CONCURRENCY_TYPE_OCC_CENTRAL_RB,
+  // CONCURRENCY_TYPE_TO_CENTRAL_RB,
+  CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB
 };
 
 
@@ -196,11 +197,7 @@ TEST_F(MVCCTest, SingleThreadVersionChainTest) {
     // read deleted, insert back, update inserted, read newly updated,
     // delete inserted, read deleted
     {
-      if (concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_RB
-        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_RB
-        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_FULL_RB
-        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_CENTRAL_RB
-        && concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+      if (!concurrency::TransactionManagerFactory::IsRB()) {
         // Bypass RB
         TransactionScheduler scheduler(1, table.get(), &txn_manager);
         scheduler.Txn(0).Delete(100);

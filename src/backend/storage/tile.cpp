@@ -119,7 +119,8 @@ Value Tile::GetValue(const oid_t tuple_offset, const oid_t column_id) {
 
   // ROLLBACK SEGMENT
   if (concurrency::TransactionManagerFactory::IsRB()) {
-    if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_FULL_RB) {
+    if (concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_FULL_RB
+       || concurrency::TransactionManagerFactory::GetProtocol() == peloton::CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB) {
       auto txn_manager = static_cast<concurrency::TsOrderFullRbTxnManager *>(&concurrency::TransactionManagerFactory::GetInstance());
       cid_t read_ts = txn_manager->GetLatestReadTimestamp();
       if (tile_group == nullptr)
