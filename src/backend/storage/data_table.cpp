@@ -522,6 +522,11 @@ bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSE
     auto index_schema = index->GetKeySchema();
     auto indexed_columns = index_schema->GetIndexedColumns();
 
+    if (index->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+//      fprintf(stdout, "skip primary index\n");
+      continue;
+    }
+
     // Check if we need to update the secondary index
     bool updated = false;
     for (auto col : indexed_columns) {
@@ -533,6 +538,7 @@ bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSE
 
     // If attributes on key are not updated, skip the index update
     if (updated == false) {
+//      fprintf(stdout, "No need to update sindex\n");
       continue;
     }
 
@@ -546,6 +552,7 @@ bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSE
       case INDEX_CONSTRAINT_TYPE_UNIQUE: {
         // if in this index there has been a visible or uncommitted
         // <key, location> pair, this constraint is violated
+//        fprintf(stdout, "Haha update uniq sindex\n");
         if (index->CondInsertEntryInTupleIndex(key.get(), master_ptr, fn) == false) {
           return false;
         }
@@ -553,6 +560,7 @@ bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSE
 
       case INDEX_CONSTRAINT_TYPE_DEFAULT:
       default:
+//        fprintf(stdout, "Haha update sindex\n");
         index->InsertEntryInTupleIndex(key.get(), master_ptr);
         break;
     }

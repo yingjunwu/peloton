@@ -221,7 +221,7 @@ bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
   } else {
     LOG_TRACE("predicate fails, abort transaction");
 
-    delete new_location;
+    //delete new_location;
     new_location = nullptr;
 
     return false;

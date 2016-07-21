@@ -331,9 +331,9 @@ void Vacuum_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadat
       } break;
       default: {
         LOG_TRACE("Deleting other index");
-//        index->DeleteEntry(key.get(),
-//                           ItemPointer(tuple_metadata.tile_group_id,
-//                                       tuple_metadata.tuple_slot_id));
+        index->DeleteEntry(key.get(),
+                           ItemPointer(tuple_metadata.tile_group_id,
+                                       tuple_metadata.tuple_slot_id));
       }
     }
   }

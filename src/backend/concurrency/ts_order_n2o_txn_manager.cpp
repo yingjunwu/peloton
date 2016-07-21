@@ -270,6 +270,14 @@ bool TsOrderN2OTxnManager::PerformInsert(const ItemPointer &location, ItemPointe
   // Write down the head pointer's address in tile group header
   SetHeadPtr(tile_group_header, tuple_id, itemptr_ptr);
 
+//  if (itemptr_ptr != tile_group_header->GetMasterPointer(tuple_id)) {
+//    fprintf(stdout, "INSERT SHIT SHIT SHIT SHIT\n");
+//    fprintf(stdout, "itemptr_ptr -> (%u, %u)\n", itemptr_ptr->block, itemptr_ptr->offset);
+//    fprintf(stdout, "master -> (%u, %u)\n", tile_group_header->GetMasterPointer(tuple_id)->block, tile_group_header->GetMasterPointer(tuple_id)->offset);
+//  } else {
+//    fprintf(stdout, "GOOD\n");
+//  }
+
   return true;
 }
 
@@ -340,7 +348,15 @@ void TsOrderN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
     assert(head_ptr != nullptr);
     
     SetHeadPtr(new_tile_group_header, new_location.offset, head_ptr);
-    
+
+//    if (head_ptr != new_tile_group_header->GetMasterPointer(new_location.offset)) {
+//      fprintf(stdout, "SHIT SHIT SHIT SHIT\n");
+//      fprintf(stdout, "head_ptr -> (%u, %u)\n", head_ptr->block, head_ptr->offset);
+//      fprintf(stdout, "master -> (%u, %u)\n", new_tile_group_header->GetMasterPointer(new_location.offset)->block,
+//              new_tile_group_header->GetMasterPointer(new_location.offset)->offset);
+//    } else {
+//      fprintf(stdout, "GOOD\n");
+//    }
     // Set the index header in an atomic way.
     // We do it atomically because we don't want any one to see a half-done pointer.
     // In case of contention, no one can update this pointer when we are updating it
@@ -491,6 +507,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   // TODO: Add optimization for read only
 
   for (auto &tile_group_entry : rw_set) {
+    //fprintf(stdout, "Committing tile group: %u\n", tile_group_entry.first);
     oid_t tile_group_id = tile_group_entry.first;
     auto tile_group = manager.GetTileGroup(tile_group_id);
     auto tile_group_header = tile_group->GetHeader();
@@ -501,6 +518,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         // visible.
         ItemPointer new_version =
             tile_group_header->GetPrevItemPointer(tuple_slot);
+
+        //fprintf(stdout, "commit new version: %u, %u\n", new_version.block, new_version.offset);
 
         assert(new_version.IsNull() == false);
 

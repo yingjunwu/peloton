@@ -566,25 +566,16 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
   std::map<oid_t, std::vector<oid_t>> visible_tuples;
 
   for (auto tuple_location_ptr : tuple_location_ptrs) {
-    //fprintf(stdout, "Can you at least enter the for loop?\n");
-
     ItemPointer tuple_location = *tuple_location_ptr;
 
     auto &manager = catalog::Manager::GetInstance();
-    //fprintf(stdout, "Here?\n");
 
-    //fprintf(stdout, "location %u, %u\n", tuple_location.block, tuple_location.offset);
-    //fprintf(stdout, "Protocol %d\n", (int)concurrency::TransactionManagerFactory::GetProtocol());
     auto tile_group = manager.GetTileGroup(tuple_location.block);
-    //fprintf(stdout, "Or here?\n");
-
     auto tile_group_header = tile_group.get()->GetHeader();
-    //fprintf(stdout, "Can you at least enter the for loop?\n");
 
     size_t chain_length = 0;
 
     while (true) {
-      //fprintf(stdout, "Enter while loop\n");
       // check the version chain
       ++chain_length;
 
@@ -609,7 +600,7 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
             GetHeadPtr(tile_group_header, tuple_location.offset);
           tile_group = manager.GetTileGroup(tuple_location.block);
           tile_group_header = tile_group.get()->GetHeader();
-          chain_length = 0;
+          //chain_length = 0;
           continue;
         }
 
@@ -623,7 +614,7 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
             GetHeadPtr(tile_group_header, tuple_location.offset);
           tile_group = manager.GetTileGroup(tuple_location.block);
           tile_group_header = tile_group.get()->GetHeader();
-          chain_length = 0;
+          //chain_length = 0;
           continue;
         }
 
@@ -653,7 +644,6 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
 
         tile_group = manager.GetTileGroup(tuple_location.block);
         tile_group_header = tile_group.get()->GetHeader();
-        continue;
       } else {
         PL_ASSERT(visibility == VISIBILITY_OK);
         LOG_TRACE("perform read: %u, %u", tuple_location.block,
@@ -675,7 +665,7 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
 
         // Compare the key tuple and the key
         if (index_->Compare(key_tuple, key_column_ids_, expr_types_, values_) == false) {
-          LOG_TRACE("Secondary key mismatch: %u, %u", tuple_location.block, tuple_location.offset);
+          LOG_TRACE("Secondary key mismatch: %u, %u\n", tuple_location.block, tuple_location.offset);
           break;
         }
 
@@ -712,6 +702,7 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
         break;
       }
     }
+    LOG_TRACE("Traverse length: %d\n", (int)chain_length);
   }
 
   // Construct a logical tile for each block

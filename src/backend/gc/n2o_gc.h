@@ -114,6 +114,8 @@ private:
 
   bool ResetTuple(const TupleMetadata &);
 
+  void DeleteTupleFromIndexes(const TupleMetadata &tuple_metadata);
+
 private:
   //===--------------------------------------------------------------------===//
   // Data members

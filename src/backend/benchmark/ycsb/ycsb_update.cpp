@@ -132,7 +132,7 @@ UpdatePlans PrepareUpdatePlan() {
 
   // Update the second attribute
   for (oid_t col_itr = 0; col_itr < column_count; col_itr++) {
-    if (col_itr != 1) {
+    if (col_itr != 2) {
       direct_map_list.emplace_back(col_itr,
                                    std::pair<oid_t, oid_t>(0, col_itr));
     }
