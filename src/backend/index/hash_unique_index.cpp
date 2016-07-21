@@ -40,8 +40,10 @@ HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
   // memory allocated should be managed carefully by programmers.
   auto lt = container.lock_table();
   for (const auto &entry : lt) {
-    delete entry;
-    entry = nullptr;
+    if (metadata->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+      delete entry;
+      entry = nullptr;
+    }
   }
 }
 
@@ -53,17 +55,46 @@ template <typename KeyType, typename ValueType, class KeyHasher,
           class KeyComparator, class KeyEqualityChecker>
 bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
                KeyEqualityChecker>::InsertEntry(const storage::Tuple *key,
-                                                const ItemPointer &location) {
+                                                const ItemPointer &location,
+                                                ItemPointer **itempointer_ptr) {
   KeyType index_key;
 
   index_key.SetFromKey(key);
 
   ItemPointer *new_location = new ItemPointer(location);
+  if (itempointer_ptr != nullptr) {
+    *itempointer_ptr = new_location;
+  }
   // std::vector<ValueType> val;
   // val.push_back(new_location);
   // if there's no key in the hash map, then insert a vector containing location.
   // otherwise, directly insert location into the vector that already exists in the hash map.
   
+  bool ret = container.insert(index_key, new_location);
+
+  if (ret == true) {
+    return true;
+  } else {
+    delete new_location;
+    new_location = nullptr;
+    return false;
+  }
+}
+
+template <typename KeyType, typename ValueType, class KeyHasher,
+  class KeyComparator, class KeyEqualityChecker>
+bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
+  KeyEqualityChecker>::InsertEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location) {
+  KeyType index_key;
+
+  index_key.SetFromKey(key);
+
+  ItemPointer *new_location = location;
+  // std::vector<ValueType> val;
+  // val.push_back(new_location);
+  // if there's no key in the hash map, then insert a vector containing location.
+  // otherwise, directly insert location into the vector that already exists in the hash map.
+
   bool ret = container.insert(index_key, new_location);
 
   if (ret == true) {
@@ -96,6 +127,18 @@ bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
     (void *)&location);
 
   return true;
+}
+
+template <typename KeyType, typename ValueType, class KeyHasher,
+  class KeyComparator, class KeyEqualityChecker>
+bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
+  KeyEqualityChecker>::DeleteEntryInTupleIndex(const storage::Tuple *key, UNUSED_ATTRIBUTE ItemPointer *location) {
+  KeyType index_key;
+
+  index_key.SetFromKey(key);
+
+  return container.erase(index_key);
+  // TODO: add retry logic
 }
 
 template <typename KeyType, typename ValueType, class KeyHasher,
@@ -143,6 +186,47 @@ bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
   }
 }
 
+template <typename KeyType, typename ValueType, class KeyHasher,
+  class KeyComparator, class KeyEqualityChecker>
+bool HashUniqueIndex<KeyType, ValueType, KeyHasher, KeyComparator,
+  KeyEqualityChecker>::CondInsertEntryInTupleIndex(
+  UNUSED_ATTRIBUTE const storage::Tuple *key, UNUSED_ATTRIBUTE ItemPointer *location,
+  UNUSED_ATTRIBUTE std::function<bool(const void *)> predicate) {
+
+  KeyType index_key;
+
+  index_key.SetFromKey(key);
+
+  ItemPointer *new_location = location;
+  std::vector<ValueType> val;
+  val.push_back(new_location);
+
+  container.upsert(index_key,
+                   [](std::vector<ItemPointer*> &existing_vector, void *new_location, std::function<bool(const void *)> predicate, void **arg_ptr) {
+                     for (auto entry : existing_vector) {
+                       if (predicate((void*)entry)) {
+                         *arg_ptr = nullptr;
+                         return;
+                       }
+                     }
+                     existing_vector.push_back((ItemPointer*)new_location);
+                     return;
+                   },
+                   (void*)new_location, predicate, (void**)(&new_location), val);
+
+  if (new_location != nullptr) {
+
+    return true;
+
+  } else {
+    LOG_TRACE("predicate fails, abort transaction");
+
+    //delete new_location;
+    new_location = nullptr;
+
+    return false;
+  }
+}
 
 template <typename KeyType, typename ValueType, class KeyHasher,
           class KeyComparator, class KeyEqualityChecker>

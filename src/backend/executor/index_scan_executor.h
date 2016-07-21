@@ -16,6 +16,7 @@
 
 #include "backend/executor/abstract_scan_executor.h"
 #include "backend/planner/index_scan_plan.h"
+#include "backend/index/index_factory.h"
 
 namespace peloton {
 
@@ -72,6 +73,8 @@ class IndexScanExecutor : public AbstractScanExecutor {
   //===--------------------------------------------------------------------===//
   bool ExecPrimaryIndexLookup();
   bool ExecSecondaryIndexLookup();
+  void RBVerifyVisible(std::vector<ItemPointer> &tuple_locations);
+  bool ExecTupleSecondaryIndexLookup();
 
   //===--------------------------------------------------------------------===//
   // Executor State

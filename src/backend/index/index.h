@@ -46,6 +46,14 @@ public:
   }
 };
 
+struct ItemPointerPointerEqualityChecker {
+  const ItemPointer *arg_;
+  ItemPointerPointerEqualityChecker(const ItemPointer *ptr) : arg_(ptr){}
+  bool operator() (const ItemPointer *x) {
+    return x == arg_;
+  }
+};
+
 struct ItemPointerEqualityChecker {
   ItemPointer arg_;
   ItemPointerEqualityChecker(ItemPointer arg) : arg_(arg) {}
@@ -152,7 +160,8 @@ class Index : public Printable {
 
   // insert an index entry linked to given tuple
   virtual bool InsertEntry(const storage::Tuple *key,
-                           const ItemPointer &location) = 0;
+                           const ItemPointer &location,
+                           ItemPointer **itempointer_ptr = nullptr) = 0;
 
   // delete the index entry linked to given tuple and location
   virtual bool DeleteEntry(const storage::Tuple *key,
@@ -170,6 +179,29 @@ class Index : public Printable {
       const storage::Tuple *key, const ItemPointer &location,
       std::function<bool(const void *)> predicate,
       ItemPointer **itempointer_ptr) = 0;
+
+  //===--------------------------------------------------------------------===//
+  // Mutators for tuple based index
+  //===--------------------------------------------------------------------===//
+  virtual bool InsertEntryInTupleIndex(UNUSED_ATTRIBUTE const storage::Tuple *key,
+                                       UNUSED_ATTRIBUTE ItemPointer *location) {
+    PL_ASSERT(false);
+    return false;
+  }
+
+  virtual bool DeleteEntryInTupleIndex(UNUSED_ATTRIBUTE const storage::Tuple *key,
+                                       UNUSED_ATTRIBUTE ItemPointer *location) {
+    PL_ASSERT(false);
+    return false;
+  }
+
+  virtual bool CondInsertEntryInTupleIndex(
+    UNUSED_ATTRIBUTE const storage::Tuple *key, UNUSED_ATTRIBUTE ItemPointer *location,
+    UNUSED_ATTRIBUTE std::function<bool(const void *)> predicate
+  ) {
+    PL_ASSERT(false);
+    return false;
+  }
 
   //===--------------------------------------------------------------------===//
   // Accessors

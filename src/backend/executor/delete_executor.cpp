@@ -115,15 +115,10 @@ bool DeleteExecutor::DExecute() {
         return false;
       }
 
-      if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_FULL_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_CENTRAL_RB
-        || concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+      if (concurrency::TransactionManagerFactory::IsRB()) {
         // If we are using rollback segment, what we need to do is flip the delete
         // flag in the master copy.
         transaction_manager.PerformDelete(old_location);
-
       } else {
         // if it is the latest version and not locked by other threads, then
         // insert a new version.

@@ -72,6 +72,7 @@
 #include "backend/storage/data_table.h"
 #include "backend/storage/table_factory.h"
 
+#define BEGIN_UPDATE_CID (state.sindex_count + 1)
 
 namespace peloton {
 namespace benchmark {
@@ -85,7 +86,15 @@ MixedPlans PrepareMixedPlan() {
 
   std::vector<oid_t> key_column_ids;
   std::vector<ExpressionType> expr_types;
-  key_column_ids.push_back(0);
+
+  index::Index *ycsb_skey_index = nullptr;
+  if (state.sindex_scan == true) {
+    key_column_ids.push_back(1);
+    ycsb_skey_index = user_table->GetIndexWithOid(ycsb_table_sindex_begin_oid + 1);
+  } else {
+    key_column_ids.push_back(0);
+  }
+
   expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
   std::vector<Value> values;
@@ -95,14 +104,15 @@ MixedPlans PrepareMixedPlan() {
   auto ycsb_pkey_index = user_table->GetIndexWithOid(user_table_pkey_index_oid);
 
   planner::IndexScanPlan::IndexScanDesc index_scan_desc(
-      ycsb_pkey_index, key_column_ids, expr_types, values, runtime_keys);
+    (state.sindex_scan ? ycsb_skey_index : ycsb_pkey_index),
+      key_column_ids, expr_types, values, runtime_keys);
 
   // Create plan node.
   auto predicate = nullptr;
 
   oid_t column_count = state.column_count + 1;
   
-  oid_t begin_read_column_id = 1;
+  oid_t begin_read_column_id = BEGIN_UPDATE_CID;
   oid_t end_read_column_id = begin_read_column_id + state.read_column_count - 1;
   
   std::vector<oid_t> read_column_ids;
@@ -123,7 +133,7 @@ MixedPlans PrepareMixedPlan() {
   // UPDATE
   /////////////////////////////////////////////////////////
 
-  oid_t begin_update_column_id = 1;
+  oid_t begin_update_column_id = BEGIN_UPDATE_CID;
   oid_t end_update_column_id = begin_update_column_id + state.update_column_count - 1;
 
   std::vector<oid_t> update_column_ids;
@@ -218,7 +228,7 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
       TargetList target_list;
 
-      oid_t begin_update_column_id = 1;
+      oid_t begin_update_column_id = BEGIN_UPDATE_CID;
       oid_t end_update_column_id = begin_update_column_id + state.update_column_count - 1;
 
       for (oid_t col_itr = begin_update_column_id; col_itr <= end_update_column_id; ++col_itr) {
@@ -262,8 +272,8 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
         return false;
       }
 
-      if (ret_result.size() != 1) {
-        LOG_ERROR("result size = %d", (int)ret_result.size());
+      if ((ret_result.size() > 1 && state.sindex_scan == false) || ret_result.size() < 1) {
+        LOG_ERROR("Error: result size = %d\n", (int)ret_result.size());
         assert(false);
       }
     }

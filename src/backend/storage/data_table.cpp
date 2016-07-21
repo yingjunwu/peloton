@@ -28,6 +28,7 @@
 #include "backend/storage/tile_group_header.h"
 #include "backend/storage/tile_group_factory.h"
 #include "backend/concurrency/transaction_manager_factory.h"
+#include "backend/index/index_factory.h"
 
 #include "backend/concurrency/optimistic_rb_txn_manager.h"
 
@@ -210,7 +211,8 @@ ItemPointer DataTable::InsertEmptyVersion(const storage::Tuple *tuple) {
   return location;
 }
 
-ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple) {
+ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
+      const TargetList *targets_ptr, ItemPointer *master_ptr) {
   // First, do integrity checks and claim a slot
   ItemPointer location = FillInEmptyTupleSlot(tuple, true);
   if (location.block == INVALID_OID) {
@@ -219,9 +221,17 @@ ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple) {
   }
 
   // Index checks and updates
-  if (InsertInSecondaryIndexes(tuple, location) == false) {
-    LOG_TRACE("Index constraint violated when inserting secondary index");
-    return INVALID_ITEMPOINTER;
+  if ( concurrency::TransactionManagerFactory::IsRB() == false
+      && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+    if (InsertInSecondaryTupleIndexes(tuple, location, targets_ptr, master_ptr) == false) {
+      LOG_TRACE("Index constraint violated when inserting secondary index");
+      return INVALID_ITEMPOINTER;
+    }
+  } else {
+    if (InsertInSecondaryIndexes(tuple, location) == false) {
+      LOG_TRACE("Index constraint violated when inserting secondary index");
+      return INVALID_ITEMPOINTER;
+    }
   }
 
   // ForeignKey checks
@@ -233,6 +243,11 @@ ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple) {
   LOG_TRACE("Location: %u, %u", location.block, location.offset);
 
   IncreaseNumberOfTuplesBy(1);
+
+  // Write down the master version's pointer into tile group header
+  auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
+  tg_hdr->SetMasterPointer(location.offset, master_ptr);
+
   return location;
 }
 
@@ -264,6 +279,12 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
     LOG_TRACE("ForeignKey constraint violated");
     return INVALID_ITEMPOINTER;
   }
+
+  // Write down the master version's pointer into tile group header
+  auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
+  tg_hdr->SetMasterPointer(location.offset, *itemptr_ptr);
+
+  PL_ASSERT((*itemptr_ptr)->block == location.block && (*itemptr_ptr)->offset == location.offset);
 
   // Increase the table's number of tuples by 1
   IncreaseNumberOfTuplesBy(1);
@@ -373,7 +394,7 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
  *primary/unique).
  */
 bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
-                                ItemPointer location,ItemPointer ** itempointer_ptr) {
+                                ItemPointer location, ItemPointer ** itempointer_ptr) {
   *itempointer_ptr = nullptr;
   ItemPointer *temp_ptr = nullptr;
 
@@ -387,42 +408,167 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
 
   // (A) Check existence for primary/unique indexes
   // FIXME Since this is NOT protected by a lock, concurrent insert may happen.
-  for (int index_itr = index_count - 1; index_itr >= 0; --index_itr) {
-    auto index = GetIndex(index_itr);
-    auto index_schema = index->GetKeySchema();
-    auto indexed_columns = index_schema->GetIndexedColumns();
-    std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
-    key->SetFromTuple(tuple, indexed_columns, index->GetPool());
+  if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+    *itempointer_ptr = new ItemPointer(location);
 
-    switch (index->GetIndexType()) {
-      case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY: {
-        // TODO: get unique tuple from primary index.
-        // if in this index there has been a visible or uncommitted
-        // <key, location> pair, this constraint is violated
-        if (index->CondInsertEntry(key.get(), location, fn, itempointer_ptr) == false) {
-          return false;
+    bool res = true;
+    int success_count = 0;
+
+    for (int index_itr = index_count - 1; index_itr >= 0; --index_itr) {
+      auto index = GetIndex(index_itr);
+      auto index_schema = index->GetKeySchema();
+      auto indexed_columns = index_schema->GetIndexedColumns();
+      std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
+      key->SetFromTuple(tuple, indexed_columns, index->GetPool());
+
+      switch (index->GetIndexType()) {
+        case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY: {
+          // TODO: get unique tuple from primary index.
+          // if in this index there has been a visible or uncommitted
+          // <key, location> pair, this constraint is violated
+          res = index->CondInsertEntryInTupleIndex(key.get(), *itempointer_ptr, fn);
         }
-      } break;
-      case INDEX_CONSTRAINT_TYPE_UNIQUE: {
-        // TODO: get unique tuple from primary index.
-        // if in this index there has been a visible or uncommitted
-        // <key, location> pair, this constraint is violated
-        if (index->CondInsertEntry(key.get(), location, fn, &temp_ptr) == false) {
-          return false;
+          break;
+        case INDEX_CONSTRAINT_TYPE_UNIQUE: {
+          // TODO: get unique tuple from primary index.
+          // if in this index there has been a visible or uncommitted
+          // <key, location> pair, this constraint is violated
+          res = index->CondInsertEntryInTupleIndex(key.get(), *itempointer_ptr, fn);
         }
+          break;
 
-      } break;
+        case INDEX_CONSTRAINT_TYPE_DEFAULT:
+        default:
+          index->InsertEntryInTupleIndex(key.get(), *itempointer_ptr);
+          break;
+      }
 
-      case INDEX_CONSTRAINT_TYPE_DEFAULT:
-      default:
-        index->InsertEntry(key.get(), location);
-        break;
+      // Handle failure
+      if (res == false) {
+        // If some of the indexes have been inserted,
+        // the pointer has a chance to be dereferenced by readers and it can not be deleted
+        if (success_count == 0) {
+          delete itempointer_ptr;
+        }
+        *itempointer_ptr = nullptr;
+        return false;
+      } else {
+        success_count += 1;
+      }
+      LOG_TRACE("Index constraint check on %s passed.", index->GetName().c_str());
     }
-    LOG_TRACE("Index constraint check on %s passed.", index->GetName().c_str());
+
+  } else {
+    for (int index_itr = index_count - 1; index_itr >= 0; --index_itr) {
+      auto index = GetIndex(index_itr);
+      auto index_schema = index->GetKeySchema();
+      auto indexed_columns = index_schema->GetIndexedColumns();
+      std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
+      key->SetFromTuple(tuple, indexed_columns, index->GetPool());
+
+      switch (index->GetIndexType()) {
+        case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY: {
+          // TODO: get unique tuple from primary index.
+          // if in this index there has been a visible or uncommitted
+          // <key, location> pair, this constraint is violated
+          if (index->CondInsertEntry(key.get(), location, fn, itempointer_ptr) == false) {
+            return false;
+          }
+        }
+          break;
+        case INDEX_CONSTRAINT_TYPE_UNIQUE: {
+          // TODO: get unique tuple from primary index.
+          // if in this index there has been a visible or uncommitted
+          // <key, location> pair, this constraint is violated
+          if (index->CondInsertEntry(key.get(), location, fn, &temp_ptr) == false) {
+            return false;
+          }
+
+        }
+          break;
+
+        case INDEX_CONSTRAINT_TYPE_DEFAULT:
+        default:
+          index->InsertEntry(key.get(), location);
+          break;
+      }
+      LOG_TRACE("Index constraint check on %s passed.", index->GetName().c_str());
+    }
   }
 
   return true;
 }
+
+bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSED_ATTRIBUTE ItemPointer location,
+              const TargetList *targets_ptr, ItemPointer *master_ptr) {
+  int index_count = GetIndexCount();
+  auto &transaction_manager = concurrency::TransactionManagerFactory::GetInstance();
+
+  std::function<bool(const void *)> fn =
+    std::bind(&concurrency::TransactionManager::IsOccupied,
+              &transaction_manager, std::placeholders::_1);
+
+  // Transaform the target list into a hash set
+  std::unordered_set<oid_t> targets_set;
+  for (auto target : *targets_ptr) {
+    targets_set.insert(target.first);
+  }
+
+
+  // (A) Check existence for primary/unique indexes
+  // FIXME Since this is NOT protected by a lock, concurrent insert may happen.
+  for (int index_itr = index_count - 1; index_itr >= 0; --index_itr) {
+    auto index = GetIndex(index_itr);
+    auto index_schema = index->GetKeySchema();
+    auto indexed_columns = index_schema->GetIndexedColumns();
+
+    if (index->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+//      fprintf(stdout, "skip primary index\n");
+      continue;
+    }
+
+    // Check if we need to update the secondary index
+    bool updated = false;
+    for (auto col : indexed_columns) {
+      if (targets_set.find(col) != targets_set.end()) {
+        updated = true;
+        break;
+      }
+    }
+
+    // If attributes on key are not updated, skip the index update
+    if (updated == false) {
+//      fprintf(stdout, "No need to update sindex\n");
+      continue;
+    }
+
+    // Key attributes are updated, insert a new entry in all secondary index
+    std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
+    key->SetFromTuple(tuple, indexed_columns, index->GetPool());
+
+    switch (index->GetIndexType()) {
+      case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY:
+        break;
+      case INDEX_CONSTRAINT_TYPE_UNIQUE: {
+        // if in this index there has been a visible or uncommitted
+        // <key, location> pair, this constraint is violated
+//        fprintf(stdout, "Haha update uniq sindex\n");
+        if (index->CondInsertEntryInTupleIndex(key.get(), master_ptr, fn) == false) {
+          return false;
+        }
+      } break;
+
+      case INDEX_CONSTRAINT_TYPE_DEFAULT:
+      default:
+//        fprintf(stdout, "Haha update sindex\n");
+        index->InsertEntryInTupleIndex(key.get(), master_ptr);
+        break;
+    }
+    LOG_TRACE("Index constraint check on %s passed.", index->GetName().c_str());
+  }
+  return true;
+}
+
 
 bool DataTable::InsertInSecondaryIndexes(const storage::Tuple *tuple,
                                          ItemPointer location) {
@@ -761,7 +907,7 @@ std::shared_ptr<storage::TileGroup> DataTable::GetTileGroupById(
 
 oid_t DataTable::GetAllCurrentTupleCount() {
   // for (auto index : indexes_) {
-  //   LOG_INFO("index size = %lu", index->GetIndexSize());
+  //   LOG_TRACE("index size = %lu", index->GetIndexSize());
   // }
 
   oid_t count = 0;

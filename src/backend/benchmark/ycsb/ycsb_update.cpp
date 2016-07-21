@@ -84,7 +84,15 @@ UpdatePlans PrepareUpdatePlan() {
 
   std::vector<oid_t> key_column_ids;
   std::vector<ExpressionType> expr_types;
-  key_column_ids.push_back(0);
+
+  index::Index *ycsb_skey_index = nullptr;
+  if (state.sindex_scan == true) {
+    key_column_ids.push_back(1);
+    ycsb_skey_index = user_table->GetIndexWithOid(ycsb_table_sindex_begin_oid + 1);
+  } else {
+    key_column_ids.push_back(0);
+  }
+
   expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
   std::vector<Value> values;
@@ -94,7 +102,8 @@ UpdatePlans PrepareUpdatePlan() {
   auto ycsb_pkey_index = user_table->GetIndexWithOid(user_table_pkey_index_oid);
 
   planner::IndexScanPlan::IndexScanDesc index_scan_desc(
-      ycsb_pkey_index, key_column_ids, expr_types, values, runtime_keys);
+    (state.sindex_scan ? ycsb_skey_index : ycsb_pkey_index),
+      key_column_ids, expr_types, values, runtime_keys);
 
   // Create plan node.
   auto predicate = nullptr;
@@ -123,7 +132,7 @@ UpdatePlans PrepareUpdatePlan() {
 
   // Update the second attribute
   for (oid_t col_itr = 0; col_itr < column_count; col_itr++) {
-    if (col_itr != 1) {
+    if (col_itr != 2) {
       direct_map_list.emplace_back(col_itr,
                                    std::pair<oid_t, oid_t>(0, col_itr));
     }

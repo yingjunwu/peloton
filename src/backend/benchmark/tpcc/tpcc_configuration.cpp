@@ -40,6 +40,7 @@ void Usage(FILE *out) {
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
+          "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -57,6 +58,7 @@ static struct option opts[] = {
   { "protocol", optional_argument, NULL, 'p'},
   { "gc_protocol", optional_argument, NULL, 'g'},
   { "gc_thread", optional_argument, NULL, 't'},
+  { "sindex_mode", optional_argument, NULL, 'q'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -151,11 +153,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.gc_protocol = GC_TYPE_OFF;
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
+  state.sindex = SECONDARY_INDEX_TYPE_VERSION;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:", opts, &idx);
+    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:", opts, &idx);
 
     if (c == -1) break;
 
@@ -250,6 +253,18 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.index = INDEX_TYPE_HASH;
         } else {
           fprintf(stderr, "\nUnknown index: %s\n", index);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'q': {
+        char *sindex = optarg;
+        if (strcmp(sindex, "version") == 0) {
+          state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+        } else if (strcmp(sindex, "tuple") == 0) {
+          state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
+        } else {
+          fprintf(stderr, "\n Unknown sindex: %s\n", sindex);
           exit(EXIT_FAILURE);
         }
         break;

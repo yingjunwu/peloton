@@ -158,7 +158,7 @@ bool RunOrderStatus(const size_t &thread_id){
       assert(false);
     }
     if (result[0].size() == 0) {
-      LOG_ERROR("wong result[0] size : %lu", result[0].size());
+      LOG_ERROR("wrong result[0] size : %lu", result[0].size());
       assert(false);
     }
   } else {

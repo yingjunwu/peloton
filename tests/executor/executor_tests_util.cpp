@@ -166,33 +166,36 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
 
   // Insert tuples into tile_group.
   const bool allocate = true;
+  auto &transaction_manager =
+      concurrency::TransactionManagerFactory::GetInstance();
   auto testing_pool = TestingHarness::GetInstance().GetTestingPool();
   for (int rowid = 0; rowid < num_rows; rowid++) {
     int populate_value = rowid;
     if (mutate) populate_value *= 3;
 
-    storage::Tuple tuple(schema, allocate);
+    std::unique_ptr<storage::Tuple> tuple(
+        new storage::Tuple(schema, allocate));
 
     if (group_by) {
       // First column has only two distinct values
-      tuple.SetValue(0, ValueFactory::GetIntegerValue(PopulatedValue(
+      tuple->SetValue(0, ValueFactory::GetIntegerValue(PopulatedValue(
           int(populate_value / (num_rows / 2)), 0)),
                      testing_pool);
 
     } else {
       // First column is unique in this case
-      tuple.SetValue(
+      tuple->SetValue(
           0, ValueFactory::GetIntegerValue(PopulatedValue(populate_value, 0)),
           testing_pool);
     }
 
     // In case of random, make sure this column has duplicated values
-    tuple.SetValue(
+    tuple->SetValue(
         1, ValueFactory::GetIntegerValue(PopulatedValue(
             random ? std::rand() % (num_rows / 3) : populate_value, 1)),
             testing_pool);
 
-    tuple.SetValue(2, ValueFactory::GetDoubleValue(PopulatedValue(
+    tuple->SetValue(2, ValueFactory::GetDoubleValue(PopulatedValue(
         random ? std::rand() : populate_value, 2)),
                    testing_pool);
 
@@ -200,13 +203,36 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
     Value string_value =
         ValueFactory::GetStringValue(std::to_string(PopulatedValue(
             random ? std::rand() % (num_rows / 3) : populate_value, 3)));
-    tuple.SetValue(3, string_value, testing_pool);
+    tuple->SetValue(3, string_value, testing_pool);
 
-    ItemPointer tuple_slot_id = table->InsertTuple(&tuple);
-    EXPECT_TRUE(tuple_slot_id.block != INVALID_OID);
-    EXPECT_TRUE(tuple_slot_id.offset != INVALID_OID);
-    auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-    txn_manager.PerformInsert(tuple_slot_id);
+    ItemPointer *itemptr_ptr = nullptr;
+    index::RBItemPointer *rb_itemptr_ptr = nullptr;
+    peloton::ItemPointer location;
+
+    if (concurrency::TransactionManagerFactory::IsRB()
+       && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+      location = table->InsertTuple(tuple.get(), &rb_itemptr_ptr);
+      assert(rb_itemptr_ptr != nullptr);
+    } else {
+      location = table->InsertTuple(tuple.get(), &itemptr_ptr);
+    }
+
+    EXPECT_TRUE(location.block != INVALID_OID);
+
+    bool res;
+    if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O) {
+      // If we are using OCC N2O txn manager, use another form of perform insert
+      res = ((concurrency::OptimisticN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
+    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
+      // If we are using TO N2O txn manager, use another form of perform insert
+      res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
+    } else if (concurrency::TransactionManagerFactory::IsRB()) {
+      res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+    } else {
+      res = transaction_manager.PerformInsert(location);
+    }
+
+    EXPECT_TRUE(res);
   }
 }
 
@@ -328,9 +354,16 @@ storage::DataTable *ExecutorTestsUtil::CreateTable(
     key_schema->SetIndexedColumns(key_attrs);
 
     unique = false;
-    index_metadata = new index::IndexMetadata(
-        "secondary_btree_index", 124, INDEX_TYPE_BTREE,
-        INDEX_CONSTRAINT_TYPE_DEFAULT, tuple_schema, key_schema, unique);
+    if (concurrency::TransactionManagerFactory::IsRB()
+        && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+      index_metadata = new index::IndexMetadata(
+          "secondary_rbbtree_index", 124, INDEX_TYPE_RBBTREE,
+          INDEX_CONSTRAINT_TYPE_DEFAULT, tuple_schema, key_schema, unique);
+    } else {
+      index_metadata = new index::IndexMetadata(
+          "secondary_btree_index", 124, INDEX_TYPE_BTREE,
+          INDEX_CONSTRAINT_TYPE_DEFAULT, tuple_schema, key_schema, unique);
+    }
     index::Index *sec_index = index::IndexFactory::GetInstance(index_metadata);
 
     table->AddIndex(sec_index);

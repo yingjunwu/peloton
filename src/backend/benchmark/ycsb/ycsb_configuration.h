@@ -32,6 +32,8 @@ static const oid_t user_table_pkey_index_oid = 2001;
 
 static const oid_t ycsb_field_length = 100;
 
+static const oid_t ycsb_table_sindex_begin_oid = 3000;
+
 class configuration {
  public:
   // size of the table
@@ -67,6 +69,9 @@ class configuration {
   // number of backends
   int backend_count;
 
+  // number of secondary index
+  int sindex_count;
+
   std::vector<double> snapshot_throughput;
 
   std::vector<double> snapshot_abort_rate;
@@ -97,6 +102,9 @@ class configuration {
   // enable blind write
   bool blind_write;
 
+  // use secondary index to scan
+  bool sindex_scan;
+
   // protocol type
   ConcurrencyType protocol;
 
@@ -105,6 +113,9 @@ class configuration {
 
   // index type
   IndexType index;
+
+  // secondary index type
+  SecondaryIndexType sindex;
 
   // number of threads used in GC,
   // Only available when gc type is n2o and va

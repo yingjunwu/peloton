@@ -37,8 +37,10 @@ BTreeIndex<KeyType, ValueType, KeyComparator,
   // as the underlying index is unaware of shared_ptr,
   // memory allocated should be managed carefully by programmers.
   for (auto entry = container.begin(); entry != container.end(); ++entry) {
-    delete entry->second;
-    entry->second = nullptr;
+    if (metadata->index_type == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+      delete entry->second;
+      entry->second = nullptr;
+    }
   }
 }
 
@@ -46,12 +48,17 @@ template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
 bool BTreeIndex<KeyType, ValueType, KeyComparator,
                 KeyEqualityChecker>::InsertEntry(const storage::Tuple *key,
-                                                 const ItemPointer &location) {
+                                                 const ItemPointer &location,
+                                                 ItemPointer **itempointer_ptr) {
   KeyType index_key;
 
   index_key.SetFromKey(key);
+  ItemPointer *itempointer = new ItemPointer(location);
   std::pair<KeyType, ValueType> entry(index_key,
-                                      new ItemPointer(location));
+                                      itempointer);
+  if (itempointer_ptr != nullptr) {
+    *itempointer_ptr = itempointer;
+  }
 
   {
     index_lock.Lock();
@@ -64,6 +71,30 @@ bool BTreeIndex<KeyType, ValueType, KeyComparator,
 
   return true;
 }
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+  class KeyEqualityChecker>
+bool BTreeIndex<KeyType, ValueType, KeyComparator,
+  KeyEqualityChecker>::InsertEntryInTupleIndex(const storage::Tuple *key,
+                                    ItemPointer *location) {
+  KeyType index_key;
+
+  index_key.SetFromKey(key);
+  std::pair<KeyType, ValueType> entry(index_key,location);
+
+  {
+    index_lock.Lock();
+
+    // Insert the key, val pair
+    container.insert(entry);
+
+    index_lock.Unlock();
+  }
+
+  return true;
+}
+
+
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
@@ -91,6 +122,46 @@ bool BTreeIndex<KeyType, ValueType, KeyComparator,
         if ((value.block == location.block) &&
             (value.offset == location.offset)) {
           delete iterator->second;
+          iterator->second = nullptr;
+          container.erase(iterator);
+          // Set try again
+          try_again = true;
+          break;
+        }
+      }
+    }
+
+    index_lock.Unlock();
+  }
+
+  return true;
+}
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+  class KeyEqualityChecker>
+bool BTreeIndex<KeyType, ValueType, KeyComparator,
+  KeyEqualityChecker>::DeleteEntryInTupleIndex(const storage::Tuple *key,
+                                    ItemPointer *location) {
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  {
+    index_lock.Lock();
+
+    // Delete the < key, location > pair
+    bool try_again = true;
+    while (try_again == true) {
+      // Unset try again
+      try_again = false;
+
+      // Lookup matching entries
+      auto entries = container.equal_range(index_key);
+      for (auto iterator = entries.first; iterator != entries.second;
+           iterator++) {
+        ItemPointer *value = iterator->second;
+
+        if (value == location) {
+          // delete iterator->second;
           iterator->second = nullptr;
           container.erase(iterator);
           // Set try again
@@ -143,6 +214,41 @@ bool BTreeIndex<KeyType, ValueType, KeyComparator,
   }
   return true;
 }
+
+template <typename KeyType, typename ValueType, class KeyComparator,
+  class KeyEqualityChecker>
+bool BTreeIndex<KeyType, ValueType, KeyComparator,
+  KeyEqualityChecker>::CondInsertEntryInTupleIndex(
+  const storage::Tuple *key, ItemPointer *location,
+  std::function<bool(const void *)> predicate) {
+
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  {
+    index_lock.Lock();
+
+    // find the <key, location> pair
+    auto entries = container.equal_range(index_key);
+    for (auto entry = entries.first; entry != entries.second; ++entry) {
+
+      if (predicate((void*)(entry->second))) {
+        // this key is already visible or dirty in the index
+        index_lock.Unlock();
+        LOG_TRACE("predicate fails, abort transaction");
+        return false;
+      }
+    }
+
+    // Insert the key, val pair
+    container.insert(std::pair<KeyType, ValueType>(
+      index_key, location));
+
+    index_lock.Unlock();
+  }
+  return true;
+}
+
 
 template <typename KeyType, typename ValueType, class KeyComparator,
           class KeyEqualityChecker>
@@ -227,6 +333,7 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
 
     index_lock.Unlock();
   }
+  LOG_TRACE("DONE\n");
 }
 
 template <typename KeyType, typename ValueType, class KeyComparator,
@@ -331,9 +438,12 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
         // Scan the index entries in forward direction
         for (auto scan_itr = scan_begin_itr; scan_itr != container.end();
              scan_itr++) {
+         // fprintf(stdout, "Fuck for loop\n");
+         // fprintf(stdout, "Itempointer: %u, %d\n", scan_itr->second->block, scan_itr->second->offset);
           auto scan_current_key = scan_itr->first;
           auto tuple =
               scan_current_key.GetTupleForComparison(metadata->GetKeySchema());
+         // fprintf(stdout, "Fuck for loop again\n");
 
           // Compare the current key in the scan with "values" based on
           // "expression types"
@@ -347,6 +457,7 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
               break;
             }
           }
+         // fprintf(stdout, "Fuck for loop almost finish\n");
         }
 
       } break;
@@ -357,6 +468,7 @@ void BTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::Scan(
         break;
     }
 
+   // fprintf(stdout, "Done\n");
     index_lock.Unlock();
   }
 }

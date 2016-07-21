@@ -38,6 +38,7 @@ void Usage(FILE *out) {
           "   -o --operation_count   :  # of operations \n"
           "   -y --read_only         :  # of read-only backends \n"
           "   -v --reverse           :  # of reverse backends \n"
+          "   -n --sindex_count      :  # of secondary index\n"
           "   -u --write_ratio       :  Fraction of updates \n"
           "   -z --zipf_theta        :  theta to control skewness \n"
           "   -m --mix_txn           :  run read/write mix txn \n"
@@ -48,6 +49,8 @@ void Usage(FILE *out) {
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/n2otxn/va\n"
+          "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
+          "   -j --sindex_scan       :  use secondary index to scan\n "
   );
   exit(EXIT_FAILURE);
 }
@@ -72,6 +75,9 @@ static struct option opts[] = {
     {"protocol", optional_argument, NULL, 'p'},
     {"gc_protocol", optional_argument, NULL, 'g'},
     {"gc_thread", optional_argument, NULL, 't'},
+    {"sindex_count", optional_argument, NULL, 'n'},
+    {"sindex_mode", optional_argument, NULL, 'q'},
+    {"sindex_scan", optional_argument, NULL, 'j'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -183,9 +189,28 @@ void ValidateProtocol(const configuration &state) {
   }
 }
 
+void ValidateSecondaryIndexScan(const configuration &state) {
+  if (state.sindex_scan == true && (state.sindex_count < 1 || state.column_count < 2)) {
+    LOG_ERROR("Invalid scan type");
+    exit(EXIT_FAILURE);
+  }
+}
+
 void ValidateIndex(const configuration &state) {
   if (state.index != INDEX_TYPE_BTREE && state.index != INDEX_TYPE_BWTREE && state.index != INDEX_TYPE_HASH) {
     LOG_ERROR("Invalid index");
+    exit(EXIT_FAILURE);
+  }
+}
+
+void ValidateSecondaryIndex(const configuration &state) {
+  if (state.sindex_count < 0) {
+    LOG_ERROR("Secondary index number should >= 0");
+    exit(EXIT_FAILURE);
+  } else if (state.sindex_count > state.column_count) {
+    // Fixme (Runshen Zhu): <= column count - 1 ?
+    // const oid_t col_count = state.column_count + 1; in constructing table
+    LOG_ERROR("Secondary index number should <= column count");
     exit(EXIT_FAILURE);
   }
 }
@@ -209,17 +234,22 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.blind_write = false;
   state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
   state.gc_protocol = GC_TYPE_OFF;
-  state.index = INDEX_TYPE_BTREE;
+  state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
-
+  state.sindex_count = 0;
+  state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+  state.sindex_scan = false;
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "ahmexk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:", opts, &idx);
+    int c = getopt_long(argc, argv, "ahmexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'n':
+        state.sindex_count = atoi(optarg);
+        break;
       case 't':
         state.gc_thread_count = atoi(optarg);
         break;
@@ -267,6 +297,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'x':
         state.blind_write = true;
+        break;
+      case 'j':
+        state.sindex_scan = true;
         break;
       case 'p': {
         char *protocol = optarg;
@@ -336,6 +369,18 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         }
         break;
       }
+      case 'q': {
+        char *sindex = optarg;
+        if (strcmp(sindex, "version") == 0) {
+          state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+        } else if (strcmp(sindex, "tuple") == 0) {
+          state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
+        } else {
+          fprintf(stderr, "\n Unknown sindex: %s\n", sindex);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
       case 'h':
         Usage(stderr);
         exit(EXIT_FAILURE);
@@ -360,6 +405,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateZipfTheta(state);
   ValidateProtocol(state);
   ValidateIndex(state);
+  ValidateSecondaryIndex(state);
+  ValidateSecondaryIndexScan(state);
 
   LOG_TRACE("%s : %d", "Run mix query", state.run_mix);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);

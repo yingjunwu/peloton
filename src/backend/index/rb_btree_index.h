@@ -49,7 +49,7 @@ class RBBTreeIndex : public Index {
 
   ~RBBTreeIndex();
 
-  bool InsertEntry(const storage::Tuple *key, const ItemPointer &location);
+  bool InsertEntry(const storage::Tuple *key, const ItemPointer &location, ItemPointer **itempointer_ptr);
 
   bool InsertEntry(const storage::Tuple *key, const ItemPointer &location, RBItemPointer **result);
 

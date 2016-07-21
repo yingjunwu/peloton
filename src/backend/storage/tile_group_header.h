@@ -40,7 +40,7 @@ class TileGroup;
  * Layout :
  *
  *  -----------------------------------------------------------------------------
- *  | TxnID (8 bytes)  | BeginTimeStamp (8 bytes) | EndTimeStamp (8 bytes) |
+ *  | TxnID (8 bytes)  | BeginTimeStamp (8 bytes) | EndTimeStamp (8 bytes) | Master Pointer (8 Bytes)
  *  | NextItemPointer (8 bytes) | PrevItemPointer (8 bytes) | IndexCount(4 bytes) | 
  *  | ReservedField (24 bytes) | InsertCommit (1 byte) | DeleteCommit (1 byte)
  *  -----------------------------------------------------------------------------
@@ -166,6 +166,10 @@ class TileGroupHeader : public Printable {
     return (char *)(TUPLE_HEADER_LOCATION + prev_pointer_offset);
   }
 
+  inline ItemPointer * GetMasterPointer(const oid_t &tuple_slot_id) const {
+    return *(ItemPointer **)(TUPLE_HEADER_LOCATION + master_pointer_offset);
+  }
+
   // Setters
 
   inline void SetTileGroup(TileGroup *tile_group) {
@@ -204,6 +208,11 @@ class TileGroupHeader : public Printable {
   inline void SetDeleteCommit(const oid_t &tuple_slot_id,
                               const bool commit) const {
     *((bool *)(TUPLE_HEADER_LOCATION + delete_commit_offset)) = commit;
+  }
+
+  inline void SetMasterPointer(const oid_t &tuple_slot_id,
+                               const ItemPointer *master_ptr) {
+    *((const ItemPointer **)(TUPLE_HEADER_LOCATION + master_pointer_offset)) = master_ptr;
   }
 
   // Getters for addresses
@@ -257,19 +266,17 @@ class TileGroupHeader : public Printable {
 
   // FIXME: there is no space reserved for index count?
   static const size_t header_entry_size = sizeof(txn_id_t) + 2 * sizeof(cid_t) +
-                                          2 * sizeof(ItemPointer) + reserved_size +
+                                          2 * sizeof(ItemPointer) + sizeof(ItemPointer *) + reserved_size +
                                           2 * sizeof(bool);
   static const size_t txn_id_offset = 0;
-  static const size_t begin_cid_offset = sizeof(txn_id_t);
+  static const size_t begin_cid_offset = txn_id_offset + sizeof(txn_id_t);
   static const size_t end_cid_offset = begin_cid_offset + sizeof(cid_t);
   static const size_t next_pointer_offset = end_cid_offset + sizeof(cid_t);
-  static const size_t prev_pointer_offset =
-      next_pointer_offset + sizeof(ItemPointer);
-  static const size_t reserved_field_offset =
-      prev_pointer_offset + sizeof(ItemPointer);
+  static const size_t prev_pointer_offset = next_pointer_offset + sizeof(ItemPointer);
+  static const size_t master_pointer_offset = prev_pointer_offset + sizeof(ItemPointer);
+  static const size_t reserved_field_offset = master_pointer_offset + sizeof(ItemPointer*);
   static const size_t insert_commit_offset = reserved_field_offset + reserved_size;
-  static const size_t delete_commit_offset =
-      insert_commit_offset + sizeof(bool);
+  static const size_t delete_commit_offset = insert_commit_offset + sizeof(bool);
 
 private:
   //===--------------------------------------------------------------------===//

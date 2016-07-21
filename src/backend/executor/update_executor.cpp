@@ -23,6 +23,7 @@
 #include "backend/storage/tile_group_header.h"
 #include "backend/storage/tile.h"
 #include "backend/storage/rollback_segment.h"
+#include "backend/index/index_factory.h"
 
 namespace peloton {
 namespace executor {
@@ -105,102 +106,41 @@ bool UpdateExecutor::DExecute() {
                               executor_context_);
 
       // Check if we are using rollback segment
-      if (concurrency_protocol == CONCURRENCY_TYPE_OCC_RB) {
-        auto rb_txn_manager = (concurrency::OptimisticRbTxnManager*)&transaction_manager;
+      if (concurrency::TransactionManagerFactory::IsRB()) {
+        if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+          auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
 
-        if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
-          // If it's not an inserted tuple,
-          // create a new rollback segment based on the old one and the old tuple
-          auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-            schema, project_info_->GetTargetList(), &old_tuple);
+          rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
+            project_info_->GetTargetList(), new_tuple.get());
 
-          // TODO: rb_seg == nullptr may be resulted from an optimization to be done
-          // when creating rollback segment
-          if (rb_seg != nullptr) {
-            // Ask the txn manager to add the a new rollback segment
-            rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
+          // Overwrite the master copy
+          tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
+
+          // Insert into secondary index
+          rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
+        } else {
+          auto rb_txn_manager = (concurrency::RBTxnManager*)&transaction_manager;
+
+          if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
+            // If it's not an inserted tuple,
+            // create a new rollback segment based on the old one and the old tuple
+            auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
+              schema, project_info_->GetTargetList(), &old_tuple);
+
+            // TODO: rb_seg == nullptr may be resulted from an optimization to be done
+            // when creating rollback segment
+            if (rb_seg != nullptr) {
+              // Ask the txn manager to add the a new rollback segment
+              rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
+            }
           }
+
+          // Overwrite the master copy
+          tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
+
+          // Insert into secondary index
+          rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
         }
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
-
-        // Insert into secondary index
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
-        auto rb_txn_manager = (concurrency::OptimisticCentralRbTxnManager*)&transaction_manager;
-
-        if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
-          // If it's not an inserted tuple,
-          // create a new rollback segment based on the old one and the old tuple
-          auto rb_seg = concurrency::OptimisticCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
-            schema, project_info_->GetTargetList(), &old_tuple);
-
-          // TODO: rb_seg == nullptr may be resulted from an optimization to be done
-          // when creating rollback segment
-          if (rb_seg != nullptr) {
-            // Ask the txn manager to add the a new rollback segment
-            rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-          }
-        }
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
-
-        // Insert into secondary index
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
-        auto rb_txn_manager = (concurrency::TsOrderCentralRbTxnManager*)&transaction_manager;
-
-        if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
-          // If it's not an inserted tuple,
-          // create a new rollback segment based on the old one and the old tuple
-          auto rb_seg = concurrency::TsOrderCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
-            schema, project_info_->GetTargetList(), &old_tuple);
-
-          // TODO: rb_seg == nullptr may be resulted from an optimization to be done
-          // when creating rollback segment
-          if (rb_seg != nullptr) {
-            // Ask the txn manager to add the a new rollback segment
-            rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-          }
-        }
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
-
-        // Insert into secondary index
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_RB) {
-        auto rb_txn_manager = (concurrency::TsOrderRbTxnManager*)&transaction_manager;
-
-        if (rb_txn_manager->IsInserted(tile_group_header, physical_tuple_id) == false) {
-          // If it's not an inserted tuple,
-          // create a new rollback segment based on the old one and the old tuple
-          auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-            schema, project_info_->GetTargetList(), &old_tuple);
-
-          // TODO: rb_seg == nullptr may be resulted from an optimization to be done
-          // when creating rollback segment
-          if (rb_seg != nullptr) {
-            // Ask the txn manager to add the a new rollback segment
-            rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-          }
-        }
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
-
-        // Insert into secondary index
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
-        auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
-
-        // Insert into secondary index
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
       } else {
         tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
         transaction_manager.PerformUpdate(old_location);
@@ -225,81 +165,20 @@ bool UpdateExecutor::DExecute() {
       // Execute the projections
       project_info_->Evaluate(new_tuple.get(), &old_tuple, nullptr,
                               executor_context_);
-      if (concurrency_protocol == CONCURRENCY_TYPE_OCC_RB) {
+
+      if (concurrency::TransactionManagerFactory::IsRB()) {
         // For rollback segment implementation
-        auto rb_txn_manager = (concurrency::OptimisticRbTxnManager*)&transaction_manager;
+        auto rb_txn_manager = (concurrency::RBTxnManager*)&transaction_manager;
 
         // Create a rollback segment based on the old tuple
-        auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-          schema, project_info_->GetTargetList(), &old_tuple);
-
-        // Ask the txn manager to append the rollback segment
-        rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), old_location.offset);
-
-        // Insert into secondary index. Maybe we can insert index before
-        // CopyTuple? -- RX
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
-        // For rollback segment implementation
-        auto rb_txn_manager = (concurrency::OptimisticCentralRbTxnManager*)&transaction_manager;
-
-        // Create a rollback segment based on the old tuple
-        auto rb_seg = concurrency::OptimisticCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
-          schema, project_info_->GetTargetList(), &old_tuple);
-
-        // Ask the txn manager to append the rollback segment
-        rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), old_location.offset);
-
-        // Insert into secondary index. Maybe we can insert index before
-        // CopyTuple? -- RX
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
-        // For rollback segment implementation
-        auto rb_txn_manager = (concurrency::TsOrderCentralRbTxnManager*)&transaction_manager;
-
-        // Create a rollback segment based on the old tuple
-        auto rb_seg = concurrency::TsOrderCentralRbTxnManager::GetSegmentPool()->CreateSegmentFromTuple(
-          schema, project_info_->GetTargetList(), &old_tuple);
-
-        // Ask the txn manager to append the rollback segment
-        rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), old_location.offset);
-
-        // Insert into secondary index. Maybe we can insert index before
-        // CopyTuple? -- RX
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_RB) {
-        // For rollback segment implementation
-        auto rb_txn_manager = (concurrency::TsOrderRbTxnManager*)&transaction_manager;
-
-        // Create a rollback segment based on the old tuple
-        auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-          schema, project_info_->GetTargetList(), &old_tuple);
-
-        // Ask the txn manager to append the rollback segment
-        rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-
-        // Overwrite the master copy
-        tile_group->CopyTuple(new_tuple.get(), old_location.offset);
-
-        // Insert into secondary index. Maybe we can insert index before
-        // CopyTuple? -- RX
-        rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
-      } else if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
-        // For rollback segment implementation
-        auto rb_txn_manager = (concurrency::TsOrderFullRbTxnManager*)&transaction_manager;
-
-        // Create a rollback segment based on the old tuple
-        auto rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
-          schema, &old_tuple);
+        char *rb_seg = nullptr;
+        if (concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+          rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
+            schema, &old_tuple);
+        } else {
+          rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
+            schema, project_info_->GetTargetList(), &old_tuple);  
+        }
 
         // Ask the txn manager to append the rollback segment
         rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
@@ -311,8 +190,14 @@ bool UpdateExecutor::DExecute() {
         // CopyTuple? -- RX
         rb_txn_manager->RBInsertVersion(target_table_, old_location, new_tuple.get());
       } else {
+        ItemPointer new_location;
         // finally insert updated tuple into the table
-        ItemPointer new_location = target_table_->InsertVersion(new_tuple.get());
+        if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+          ItemPointer *master_ptr = tile_group_header->GetMasterPointer(old_location.offset);
+          new_location = target_table_->InsertVersion(new_tuple.get(), &(project_info_->GetTargetList()), master_ptr);
+        } else {
+          new_location = target_table_->InsertVersion(new_tuple.get());
+        }
         // FIXME: PerformUpdate() will not be executed if the insertion failed,
         // There is a write lock acquired, but it is not in the write set.
         // the acquired lock can't be released when the txn is aborted.

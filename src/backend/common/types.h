@@ -426,6 +426,11 @@ enum IndexType {
   INDEX_TYPE_RBHASH = 6 // rollback segment hash index
 };
 
+enum SecondaryIndexType {
+  SECONDARY_INDEX_TYPE_VERSION = 0,
+  SECONDARY_INDEX_TYPE_TUPLE = 1
+};
+
 enum IndexConstraintType {
   INDEX_CONSTRAINT_TYPE_INVALID = 0,  // invalid index constraint type
 

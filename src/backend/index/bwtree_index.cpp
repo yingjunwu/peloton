@@ -49,12 +49,36 @@ BWTREE_INDEX_TYPE::~BWTreeIndex() {
 BWTREE_TEMPLATE_ARGUMENTS
 bool
 BWTREE_INDEX_TYPE::InsertEntry(const storage::Tuple *key,
-                               const ItemPointer &location) {
+                               const ItemPointer &location,
+                              ItemPointer **itempointer_ptr) {
+  KeyType index_key;
+
+  index_key.SetFromKey(key);
+  ItemPointer *itempointer = new ItemPointer(location);
+  std::pair<KeyType, ValueType> entry(index_key,
+                                      itempointer);
+  if (itempointer_ptr != nullptr) {
+    *itempointer_ptr = itempointer;
+  }
+  
+  bool ret = container.Insert(index_key, itempointer);
+  // If insertion fails we just delete the new value and return false
+  // to notify the caller
+  if(ret == false) {
+    delete itempointer;
+  }
+
+  return ret;
+}
+
+BWTREE_TEMPLATE_ARGUMENTS
+bool
+BWTREE_INDEX_TYPE::InsertEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location) {
   KeyType index_key;
   index_key.SetFromKey(key);
-  
-  ItemPointer *item_p = new ItemPointer{location};
-  
+
+  ItemPointer *item_p = location;
+
   bool ret = container.Insert(index_key, item_p);
   // If insertion fails we just delete the new value and return false
   // to notify the caller
@@ -98,6 +122,31 @@ BWTREE_INDEX_TYPE::DeleteEntry(const storage::Tuple *key,
 
 BWTREE_TEMPLATE_ARGUMENTS
 bool
+BWTREE_INDEX_TYPE::DeleteEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location) {
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  // Must allocate new memory here
+  ItemPointer *ip_p = location;
+
+  // In Delete() since we just use the value for comparison (i.e. read-only)
+  // it is unnecessary for us to allocate memory
+  bool ret = container.DeleteExchange(index_key, &ip_p);
+
+  // IF delete succeeds then DeleteExchange() will exchange the deleted
+  // value into this variable
+//  if(ret == true) {
+//    //delete ip_p;
+//  } else {
+//    // This will delete the unused memory
+//    // delete ip_p;
+//  }
+
+  return ret;
+}
+
+BWTREE_TEMPLATE_ARGUMENTS
+bool
 BWTREE_INDEX_TYPE::CondInsertEntry(const storage::Tuple *key,
                                    const ItemPointer &location,
                                    std::function<bool(const void *)> predicate,
@@ -107,7 +156,7 @@ BWTREE_INDEX_TYPE::CondInsertEntry(const storage::Tuple *key,
   
   ItemPointer *item_p = new ItemPointer{location};
   bool predicate_satisfied = false;
-  
+
   // This function will complete them in one step
   // predicate will be set to nullptr if the predicate
   // returns true for some value
@@ -131,6 +180,26 @@ BWTREE_INDEX_TYPE::CondInsertEntry(const storage::Tuple *key,
     delete item_p;
   }
 
+  return ret;
+}
+
+BWTREE_TEMPLATE_ARGUMENTS
+bool
+BWTREE_INDEX_TYPE::CondInsertEntryInTupleIndex(const storage::Tuple *key, ItemPointer *location,
+                                   std::function<bool(const void *)> predicate) {
+  KeyType index_key;
+  index_key.SetFromKey(key);
+
+  ItemPointer *item_p = location;
+  bool predicate_satisfied = false;
+
+  // This function will complete them in one step
+  // predicate will be set to nullptr if the predicate
+  // returns true for some value
+  bool ret = container.ConditionalInsert(index_key,
+                                         item_p,
+                                         predicate,
+                                         &predicate_satisfied);
   return ret;
 }
 
@@ -318,18 +387,16 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
     LOG_TRACE("All constraints are equal : %d ", all_constraints_are_equal);
 
     index_key.SetFromKey(start_key.get());
-
+/*
     // If it is point query then we just do a GetValue() since GetValue()
     // is way more faster than scanning using iterator
     if(all_constraints_are_equal == true) {
-      //printf("All constraints are equal\n");
-      
       // This retrieves a list of ItemPointer *
       container.GetValue(index_key, result);
 
       return;
     }
-
+*/
     //printf("Non special case\n");
 
     // This returns an iterator pointing to index_key's values

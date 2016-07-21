@@ -58,9 +58,7 @@ bool RBBTreeIndex<KeyType, ValueType, KeyComparator,
 
   index_key.SetFromKey(key);
   *result = new RBItemPointer(location, MAX_CID);
-  std::pair<KeyType, ValueType> entry(index_key,
-                                      *result);
-
+  std::pair<KeyType, ValueType> entry(index_key, *result);
   {
     index_lock.Lock();
 
@@ -305,15 +303,14 @@ RBBTreeIndex<KeyType, ValueType, KeyComparator, KeyEqualityChecker>::ScanAllKeys
 
     // scan all entries
     while (itr != container.end()) {
-
       RBItemPointer *item_pointer = itr->second;
-
       if (item_pointer->timestamp > concurrency::current_txn->GetBeginCommitId()) {
-        auto itr = result_map.find(item_pointer->location);
-        if (itr == result_map.end() || itr->second->timestamp < item_pointer->timestamp) {
+        auto res = result_map.find(item_pointer->location);
+        if (res == result_map.end() || res->second->timestamp < item_pointer->timestamp) {
           result_map.emplace(item_pointer->location, item_pointer);
         }
       }
+      itr++;
     }
 
     index_lock.Unlock();
@@ -535,7 +532,8 @@ bool RBBTreeIndex<KeyType, ValueType, KeyComparator,
                  KeyEqualityChecker>::InsertEntry(UNUSED_ATTRIBUTE const
                                                   storage::Tuple *key,
                                                   UNUSED_ATTRIBUTE const
-                                                  ItemPointer &location) {
+                                                  ItemPointer &location,
+                                                  UNUSED_ATTRIBUTE ItemPointer **itempointer_ptr) {
   // Add your implementation here
   return false;
 }
