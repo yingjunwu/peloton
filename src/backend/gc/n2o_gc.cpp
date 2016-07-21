@@ -26,7 +26,7 @@ void N2O_GCManager::StopGC(int thread_id) {
   LOG_TRACE("Stopping GC");
   this->is_running_ = false;
   this->gc_threads_[thread_id]->join();
-  ClearGarbage(thread_id);
+  //ClearGarbage(thread_id);
 }
 
 bool N2O_GCManager::ResetTuple(const TupleMetadata &tuple_metadata) {

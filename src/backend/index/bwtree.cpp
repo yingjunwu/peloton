@@ -15,11 +15,13 @@
 
 #ifdef BWTREE_PELOTON
 namespace peloton {
-namespace index { 
+namespace index {
 #endif
 
-bool print_flag = false;
-NodeID INVALID_NODE_ID = 0;
+// This flag is only defined when bwtree debug flag is enabled
+#ifdef BWTREE_DEBUG
+bool print_flag = true;
+#endif
 
 #ifdef BWTREE_PELOTON
 }  // End index namespace
