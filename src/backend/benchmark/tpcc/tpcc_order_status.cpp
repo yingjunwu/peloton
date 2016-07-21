@@ -94,7 +94,7 @@ bool RunOrderStatus(const size_t &thread_id){
    */
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-  auto txn = txn_manager.BeginTransaction();
+  auto txn = txn_manager.BeginReadonlyTransaction();
 
   std::unique_ptr<executor::ExecutorContext> context(
     new executor::ExecutorContext(txn));
@@ -148,10 +148,10 @@ bool RunOrderStatus(const size_t &thread_id){
     customer_index_scan_executor.Init();
 
     auto result = ExecuteReadTest(&customer_index_scan_executor);
-    if (txn->GetResult() != Result::RESULT_SUCCESS) {
-      txn_manager.AbortTransaction();
-      return false;
-    }
+    // if (txn->GetResult() != Result::RESULT_SUCCESS) {
+    //   txn_manager.AbortTransaction();
+    //   return false;
+    // }
 
     if (result.size() == 0) {
       LOG_ERROR("wrong result size : %lu", result.size());
@@ -208,10 +208,10 @@ bool RunOrderStatus(const size_t &thread_id){
     customer_order_by_executor.Init();
     
     auto result = ExecuteReadTest(&customer_order_by_executor);
-    if (txn->GetResult() != Result::RESULT_SUCCESS) {
-      txn_manager.AbortTransaction();
-      return false;
-    }
+    // if (txn->GetResult() != Result::RESULT_SUCCESS) {
+    //   txn_manager.AbortTransaction();
+    //   return false;
+    // }
 
     assert(result.size() > 0);
     // Get the middle one
@@ -277,10 +277,10 @@ bool RunOrderStatus(const size_t &thread_id){
   orders_order_by_executor.Init();
 
   auto orders = ExecuteReadTest(&orders_order_by_executor);
-  if (txn->GetResult() != Result::RESULT_SUCCESS) {
-    txn_manager.AbortTransaction();
-    return false;
-  }
+  // if (txn->GetResult() != Result::RESULT_SUCCESS) {
+  //   txn_manager.AbortTransaction();
+  //   return false;
+  // }
 
   if (orders.size() != 0) {
     LOG_TRACE("getOrderLines: SELECT OL_SUPPLY_W_ID, OL_I_ID, OL_QUANTITY, OL_AMOUNT, OL_DELIVERY_D FROM ORDER_LINE WHERE OL_W_ID = ? AND OL_D_ID = ? AND OL_O_ID = ?, # w_id, d_id, o_id");
@@ -313,15 +313,15 @@ bool RunOrderStatus(const size_t &thread_id){
     order_line_index_scan_executor.Init();
 
     ExecuteReadTest(&order_line_index_scan_executor);
-    if (txn->GetResult() != Result::RESULT_SUCCESS) {
-      txn_manager.AbortTransaction();
-      return false;
-    }
+    // if (txn->GetResult() != Result::RESULT_SUCCESS) {
+    //   txn_manager.AbortTransaction();
+    //   return false;
+    // }
   }
 
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
-  auto result = txn_manager.CommitTransaction();
+  auto result = txn_manager.EndReadonlyTransaction();
 
   if (result == Result::RESULT_SUCCESS) {
     return true;

@@ -127,11 +127,10 @@ Value Tile::GetValue(const oid_t tuple_offset, const oid_t column_id) {
         return Value::InitFromTupleStorage(field_location, column_type, is_inlined);
       // Try from cache
       if (last_read_timestamp == read_ts 
-        && last_read_location == ItemPointer(tile_group->GetTileGroupId(), tuple_offset)) {
-        if (last_read_rb == nullptr) // Read from master version
-          return Value::InitFromTupleStorage(field_location, column_type, is_inlined);
-        else // Read from RB
-          return storage::RollbackSegmentPool::GetValue(last_read_rb, &schema, column_id);
+        && last_read_location == ItemPointer(tile_group->GetTileGroupId(), tuple_offset)
+        && last_read_rb != nullptr) {
+        // Read from RB
+        return storage::RollbackSegmentPool::GetValue(last_read_rb, &schema, column_id);
       }
 
       // No cache

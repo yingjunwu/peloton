@@ -31,10 +31,6 @@ public:
 
   static TsOrderFullCentralRbTxnManager &GetInstance();
 
-  // Perform update with a RB, but this RB is used for overwritting the existing RB
-  void PerformUpdateWithOverwriteRb(const ItemPointer &location,
-    const catalog::Schema *schema, const TargetList &target_list, const AbstractTuple *tuple);
-
   // Rollback the master copy of a tuple to the status at the begin of the 
   // current transaction
   void RollbackTuple(std::shared_ptr<storage::TileGroup> tile_group,

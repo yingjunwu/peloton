@@ -204,7 +204,7 @@ Result TsOrderRbTxnManager::CommitTransaction() {
 }
 
 Result TsOrderRbTxnManager::AbortTransaction() {
-  LOG_TRACE("Aborting peloton txn : %lu ", current_txn->GetTransactionId());
+  LOG_INFO("Aborting peloton txn : %lu ", current_txn->GetTransactionId());
   auto &manager = catalog::Manager::GetInstance();
 
   auto &rw_set = current_txn->GetRWSet();
