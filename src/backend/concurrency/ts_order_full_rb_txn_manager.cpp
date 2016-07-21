@@ -28,25 +28,6 @@ TsOrderFullRbTxnManager &TsOrderFullRbTxnManager::GetInstance() {
   return txn_manager;
 }
 
-void TsOrderFullRbTxnManager::PerformUpdateWithOverwriteRb(const ItemPointer &location,
-  const catalog::Schema *schema, const TargetList &target_list, const AbstractTuple *tuple) {
-
-  oid_t tile_group_id = location.block;
-  oid_t tuple_id = location.offset;
-  auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(tile_group_id)->GetHeader();
-
-  assert(tile_group_header->GetTransactionId(tuple_id) == current_txn->GetTransactionId());
-  assert(tile_group_header->GetEndCommitId(tuple_id) == MAX_CID);
-
-  auto old_rb_seg = GetRbSeg(tile_group_header, tuple_id);
-
-  current_segment_pool->UpdateSegmentFromTuple(old_rb_seg, schema, target_list, tuple);
-
-  // Add the location to the update set
-  current_txn->RecordUpdate(location);
-}
-
-
 // This could be optimized, as we already have a full version in each rb, we don't need
 // to rollback the RB chain one by one, we can go directly to the last one created
 // by the transaction. Now the logic is the same ts_order_rb_txn_manager -- rx

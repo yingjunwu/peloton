@@ -66,29 +66,6 @@ RBSegType RollbackSegmentPool::CreateSegmentFromTuple(const catalog::Schema *sch
   return rb_seg;
 }
 
-void RollbackSegmentPool::UpdateSegmentFromTuple(RBSegType rb_seg, 
-                            const catalog::Schema *schema,
-                            const TargetList &target_list,
-                            const AbstractTuple *tuple) {
-  for (size_t idx = 0; idx < target_list.size(); ++idx) {
-    auto &target = target_list[idx];
-    auto col_id = target.first;
-
-    const bool is_inlined = schema->IsInlined(col_id);
-    const bool is_inbytes = false;
-
-    size_t inline_col_size = schema->GetLength(col_id);
-    size_t allocate_col_size = (is_inlined) ? inline_col_size : schema->GetVariableLength(col_id);
-
-    // Set the value
-    char *value_location = GetColDataLocation(rb_seg, col_id);
-    Value value = tuple->GetValue(col_id);
-    PL_ASSERT(schema->GetType(col_id) == value.GetValueType());
-    value.SerializeToTupleStorageAllocateForObjects(
-                value_location, is_inlined, allocate_col_size, is_inbytes, &pool_);
-  }
-}
-
 /**
  * @brief create a rollback segment by selecting columns from a tuple
  * @param target_list The columns to be selected

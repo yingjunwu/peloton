@@ -118,9 +118,6 @@ bool UpdateExecutor::DExecute() {
             char *rb_seg = rb_txn_manager->GetSegmentPool()->CreateSegmentFromTuple(
               schema, &old_tuple);
             rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-          } else {
-            rb_txn_manager->PerformUpdateWithOverwriteRb(old_location, target_table_->GetSchema(), 
-              project_info_->GetTargetList(), new_tuple.get());  
           }
           
           // Overwrite the master copy
