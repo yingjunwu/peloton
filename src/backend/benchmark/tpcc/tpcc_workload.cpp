@@ -120,6 +120,9 @@ void RunBackend(oid_t thread_id) {
   
   // backoff
   uint32_t backoff_shifts = 0;
+
+  bool slept = false;
+  auto SLEEP_TIME = std::chrono::milliseconds(100);
   while (true) {
 
     if (is_running == false) {
@@ -129,13 +132,16 @@ void RunBackend(oid_t thread_id) {
     fast_random rng(rand());
     
     auto rng_val = rng.next_uniform();
-
-     if (rng_val <= STOCK_LEVEL_RATIO) {
-       while (RunStockLevel(thread_id, state.order_range) == false) {
-          if (is_running == false) {
-            break;
-          }
-         execution_count_ref++;
+    if (rng_val <= STOCK_LEVEL_RATIO) {
+      if (!slept) {
+        slept = true;
+        std::this_thread::sleep_for(SLEEP_TIME);
+      }
+      while (RunStockLevel(thread_id, state.order_range) == false) {
+        if (is_running == false) {
+          break;
+        }
+        execution_count_ref++;
         // backoff
         if (state.run_backoff) {
           if (backoff_shifts < 63) {
@@ -148,9 +154,12 @@ void RunBackend(oid_t thread_id) {
             --spins;
           }
         }
-       }
-     } else 
-    if (rng_val <= ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+      }
+    } else if (rng_val <= ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+      if (!slept) {
+        slept = true;
+        std::this_thread::sleep_for(SLEEP_TIME);
+      }
        while (RunOrderStatus(thread_id) == false) {
           if (is_running == false) {
             break;
