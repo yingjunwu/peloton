@@ -12,6 +12,7 @@
 
 #include "harness.h"
 #include "concurrency/transaction_tests_util.h"
+#include "backend/gc/gc_manager_factory.h"
 
 namespace peloton {
 
@@ -26,7 +27,7 @@ static oid_t next_id = 10000;
 class TransactionTests : public PelotonTest {};
 
 static std::vector<ConcurrencyType> TEST_TYPES = {
-  // CONCURRENCY_TYPE_OPTIMISTIC,
+  CONCURRENCY_TYPE_OPTIMISTIC,
   // CONCURRENCY_TYPE_PESSIMISTIC,
   // CONCURRENCY_TYPE_SSI,
   // CONCURRENCY_TYPE_EAGER_WRITE,
@@ -38,7 +39,7 @@ static std::vector<ConcurrencyType> TEST_TYPES = {
   // CONCURRENCY_TYPE_TO_FULL_RB,
   // CONCURRENCY_TYPE_OCC_CENTRAL_RB,
   // CONCURRENCY_TYPE_TO_CENTRAL_RB,
-  CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB
+  // CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB
 };
 
 void TransactionTest(concurrency::TransactionManager *txn_manager) {
@@ -239,6 +240,96 @@ TEST_F(TransactionTests, AbortTest) {
       EXPECT_EQ(RESULT_ABORTED, scheduler.schedules[0].txn_result);
       EXPECT_EQ(RESULT_SUCCESS, scheduler.schedules[1].txn_result);
       EXPECT_EQ(-1, scheduler.schedules[1].results[0]);
+    }
+  }
+}
+
+TEST_F(TransactionTests, ReadonlyTransactionTest) {
+  gc::GCManagerFactory::Configure(GC_TYPE_CO, 1);
+  auto &gc_manager = gc::GCManagerFactory::GetInstance();
+
+  for (auto test_type : TEST_TYPES) {
+    concurrency::TransactionManagerFactory::Configure(test_type);
+
+    auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+    auto id1 = next_id++;
+    auto id2 = next_id++;
+    std::unique_ptr<storage::DataTable> table(
+      TransactionTestsUtil::CreateTable(10, "TEST_TABLE", INVALID_OID, id1, id2, true));
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    {
+      // Prepare
+      TransactionScheduler scheduler(1, table.get(), &txn_manager);
+      scheduler.Txn(0).Read(0);
+      scheduler.Txn(0).Read(1);
+      scheduler.Txn(0).Commit();
+      
+      scheduler.Run();
+      EXPECT_EQ(RESULT_SUCCESS, scheduler.schedules[0].txn_result);
+      EXPECT_EQ(0, scheduler.schedules[0].results[0]);
+      EXPECT_EQ(0, scheduler.schedules[0].results[1]);
+    }
+    {
+      // Only one RO txn without GC
+      gc_manager.StopGC();
+      TransactionScheduler scheduler(1, table.get(), &txn_manager);
+      scheduler.Txn(0).BeginRO();
+      scheduler.Txn(0).Read(0);
+      scheduler.Txn(0).Read(1);
+      scheduler.Txn(0).CommitRO();
+
+      scheduler.Run();
+      EXPECT_EQ(RESULT_SUCCESS, scheduler.schedules[0].txn_result);
+      EXPECT_EQ(0, scheduler.schedules[0].results[0]);
+      EXPECT_EQ(0, scheduler.schedules[0].results[1]);
+    }
+    {
+       // Only one RO txn with co GC
+      gc_manager.StartGC();
+      TransactionScheduler scheduler(1, table.get(), &txn_manager);
+      scheduler.Txn(0).BeginRO();
+      scheduler.Txn(0).Read(0);
+      scheduler.Txn(0).Read(1);
+      scheduler.Txn(0).CommitRO();
+
+      scheduler.Run();
+      EXPECT_EQ(RESULT_SUCCESS, scheduler.schedules[0].txn_result);
+      EXPECT_EQ(0, scheduler.schedules[0].results[0]);
+      EXPECT_EQ(0, scheduler.schedules[0].results[1]);
+      gc_manager.StopGC();
+    }
+    {
+      // Two txns, one is RO, one is updating
+      gc_manager.StartGC();
+      TransactionScheduler scheduler(2, table.get(), &txn_manager);
+      scheduler.SetConcurrent(true);
+
+      scheduler.Txn(0).BeginRO();
+      for (int i = 0; i < 30; i++) {
+        scheduler.Txn(0).Read(i % 10);
+      }
+      scheduler.Txn(0).CommitRO();
+
+      for (int i = 0; i < 30; i++) {
+        scheduler.Txn(1).Update(i % 10, 1);
+      }
+      for (int i = 0; i < 10; i++) {
+        scheduler.Txn(1).Read(i % 10); 
+      }
+      scheduler.Txn(1).Commit();
+
+      scheduler.Run();
+
+      EXPECT_EQ(RESULT_SUCCESS, scheduler.schedules[0].txn_result);
+      EXPECT_EQ(RESULT_SUCCESS, scheduler.schedules[1].txn_result);
+
+      for (int i = 0; i < 30; i++) {
+        EXPECT_EQ(0, scheduler.schedules[0].results[i]);  
+      }
+
+      for (int i = 0; i < 10; i++) {
+        EXPECT_EQ(1, scheduler.schedules[1].results[i]);  
+      }
     }
   }
 }

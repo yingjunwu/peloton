@@ -107,7 +107,9 @@ enum txn_op_t {
   TXN_OP_ABORT,
   TXN_OP_COMMIT,
   TXN_OP_READ_STORE,
-  TXN_OP_UPDATE_BY_VALUE
+  TXN_OP_UPDATE_BY_VALUE,
+  TXN_OP_BEGIN_RO,
+  TXN_OP_COMMIT_RO
 };
 
 #define TXN_STORED_VALUE      -10000
@@ -228,7 +230,12 @@ class TransactionThread {
     if (value == TXN_STORED_VALUE)
       value = schedule->stored_value;
 
-    if (cur_seq == 0) txn = txn_manager->BeginTransaction();
+    if (cur_seq == 0) {
+      if (op != TXN_OP_BEGIN_RO) {
+        txn = txn_manager->BeginTransaction();  
+      }
+    }
+
     if (schedule->txn_result == RESULT_ABORTED) {
       cur_seq++;
       return;
@@ -239,6 +246,10 @@ class TransactionThread {
 
     // Execute the operation
     switch (op) {
+      case TXN_OP_BEGIN_RO:
+        LOG_INFO("Txn %d Begin read only txn", schedule->schedule_id);
+        txn = txn_manager->BeginReadonlyTransaction();
+        break;
       case TXN_OP_INSERT: {
         LOG_INFO("Execute Insert id=%d, v=%d", id, value);
         execute_result =
@@ -285,6 +296,12 @@ class TransactionThread {
         txn = NULL;
         break;
       }
+      case TXN_OP_COMMIT_RO: {
+        schedule->txn_result = txn_manager->EndReadonlyTransaction();
+        LOG_INFO("Txn %d end read only", schedule->schedule_id);
+        txn = NULL;
+        break;
+      }
       case TXN_OP_COMMIT: {
         schedule->txn_result = txn_manager->CommitTransaction();
         LOG_INFO("Txn %d commits: %s", schedule->schedule_id, schedule->txn_result == RESULT_SUCCESS ? "Success" : "Fail");
@@ -303,6 +320,7 @@ class TransactionThread {
     }
 
     if (txn != NULL && txn->GetResult() == RESULT_FAILURE) {
+      assert(schedule->operations[0].op != TXN_OP_BEGIN_RO);
       txn_manager->AbortTransaction();
       txn = NULL;
       LOG_INFO("ABORT NOW");
@@ -397,6 +415,14 @@ class TransactionScheduler {
   }
   void Commit() {
     schedules[cur_txn_id].operations.emplace_back(TXN_OP_COMMIT, 0, 0);
+    sequence[time++] = cur_txn_id;
+  }
+  void CommitRO() {
+    schedules[cur_txn_id].operations.emplace_back(TXN_OP_COMMIT_RO, 0, 0);
+    sequence[time++] = cur_txn_id;
+  }
+  void BeginRO() {
+    schedules[cur_txn_id].operations.emplace_back(TXN_OP_BEGIN_RO, 0, 0);
     sequence[time++] = cur_txn_id;
   }
   void UpdateByValue(int old_value, int new_value) {
