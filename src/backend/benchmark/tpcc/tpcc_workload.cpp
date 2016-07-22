@@ -88,6 +88,17 @@ volatile bool is_running = true;
 oid_t *abort_counts;
 oid_t *commit_counts;
 
+oid_t *payment_abort_counts;
+oid_t *payment_commit_counts;
+
+oid_t *new_order_abort_counts;
+oid_t *new_order_commit_counts;
+
+oid_t stock_level_count;
+double stock_level_avg_latency;
+
+oid_t order_status_count;
+double order_status_avg_latency;
 
 size_t GenerateWarehouseId(const size_t &thread_id) {
   if (state.run_affinity) {
@@ -123,6 +134,13 @@ void RunBackend(oid_t thread_id) {
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(100);
+
+  oid_t &payment_execution_count_ref = payment_abort_counts[thread_id];
+  oid_t &payment_transaction_count_ref = payment_commit_counts[thread_id];
+
+  oid_t &new_order_execution_count_ref = new_order_abort_counts[thread_id];
+  oid_t &new_order_transaction_count_ref = new_order_commit_counts[thread_id];
+
   while (true) {
 
     if (is_running == false) {
@@ -136,6 +154,10 @@ void RunBackend(oid_t thread_id) {
       if (!slept) {
         slept = true;
         std::this_thread::sleep_for(SLEEP_TIME);
+      }
+      std::chrono::steady_clock::time_point start_time;
+      if (thread_id == 0) {
+        start_time = std::chrono::steady_clock::now();
       }
       while (RunStockLevel(thread_id, state.order_range) == false) {
         if (is_running == false) {
@@ -155,10 +177,20 @@ void RunBackend(oid_t thread_id) {
           }
         }
       }
+      if (thread_id == 0) {
+        std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+        double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+        stock_level_avg_latency = (stock_level_avg_latency * stock_level_count + diff) / (stock_level_count + 1);
+        stock_level_count++;
+      }
     } else if (rng_val <= ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+      std::chrono::steady_clock::time_point start_time;
       if (!slept) {
         slept = true;
         std::this_thread::sleep_for(SLEEP_TIME);
+      }
+      if (thread_id == 0) {
+        start_time = std::chrono::steady_clock::now();
       }
        while (RunOrderStatus(thread_id) == false) {
           if (is_running == false) {
@@ -177,6 +209,12 @@ void RunBackend(oid_t thread_id) {
             --spins;
           }
         }
+       }
+       if (thread_id == 0) {
+          std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+          double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+          order_status_avg_latency = (order_status_avg_latency * order_status_count + diff) / (order_status_count + 1);
+          order_status_count++;
        }
      } else 
      // if (rng_val <= 0.12) {
@@ -205,6 +243,7 @@ void RunBackend(oid_t thread_id) {
             break;
           }
          execution_count_ref++;
+         payment_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
           if (backoff_shifts < 63) {
@@ -218,12 +257,14 @@ void RunBackend(oid_t thread_id) {
           }
         }
        }
+       payment_transaction_count_ref++;
      } else {
        while (RunNewOrder(new_order_plans, thread_id) == false) {
           if (is_running == false) {
             break;
           }
          execution_count_ref++;
+         new_order_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
           if (backoff_shifts < 63) {
@@ -237,6 +278,7 @@ void RunBackend(oid_t thread_id) {
           }
         }
        }
+       new_order_transaction_count_ref++;
      }
 
     backoff_shifts >>= 1;
@@ -256,6 +298,24 @@ void RunWorkload() {
 
   commit_counts = new oid_t[num_threads];
   memset(commit_counts, 0, sizeof(oid_t) * num_threads);
+
+  payment_abort_counts = new oid_t[num_threads];
+  memset(payment_abort_counts, 0, sizeof(oid_t) * num_threads);
+
+  payment_commit_counts = new oid_t[num_threads];
+  memset(payment_commit_counts, 0, sizeof(oid_t) * num_threads);
+
+  new_order_abort_counts = new oid_t[num_threads];
+  memset(new_order_abort_counts, 0, sizeof(oid_t) * num_threads);
+
+  new_order_commit_counts = new oid_t[num_threads];
+  memset(new_order_commit_counts, 0, sizeof(oid_t) * num_threads);
+
+  stock_level_count = 0;
+  stock_level_avg_latency = 0.0;
+
+  order_status_count = 0;
+  order_status_avg_latency = 0.0;
 
   size_t snapshot_round = (size_t)(state.duration / state.snapshot_duration);
 
@@ -343,6 +403,35 @@ void RunWorkload() {
   state.throughput = total_commit_count * 1.0 / state.duration;
   state.abort_rate = total_abort_count * 1.0 / total_commit_count;
 
+  oid_t total_payment_commit_count = 0;
+  for (size_t i = 0; i < num_threads; ++i) {
+    total_payment_commit_count += payment_commit_counts[i];
+  }
+
+  oid_t total_payment_abort_count = 0;
+  for (size_t i = 0; i < num_threads; ++i) {
+    total_payment_abort_count += payment_abort_counts[i];
+  }
+
+  state.payment_throughput = total_payment_commit_count * 1.0 / state.duration;
+  state.payment_abort_rate = total_payment_abort_count * 1.0 / total_payment_commit_count;
+
+  oid_t total_new_order_commit_count = 0;
+  for (size_t i = 0; i < num_threads; ++i) {
+    total_new_order_commit_count += new_order_commit_counts[i];
+  }
+
+  oid_t total_new_order_abort_count = 0;
+  for (size_t i = 0; i < num_threads; ++i) {
+    total_new_order_abort_count += new_order_abort_counts[i];
+  }
+
+  state.new_order_throughput = total_new_order_commit_count * 1.0 / state.duration;
+  state.new_order_abort_rate = total_new_order_abort_count * 1.0 / total_new_order_commit_count;
+
+  state.stock_level_latency = stock_level_avg_latency;
+  state.order_status_latency = order_status_avg_latency;
+
   // cleanup everything.
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
     delete[] abort_counts_snapshots[round_id];
@@ -363,6 +452,15 @@ void RunWorkload() {
   delete[] commit_counts;
   commit_counts = nullptr;
 
+  delete[] payment_abort_counts;
+  payment_abort_counts = nullptr;
+  delete[] payment_commit_counts;
+  payment_commit_counts = nullptr;
+
+  delete[] new_order_abort_counts;
+  new_order_abort_counts = nullptr;
+  delete[] new_order_commit_counts;
+  new_order_commit_counts = nullptr;
 
   // LOG_INFO("============TABLE SIZES==========");
   // LOG_INFO("warehouse count = %u", warehouse_table->GetAllCurrentTupleCount());

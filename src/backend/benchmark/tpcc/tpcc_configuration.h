@@ -94,6 +94,18 @@ class configuration {
 
   double abort_rate;
 
+  double payment_throughput;
+
+  double payment_abort_rate;
+
+  double new_order_throughput;
+
+  double new_order_abort_rate;
+
+  double stock_level_latency;
+
+  double order_status_latency;
+
   // enable exponential backoff
   bool run_backoff;
 
