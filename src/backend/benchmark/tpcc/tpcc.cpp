@@ -33,7 +33,13 @@ std::ofstream out("outputfile.summary");
 
 static void WriteOutput() {
   LOG_INFO("----------------------------------------------------------");
-  LOG_INFO("%lf :: %lf tps, %lf, %d", state.scale_factor, state.throughput, state.abort_rate, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
+  LOG_INFO("%lf :: %lf tps, %lf, payment: %lf tps, %lf, new_order: %lf tps, %lf %d\nstock_level latency: %lf us\norder_status latency: %lf us", 
+    state.scale_factor, state.throughput, state.abort_rate, 
+    state.payment_throughput, state.payment_abort_rate,
+    state.new_order_throughput, state.new_order_abort_rate,
+    state.snapshot_memory[state.snapshot_throughput.size() - 1],
+    state.stock_level_latency,
+    state.order_status_latency);
 
   // out << state.scale_factor << "\n";
 
@@ -49,6 +55,12 @@ static void WriteOutput() {
 
   out << state.throughput << " ";
   out << state.abort_rate << " ";
+  // out << "payment: ";
+  // out << state.payment_throughput << " ";
+  // out << state.payment_abort_rate << " ";
+  // out << "new_order: ";
+  // out << state.new_order_throughput << " ";
+  // out << state.new_order_abort_rate << " ";
   out << state.snapshot_memory[state.snapshot_throughput.size() - 1] <<"\n";
   out.flush();
   out.close();
