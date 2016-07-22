@@ -78,7 +78,8 @@ tpcc_SOURCES =  \
                     backend/benchmark/tpcc/tpcc_delivery.cpp \
                     backend/benchmark/tpcc/tpcc_payment.cpp \
                     backend/benchmark/tpcc/tpcc_stock_level.cpp \
-                    backend/benchmark/tpcc/tpcc_order_status.cpp
+                    backend/benchmark/tpcc/tpcc_order_status.cpp \
+                    backend/benchmark/tpcc/tpcc_scan_stock.cpp 
 
 tpcc_LDFLAGS =
 tpcc_CPPFLAGS = $(benchmark_common_cppflags)
