@@ -106,6 +106,8 @@ class configuration {
 
   double order_status_latency;
 
+  double scan_stock_latency;
+
   // enable exponential backoff
   bool run_backoff;
 

@@ -81,7 +81,8 @@ namespace tpcc {
 
 #define STOCK_LEVEL_RATIO     0.04
 #define ORDER_STATUS_RATIO    0.04
-#define PAYMENT_RATIO         0.46
+#define SCAN_STOCK_RATIO      0.04
+#define PAYMENT_RATIO         0.44
 
 volatile bool is_running = true;
 
@@ -99,6 +100,9 @@ double stock_level_avg_latency;
 
 oid_t order_status_count;
 double order_status_avg_latency;
+
+oid_t scan_stock_count;
+double scan_stock_avg_latency;
 
 size_t GenerateWarehouseId(const size_t &thread_id) {
   if (state.run_affinity) {
@@ -216,28 +220,23 @@ void RunBackend(oid_t thread_id) {
           order_status_avg_latency = (order_status_avg_latency * order_status_count + diff) / (order_status_count + 1);
           order_status_count++;
        }
-     } else 
-     // if (rng_val <= 0.12) {
-     //   while (RunDelivery(delivery_plans, thread_id) == false) {
-     //      if (is_running == false) {
-     //        break;
-     //      }
-     //     execution_count_ref++;
-     //    // backoff
-     //    if (state.run_backoff) {
-     //      if (backoff_shifts < 63) {
-     //        ++backoff_shifts;
-     //      }
-     //      uint64_t spins = 1UL << backoff_shifts;
-     //      spins *= 100;
-     //      while (spins) {
-     //        _mm_pause();
-     //        --spins;
-     //      }
-     //    }
-     //   }
-     // } else 
-     if (rng_val <= PAYMENT_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+     } else if (rng_val <= SCAN_STOCK_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+        std::chrono::steady_clock::time_point start_time;
+        if (!slept) {
+          slept = true;
+          std::this_thread::sleep_for(SLEEP_TIME);
+        }
+        if (thread_id == 0) {
+          start_time = std::chrono::steady_clock::now();
+        }
+        RunScanStock();
+        if (thread_id == 0) {
+          std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+          double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+          scan_stock_avg_latency = (scan_stock_avg_latency * scan_stock_count + diff) / (scan_stock_count + 1);
+          scan_stock_count++;
+        }
+     } else if (rng_val <= PAYMENT_RATIO + SCAN_STOCK_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
        while (RunPayment(payment_plans, thread_id) == false) {
           if (is_running == false) {
             break;
@@ -316,6 +315,9 @@ void RunWorkload() {
 
   order_status_count = 0;
   order_status_avg_latency = 0.0;
+
+  scan_stock_count = 0;
+  scan_stock_avg_latency = 0.0;
 
   size_t snapshot_round = (size_t)(state.duration / state.snapshot_duration);
 
@@ -431,6 +433,7 @@ void RunWorkload() {
 
   state.stock_level_latency = stock_level_avg_latency;
   state.order_status_latency = order_status_avg_latency;
+  state.scan_stock_latency = scan_stock_avg_latency;
 
   // cleanup everything.
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
