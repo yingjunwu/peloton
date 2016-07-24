@@ -85,8 +85,8 @@ oid_t *commit_counts;
 oid_t *ro_abort_counts;
 oid_t *ro_commit_counts;
 
-oid_t *scan_abort_counts;
-oid_t *scan_commit_counts;
+oid_t scan_count;
+double scan_avg_latency;
 
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
@@ -133,16 +133,14 @@ void RunBackend(oid_t thread_id) {
   }
 }
 
-void RunReverseBackend(oid_t thread_id) {
+void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  // auto update_ratio = 1 - state.update_ratio;
   double update_ratio = 0;
-  // auto operation_count = state.operation_count;
-  int operation_count = 100;
+  auto operation_count = state.operation_count;
 
-  oid_t &reverse_execution_count_ref = ro_abort_counts[thread_id];
-  oid_t &reverse_transaction_count_ref = ro_commit_counts[thread_id];
+  oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
+  oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
 
   ZipfDistribution zipf(state.scale_factor * 1000 - 1,
                         state.zipf_theta);
@@ -160,7 +158,7 @@ void RunReverseBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      reverse_execution_count_ref++;
+      ro_execution_count_ref++;
       // backoff
       if (state.run_backoff) {
         if (backoff_shifts < 63) {
@@ -176,15 +174,15 @@ void RunReverseBackend(oid_t thread_id) {
     }
     backoff_shifts >>= 1;
 
-    reverse_transaction_count_ref++;
+    ro_transaction_count_ref++;
   }
 }
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  oid_t &scan_execution_count_ref = scan_abort_counts[thread_id];
-  oid_t &scan_transaction_count_ref = scan_commit_counts[thread_id];
+  bool slept = false;
+  auto SLEEP_TIME = std::chrono::milliseconds(500);
 
   // backoff
   uint32_t backoff_shifts = 0;
@@ -192,11 +190,18 @@ void RunScanBackend(oid_t thread_id) {
     if (is_running == false) {
       break;
     }
+    if (!slept) {
+      slept = true;
+      std::this_thread::sleep_for(SLEEP_TIME);
+    }
+    std::chrono::steady_clock::time_point start_time;
+    if (thread_id == 0) {
+      start_time = std::chrono::steady_clock::now();
+    }
     while (RunScan() == false) {
       if (is_running == false) {
         break;
       }
-      scan_execution_count_ref++;
       // backoff
       if (state.run_backoff) {
         if (backoff_shifts < 63) {
@@ -210,8 +215,13 @@ void RunScanBackend(oid_t thread_id) {
         }
       }
     }
+    if (thread_id == 0) {
+      std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+      double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+      scan_avg_latency = (scan_avg_latency * scan_count + diff) / (scan_count + 1);
+      scan_count++;
+    }
     backoff_shifts >>= 1;
-    scan_transaction_count_ref++;
   }
 }
 
@@ -235,12 +245,8 @@ void RunWorkload() {
   ro_commit_counts = new oid_t[num_threads];
   memset(ro_commit_counts, 0, sizeof(oid_t) * num_threads);
 
-  scan_abort_counts = new oid_t[num_threads];
-  memset(scan_abort_counts, 0, sizeof(oid_t) * num_threads);
-
-  scan_commit_counts = new oid_t[num_threads];
-  memset(scan_commit_counts, 0, sizeof(oid_t) * num_threads);
-
+  scan_count = 0;
+  scan_avg_latency = 0.0;
 
   size_t snapshot_round = (size_t)(state.duration / state.snapshot_duration);
 
@@ -260,7 +266,7 @@ void RunWorkload() {
   }
 
   for (oid_t thread_itr = num_scan_threads; thread_itr < num_scan_threads + num_ro_threads; ++thread_itr) {
-    thread_group.push_back(std::move(std::thread(RunReverseBackend, thread_itr)));
+    thread_group.push_back(std::move(std::thread(RunReadOnlyBackend, thread_itr)));
   }
 
   for (oid_t thread_itr = num_scan_threads + num_ro_threads; thread_itr < num_threads; ++thread_itr) {
@@ -268,6 +274,7 @@ void RunWorkload() {
   }
 
   //////////////////////////////////////
+  oid_t last_tile_group_id = 0;
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
     std::this_thread::sleep_for(
         std::chrono::milliseconds(int(state.snapshot_duration * 1000)));
@@ -276,9 +283,14 @@ void RunWorkload() {
     memcpy(commit_counts_snapshots[round_id], commit_counts,
            sizeof(oid_t) * num_threads);
     auto& manager = catalog::Manager::GetInstance();
-  
-    state.snapshot_memory.push_back(manager.GetLastTileGroupId());
+    
+    oid_t current_tile_group_id = manager.GetLastTileGroupId();
+    if (round_id != 0) {
+      state.snapshot_memory.push_back(current_tile_group_id - last_tile_group_id);
+    }
+    last_tile_group_id = current_tile_group_id;
   }
+  state.snapshot_memory.push_back(state.snapshot_memory.at(state.snapshot_memory.size() - 1));
 
   is_running = false;
 
@@ -355,20 +367,8 @@ void RunWorkload() {
   }
   
   //////////////////////////////////////////////////
-  if (num_scan_threads != 0) {
-    oid_t total_scan_commit_count = 0;
-    for (size_t i = 0; i < num_scan_threads; ++i) {
-      total_scan_commit_count += scan_commit_counts[i];
-    }
 
-    oid_t total_scan_abort_count = 0;
-    for (size_t i = 0; i < num_scan_threads; ++i) {
-      total_scan_abort_count += scan_abort_counts[i];
-    }
-
-    state.scan_throughput = total_scan_commit_count * 1.0 / state.duration;
-    state.scan_abort_rate = total_scan_abort_count * 1.0 / total_scan_commit_count;
-  }
+  state.scan_latency = scan_avg_latency;
 
   //////////////////////////////////////////////////
 
@@ -397,11 +397,6 @@ void RunWorkload() {
   ro_abort_counts = nullptr;
   delete[] ro_commit_counts;
   ro_commit_counts = nullptr;
-
-  delete[] scan_abort_counts;
-  scan_abort_counts = nullptr;
-  delete[] scan_commit_counts;
-  scan_commit_counts = nullptr;
 }
 
 

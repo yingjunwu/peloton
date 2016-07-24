@@ -51,10 +51,10 @@ class configuration {
   // operation count
   int operation_count;
 
-  // number of read-only backends
+  // number of scan backends
   int scan_backend_count;
 
-  // number of reverse backends
+  // number of read-only backends
   int ro_backend_count;
 
   // update ratio
@@ -86,9 +86,7 @@ class configuration {
 
   double ro_abort_rate = 0;
 
-  double scan_throughput = 0;
-
-  double scan_abort_rate = 0;
+  double scan_latency = 0;
 
   // Theta in zipf distribution to control skewness
   double zipf_theta;
