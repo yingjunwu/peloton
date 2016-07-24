@@ -36,8 +36,8 @@ void Usage(FILE *out) {
           "   -l --update_col_count  :  # of updated columns \n"
           "   -r --read_col_count    :  # of read columns \n"
           "   -o --operation_count   :  # of operations \n"
-          "   -y --read_only         :  # of read-only backends \n"
-          "   -v --reverse           :  # of reverse backends \n"
+          "   -y --scan              :  # of scan backends \n"
+          "   -v --read-only         :  # of read-only backends \n"
           "   -n --sindex_count      :  # of secondary index\n"
           "   -u --write_ratio       :  Fraction of updates \n"
           "   -z --zipf_theta        :  theta to control skewness \n"
@@ -65,7 +65,7 @@ static struct option opts[] = {
     {"read_col_count", optional_argument, NULL, 'r'},
     {"operation_count", optional_argument, NULL, 'o'},
     {"scan_backend_count", optional_argument, NULL, 'y'},
-    {"reverse_backend_count", optional_argument, NULL, 'v'},
+    {"ro_backend_count", optional_argument, NULL, 'v'},
     {"update_ratio", optional_argument, NULL, 'u'},
     {"backend_count", optional_argument, NULL, 'b'},
     {"zipf_theta", optional_argument, NULL, 'z'},
@@ -139,8 +139,8 @@ void ValidateBackendCount(const configuration &state) {
     LOG_ERROR("Invalid backend_count :: %d", state.backend_count);
     exit(EXIT_FAILURE);
   }
-  if (state.scan_backend_count + state.reverse_backend_count > state.backend_count) {
-    LOG_ERROR("Invalid backend_count :: %d, %d", state.reverse_backend_count, state.scan_backend_count);
+  if (state.scan_backend_count + state.ro_backend_count > state.backend_count) {
+    LOG_ERROR("Invalid backend_count :: %d, %d", state.ro_backend_count, state.scan_backend_count);
     exit(EXIT_FAILURE);
   }
   LOG_TRACE("%s : %d", "backend_count", state.backend_count);
@@ -225,7 +225,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.read_column_count = 1;
   state.operation_count = 10;
   state.scan_backend_count = 0;
-  state.reverse_backend_count = 0;
+  state.ro_backend_count = 0;
   state.update_ratio = 0.5;
   state.backend_count = 2;
   state.zipf_theta = 0.0;
@@ -277,7 +277,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         state.scan_backend_count = atoi(optarg);
         break;
       case 'v':
-        state.reverse_backend_count = atoi(optarg);
+        state.ro_backend_count = atoi(optarg);
         break;
       case 'u':
         state.update_ratio = atof(optarg);

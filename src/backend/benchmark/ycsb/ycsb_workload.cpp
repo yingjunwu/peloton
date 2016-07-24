@@ -82,8 +82,8 @@ volatile bool is_running = true;
 oid_t *abort_counts;
 oid_t *commit_counts;
 
-oid_t *reverse_abort_counts;
-oid_t *reverse_commit_counts;
+oid_t *ro_abort_counts;
+oid_t *ro_commit_counts;
 
 oid_t *scan_abort_counts;
 oid_t *scan_commit_counts;
@@ -141,8 +141,8 @@ void RunReverseBackend(oid_t thread_id) {
   // auto operation_count = state.operation_count;
   int operation_count = 100;
 
-  oid_t &reverse_execution_count_ref = reverse_abort_counts[thread_id];
-  oid_t &reverse_transaction_count_ref = reverse_commit_counts[thread_id];
+  oid_t &reverse_execution_count_ref = ro_abort_counts[thread_id];
+  oid_t &reverse_transaction_count_ref = ro_commit_counts[thread_id];
 
   ZipfDistribution zipf(state.scale_factor * 1000 - 1,
                         state.zipf_theta);
@@ -220,7 +220,7 @@ void RunWorkload() {
   // Execute the workload to build the log
   std::vector<std::thread> thread_group;
   oid_t num_threads = state.backend_count;
-  oid_t num_reverse_threads = state.reverse_backend_count;
+  oid_t num_ro_threads = state.ro_backend_count;
   oid_t num_scan_threads = state.scan_backend_count;
 
   abort_counts = new oid_t[num_threads];
@@ -229,11 +229,11 @@ void RunWorkload() {
   commit_counts = new oid_t[num_threads];
   memset(commit_counts, 0, sizeof(oid_t) * num_threads);
 
-  reverse_abort_counts = new oid_t[num_threads];
-  memset(reverse_abort_counts, 0, sizeof(oid_t) * num_threads);
+  ro_abort_counts = new oid_t[num_threads];
+  memset(ro_abort_counts, 0, sizeof(oid_t) * num_threads);
 
-  reverse_commit_counts = new oid_t[num_threads];
-  memset(reverse_commit_counts, 0, sizeof(oid_t) * num_threads);
+  ro_commit_counts = new oid_t[num_threads];
+  memset(ro_commit_counts, 0, sizeof(oid_t) * num_threads);
 
   scan_abort_counts = new oid_t[num_threads];
   memset(scan_abort_counts, 0, sizeof(oid_t) * num_threads);
@@ -259,11 +259,11 @@ void RunWorkload() {
     thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
   }
 
-  for (oid_t thread_itr = num_scan_threads; thread_itr < num_scan_threads + num_reverse_threads; ++thread_itr) {
+  for (oid_t thread_itr = num_scan_threads; thread_itr < num_scan_threads + num_ro_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunReverseBackend, thread_itr)));
   }
 
-  for (oid_t thread_itr = num_scan_threads + num_reverse_threads; thread_itr < num_threads; ++thread_itr) {
+  for (oid_t thread_itr = num_scan_threads + num_ro_threads; thread_itr < num_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 
@@ -339,19 +339,19 @@ void RunWorkload() {
   state.abort_rate = total_abort_count * 1.0 / total_commit_count;
 
   //////////////////////////////////////////////////
-  if (num_reverse_threads != 0) {
-    oid_t total_reverse_commit_count = 0;
-    for (size_t i = 0; i < num_reverse_threads; ++i) {
-      total_reverse_commit_count += reverse_commit_counts[i];
+  if (num_ro_threads != 0) {
+    oid_t total_ro_commit_count = 0;
+    for (size_t i = 0; i < num_ro_threads; ++i) {
+      total_ro_commit_count += ro_commit_counts[i];
     }
 
-    oid_t total_reverse_abort_count = 0;
-    for (size_t i = 0; i < num_reverse_threads; ++i) {
-      total_reverse_abort_count += reverse_abort_counts[i];
+    oid_t total_to_abort_count = 0;
+    for (size_t i = 0; i < num_ro_threads; ++i) {
+      total_to_abort_count += ro_abort_counts[i];
     }
 
-    state.reverse_throughput = total_reverse_commit_count * 1.0 / state.duration;
-    state.reverse_abort_rate = total_reverse_abort_count * 1.0 / total_reverse_commit_count;
+    state.ro_throughput = total_ro_commit_count * 1.0 / state.duration;
+    state.ro_abort_rate = total_to_abort_count * 1.0 / total_ro_commit_count;
   }
   
   //////////////////////////////////////////////////
@@ -393,10 +393,10 @@ void RunWorkload() {
   delete[] commit_counts;
   commit_counts = nullptr;
 
-  delete[] reverse_abort_counts;
-  reverse_abort_counts = nullptr;
-  delete[] reverse_commit_counts;
-  reverse_commit_counts = nullptr;
+  delete[] ro_abort_counts;
+  ro_abort_counts = nullptr;
+  delete[] ro_commit_counts;
+  ro_commit_counts = nullptr;
 
   delete[] scan_abort_counts;
   scan_abort_counts = nullptr;

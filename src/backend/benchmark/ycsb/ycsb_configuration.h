@@ -55,7 +55,7 @@ class configuration {
   int scan_backend_count;
 
   // number of reverse backends
-  int reverse_backend_count;
+  int ro_backend_count;
 
   // update ratio
   double update_ratio;
@@ -82,9 +82,9 @@ class configuration {
 
   double abort_rate = 0;
 
-  double reverse_throughput = 0;
+  double ro_throughput = 0;
 
-  double reverse_abort_rate = 0;
+  double ro_abort_rate = 0;
 
   double scan_throughput = 0;
 
