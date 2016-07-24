@@ -58,8 +58,14 @@ extern storage::DataTable *user_table;
 std::ofstream out("outputfile.summary", std::ofstream::out);
 
 static void WriteOutput() {
+
+  oid_t total_snapshot_memory = 0;
+  for (auto &entry : state.snapshot_memory) {
+    total_snapshot_memory += entry;
+  }
+
   LOG_INFO("%lf tps, %lf; %lf tps, %lf; %lf ms; %d",
-             state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, state.snapshot_memory[state.snapshot_throughput.size() - 1]);
+             state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, state.total_snapshot_memory);
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
        ++round_id) {
@@ -78,11 +84,6 @@ static void WriteOutput() {
   out << state.ro_abort_rate << " ";
 
   out << state.scan_latency << " ";
-  
-  oid_t total_snapshot_memory = 0;
-  for (auto &entry : state.snapshot_memory) {
-    total_snapshot_memory += entry;
-  }
 
   out << total_snapshot_memory <<"\n";
   out.flush();
