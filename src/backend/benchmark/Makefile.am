@@ -37,8 +37,6 @@ hyadapt_LDADD = $(benchmark_common_ldadd)
 #                    backend/benchmark/ycsb/ycsb_configuration.cpp \
 #                    backend/benchmark/ycsb/ycsb_workload.cpp \
 #                    backend/benchmark/ycsb/ycsb_loader.cpp \
-#                    backend/benchmark/ycsb/ycsb_read.cpp \
-#                    backend/benchmark/ycsb/ycsb_update.cpp \
 #                    backend/benchmark/ycsb/ycsb_mixed.cpp
 
 #logger_LDFLAGS =
@@ -55,8 +53,6 @@ ycsb_SOURCES =  \
                     backend/benchmark/ycsb/ycsb_configuration.cpp \
                     backend/benchmark/ycsb/ycsb_workload.cpp \
                     backend/benchmark/ycsb/ycsb_loader.cpp \
-                    backend/benchmark/ycsb/ycsb_read.cpp \
-                    backend/benchmark/ycsb/ycsb_update.cpp \
                     backend/benchmark/ycsb/ycsb_mixed.cpp \
                     backend/benchmark/ycsb/ycsb_scan.cpp
 

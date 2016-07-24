@@ -52,7 +52,7 @@ class configuration {
   int operation_count;
 
   // number of read-only backends
-  int read_only_backend_count;
+  int scan_backend_count;
 
   // number of reverse backends
   int reverse_backend_count;
@@ -92,9 +92,6 @@ class configuration {
 
   // Theta in zipf distribution to control skewness
   double zipf_theta;
-
-  // Run mix workload or not
-  bool run_mix;
 
   // enable exponential backoff
   bool run_backoff;

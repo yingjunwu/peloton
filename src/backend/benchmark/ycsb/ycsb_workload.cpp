@@ -102,93 +102,34 @@ void RunBackend(oid_t thread_id) {
 
   fast_random rng(rand());
 
-  // Run these many transactions
-  if (state.run_mix) {
-
-    MixedPlans mixed_plans = PrepareMixedPlan();
-    // backoff
-    uint32_t backoff_shifts = 0;
-    while (true) {
+  MixedPlans mixed_plans = PrepareMixedPlan();
+  // backoff
+  uint32_t backoff_shifts = 0;
+  while (true) {
+    if (is_running == false) {
+      break;
+    }
+    while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, false) == false) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, false) == false) {
-        if (is_running == false) {
-          break;
+      execution_count_ref++;
+      // backoff
+      if (state.run_backoff) {
+        if (backoff_shifts < 63) {
+          ++backoff_shifts;
         }
-        execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+        uint64_t spins = 1UL << backoff_shifts;
+        spins *= 100;
+        while (spins) {
+          _mm_pause();
+          --spins;
         }
       }
-      backoff_shifts >>= 1;
-
-      transaction_count_ref++;
     }
-  } else {
+    backoff_shifts >>= 1;
 
-    ReadPlans read_plans = PrepareReadPlan();
-    UpdatePlans update_plans = PrepareUpdatePlan();
-    // backoff
-    uint32_t backoff_shifts = 0;
-    while (true) {
-      if (is_running == false) {
-        break;
-      }
-      auto rng_val = rng.next_uniform();
-
-      if (rng_val < update_ratio) {
-        while (RunUpdate(update_plans, zipf) == false) {
-          if (is_running == false) {
-            break;
-          }
-          execution_count_ref++;
-          // backoff
-          if (state.run_backoff) {
-            if (backoff_shifts < 63) {
-              ++backoff_shifts;
-            }
-            uint64_t spins = 1UL << backoff_shifts;
-            spins *= 100;
-            while (spins) {
-              _mm_pause();
-              --spins;
-            }
-          }
-        }
-        backoff_shifts >>= 1;
-      } else {
-        while (RunRead(read_plans, zipf) == false) {
-          if (is_running == false) {
-            break;
-          }
-          execution_count_ref++;
-          // backoff
-          if (state.run_backoff) {
-            if (backoff_shifts < 63) {
-              ++backoff_shifts;
-            }
-            uint64_t spins = 1UL << backoff_shifts;
-            spins *= 100;
-            while (spins) {
-              _mm_pause();
-              --spins;
-            }
-          }
-        }
-        backoff_shifts >>= 1;
-      }
-      transaction_count_ref++;
-    }
+    transaction_count_ref++;
   }
 }
 
@@ -208,93 +149,34 @@ void RunReverseBackend(oid_t thread_id) {
 
   fast_random rng(rand());
 
-  // Run these many transactions
-  if (state.run_mix) {
-
-    MixedPlans mixed_plans = PrepareMixedPlan();
-    // backoff
-    uint32_t backoff_shifts = 0;
-    while (true) {
+  MixedPlans mixed_plans = PrepareMixedPlan();
+  // backoff
+  uint32_t backoff_shifts = 0;
+  while (true) {
+    if (is_running == false) {
+      break;
+    }
+    while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, true) == false) {
       if (is_running == false) {
         break;
       }
-      while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, true) == false) {
-        if (is_running == false) {
-          break;
+      reverse_execution_count_ref++;
+      // backoff
+      if (state.run_backoff) {
+        if (backoff_shifts < 63) {
+          ++backoff_shifts;
         }
-        reverse_execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+        uint64_t spins = 1UL << backoff_shifts;
+        spins *= 100;
+        while (spins) {
+          _mm_pause();
+          --spins;
         }
       }
-      backoff_shifts >>= 1;
-
-      reverse_transaction_count_ref++;
     }
-  } else {
+    backoff_shifts >>= 1;
 
-    ReadPlans read_plans = PrepareReadPlan();
-    UpdatePlans update_plans = PrepareUpdatePlan();
-    // backoff
-    uint32_t backoff_shifts = 0;
-    while (true) {
-      if (is_running == false) {
-        break;
-      }
-      auto rng_val = rng.next_uniform();
-
-      if (rng_val < update_ratio) {
-        while (RunUpdate(update_plans, zipf) == false) {
-          if (is_running == false) {
-            break;
-          }
-          reverse_execution_count_ref++;
-          // backoff
-          if (state.run_backoff) {
-            if (backoff_shifts < 63) {
-              ++backoff_shifts;
-            }
-            uint64_t spins = 1UL << backoff_shifts;
-            spins *= 100;
-            while (spins) {
-              _mm_pause();
-              --spins;
-            }
-          }
-        }
-        backoff_shifts >>= 1;
-      } else {
-        while (RunRead(read_plans, zipf) == false) {
-          if (is_running == false) {
-            break;
-          }
-          reverse_execution_count_ref++;
-          // backoff
-          if (state.run_backoff) {
-            if (backoff_shifts < 63) {
-              ++backoff_shifts;
-            }
-            uint64_t spins = 1UL << backoff_shifts;
-            spins *= 100;
-            while (spins) {
-              _mm_pause();
-              --spins;
-            }
-          }
-        }
-        backoff_shifts >>= 1;
-      }
-      reverse_transaction_count_ref++;
-    }
+    reverse_transaction_count_ref++;
   }
 }
 
@@ -339,7 +221,7 @@ void RunWorkload() {
   std::vector<std::thread> thread_group;
   oid_t num_threads = state.backend_count;
   oid_t num_reverse_threads = state.reverse_backend_count;
-  oid_t num_ro_threads = state.read_only_backend_count;
+  oid_t num_ro_threads = state.scan_backend_count;
 
   abort_counts = new oid_t[num_threads];
   memset(abort_counts, 0, sizeof(oid_t) * num_threads);

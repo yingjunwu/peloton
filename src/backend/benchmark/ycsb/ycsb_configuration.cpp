@@ -64,7 +64,7 @@ static struct option opts[] = {
     {"update_col_count", optional_argument, NULL, 'l'},
     {"read_col_count", optional_argument, NULL, 'r'},
     {"operation_count", optional_argument, NULL, 'o'},
-    {"read_only_backend_count", optional_argument, NULL, 'y'},
+    {"scan_backend_count", optional_argument, NULL, 'y'},
     {"reverse_backend_count", optional_argument, NULL, 'v'},
     {"update_ratio", optional_argument, NULL, 'u'},
     {"backend_count", optional_argument, NULL, 'b'},
@@ -139,8 +139,8 @@ void ValidateBackendCount(const configuration &state) {
     LOG_ERROR("Invalid backend_count :: %d", state.backend_count);
     exit(EXIT_FAILURE);
   }
-  if (state.read_only_backend_count + state.reverse_backend_count > state.backend_count) {
-    LOG_ERROR("Invalid backend_count :: %d, %d", state.reverse_backend_count, state.read_only_backend_count);
+  if (state.scan_backend_count + state.reverse_backend_count > state.backend_count) {
+    LOG_ERROR("Invalid backend_count :: %d, %d", state.reverse_backend_count, state.scan_backend_count);
     exit(EXIT_FAILURE);
   }
   LOG_TRACE("%s : %d", "backend_count", state.backend_count);
@@ -224,12 +224,11 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.update_column_count = 1;
   state.read_column_count = 1;
   state.operation_count = 10;
-  state.read_only_backend_count = 0;
+  state.scan_backend_count = 0;
   state.reverse_backend_count = 0;
   state.update_ratio = 0.5;
   state.backend_count = 2;
   state.zipf_theta = 0.0;
-  state.run_mix = false;
   state.run_backoff = false;
   state.blind_write = false;
   state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
@@ -275,7 +274,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         state.read_column_count = atoi(optarg);
         break;
       case 'y':
-        state.read_only_backend_count = atoi(optarg);
+        state.scan_backend_count = atoi(optarg);
         break;
       case 'v':
         state.reverse_backend_count = atoi(optarg);
@@ -288,9 +287,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'z':
         state.zipf_theta = atof(optarg);
-        break;
-      case 'm':
-        state.run_mix = true;
         break;
       case 'e':
         state.run_backoff = true;
@@ -410,7 +406,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateSecondaryIndex(state);
   ValidateSecondaryIndexScan(state);
 
-  LOG_TRACE("%s : %d", "Run mix query", state.run_mix);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
   LOG_TRACE("%s : %d", "Run blind write", state.blind_write);
 }

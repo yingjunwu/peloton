@@ -91,7 +91,7 @@ bool RunStockLevel(const size_t &thread_id, const int &order_range) {
      }
    */
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-  auto txn = txn_manager.BeginReadonlyTransaction();
+  auto txn = txn_manager.BeginTransaction();
 
   std::unique_ptr<executor::ExecutorContext> context(
     new executor::ExecutorContext(txn));
@@ -131,10 +131,10 @@ bool RunStockLevel(const size_t &thread_id, const int &order_range) {
   district_index_scan_executor.Init();
 
   auto districts = ExecuteReadTest(&district_index_scan_executor);
-  // if (txn->GetResult() != Result::RESULT_SUCCESS) {
-  //   txn_manager.AbortTransaction();
-  //   return false;
-  // }
+  if (txn->GetResult() != Result::RESULT_SUCCESS) {
+    txn_manager.AbortTransaction();
+    return false;
+  }
   if (districts.size() != 1) {
     LOG_ERROR("incorrect districts size : %lu", districts.size());
     assert(false);
@@ -212,11 +212,11 @@ bool RunStockLevel(const size_t &thread_id, const int &order_range) {
 
     auto order_line_values = ExecuteReadTest(&order_line_index_scan_executor);
     
-    // if (txn->GetResult() != Result::RESULT_SUCCESS) {
-    //   LOG_TRACE("abort transaction");
-    //   txn_manager.AbortTransaction();
-    //   return false;
-    // }
+    if (txn->GetResult() != Result::RESULT_SUCCESS) {
+      LOG_TRACE("abort transaction");
+      txn_manager.AbortTransaction();
+      return false;
+    }
 
     if (order_line_values.size() == 0) {
       LOG_TRACE("order line return size incorrect : %lu", order_line_values.size());
@@ -240,11 +240,11 @@ bool RunStockLevel(const size_t &thread_id, const int &order_range) {
 
     auto stock_values = ExecuteReadTest(&stock_index_scan_executor);
 
-    // if (txn->GetResult() != Result::RESULT_SUCCESS) {
-    //   LOG_TRACE("abort transaction");
-    //   txn_manager.AbortTransaction();
-    //   return false;
-    // }
+    if (txn->GetResult() != Result::RESULT_SUCCESS) {
+      LOG_TRACE("abort transaction");
+      txn_manager.AbortTransaction();
+      return false;
+    }
 
     if (stock_values.size() == 0) {
       //LOG_ERROR("stock return size incorrect : %lu", order_line_values.size());
@@ -459,7 +459,7 @@ bool RunStockLevel(const size_t &thread_id, const int &order_range) {
 
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
-  auto result = txn_manager.EndReadonlyTransaction();
+  auto result = txn_manager.CommitTransaction();
 
   if (result == Result::RESULT_SUCCESS) {
     return true;
