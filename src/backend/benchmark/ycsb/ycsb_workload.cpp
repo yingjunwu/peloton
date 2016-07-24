@@ -85,8 +85,8 @@ oid_t *commit_counts;
 oid_t *reverse_abort_counts;
 oid_t *reverse_commit_counts;
 
-oid_t *ro_abort_counts;
-oid_t *ro_commit_counts;
+oid_t *scan_abort_counts;
+oid_t *scan_commit_counts;
 
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
@@ -183,8 +183,8 @@ void RunReverseBackend(oid_t thread_id) {
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
-  oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
+  oid_t &scan_execution_count_ref = scan_abort_counts[thread_id];
+  oid_t &scan_transaction_count_ref = scan_commit_counts[thread_id];
 
   // backoff
   uint32_t backoff_shifts = 0;
@@ -196,7 +196,7 @@ void RunScanBackend(oid_t thread_id) {
       if (is_running == false) {
         break;
       }
-      ro_execution_count_ref++;
+      scan_execution_count_ref++;
       // backoff
       if (state.run_backoff) {
         if (backoff_shifts < 63) {
@@ -211,7 +211,7 @@ void RunScanBackend(oid_t thread_id) {
       }
     }
     backoff_shifts >>= 1;
-    ro_transaction_count_ref++;
+    scan_transaction_count_ref++;
   }
 }
 
@@ -221,7 +221,7 @@ void RunWorkload() {
   std::vector<std::thread> thread_group;
   oid_t num_threads = state.backend_count;
   oid_t num_reverse_threads = state.reverse_backend_count;
-  oid_t num_ro_threads = state.scan_backend_count;
+  oid_t num_scan_threads = state.scan_backend_count;
 
   abort_counts = new oid_t[num_threads];
   memset(abort_counts, 0, sizeof(oid_t) * num_threads);
@@ -235,11 +235,11 @@ void RunWorkload() {
   reverse_commit_counts = new oid_t[num_threads];
   memset(reverse_commit_counts, 0, sizeof(oid_t) * num_threads);
 
-  ro_abort_counts = new oid_t[num_threads];
-  memset(ro_abort_counts, 0, sizeof(oid_t) * num_threads);
+  scan_abort_counts = new oid_t[num_threads];
+  memset(scan_abort_counts, 0, sizeof(oid_t) * num_threads);
 
-  ro_commit_counts = new oid_t[num_threads];
-  memset(ro_commit_counts, 0, sizeof(oid_t) * num_threads);
+  scan_commit_counts = new oid_t[num_threads];
+  memset(scan_commit_counts, 0, sizeof(oid_t) * num_threads);
 
 
   size_t snapshot_round = (size_t)(state.duration / state.snapshot_duration);
@@ -255,15 +255,15 @@ void RunWorkload() {
   }
 
   // Launch a group of threads
-  for (oid_t thread_itr = 0; thread_itr < num_ro_threads; ++thread_itr) {
+  for (oid_t thread_itr = 0; thread_itr < num_scan_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
   }
 
-  for (oid_t thread_itr = num_ro_threads; thread_itr < num_ro_threads + num_reverse_threads; ++thread_itr) {
+  for (oid_t thread_itr = num_scan_threads; thread_itr < num_scan_threads + num_reverse_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunReverseBackend, thread_itr)));
   }
 
-  for (oid_t thread_itr = num_ro_threads + num_reverse_threads; thread_itr < num_threads; ++thread_itr) {
+  for (oid_t thread_itr = num_scan_threads + num_reverse_threads; thread_itr < num_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 
@@ -355,19 +355,19 @@ void RunWorkload() {
   }
   
   //////////////////////////////////////////////////
-  if (num_ro_threads != 0) {
-    oid_t total_ro_commit_count = 0;
-    for (size_t i = 0; i < num_ro_threads; ++i) {
-      total_ro_commit_count += ro_commit_counts[i];
+  if (num_scan_threads != 0) {
+    oid_t total_scan_commit_count = 0;
+    for (size_t i = 0; i < num_scan_threads; ++i) {
+      total_scan_commit_count += scan_commit_counts[i];
     }
 
-    oid_t total_ro_abort_count = 0;
-    for (size_t i = 0; i < num_ro_threads; ++i) {
-      total_ro_abort_count += ro_abort_counts[i];
+    oid_t total_scan_abort_count = 0;
+    for (size_t i = 0; i < num_scan_threads; ++i) {
+      total_scan_abort_count += scan_abort_counts[i];
     }
 
-    state.ro_throughput = total_ro_commit_count * 1.0 / state.duration;
-    state.ro_abort_rate = total_ro_abort_count * 1.0 / total_ro_commit_count;
+    state.scan_throughput = total_scan_commit_count * 1.0 / state.duration;
+    state.scan_abort_rate = total_scan_abort_count * 1.0 / total_scan_commit_count;
   }
 
   //////////////////////////////////////////////////
@@ -398,10 +398,10 @@ void RunWorkload() {
   delete[] reverse_commit_counts;
   reverse_commit_counts = nullptr;
 
-  delete[] ro_abort_counts;
-  ro_abort_counts = nullptr;
-  delete[] ro_commit_counts;
-  ro_commit_counts = nullptr;
+  delete[] scan_abort_counts;
+  scan_abort_counts = nullptr;
+  delete[] scan_commit_counts;
+  scan_commit_counts = nullptr;
 }
 
 

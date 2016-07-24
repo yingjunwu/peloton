@@ -86,9 +86,9 @@ class configuration {
 
   double reverse_abort_rate = 0;
 
-  double ro_throughput = 0;
+  double scan_throughput = 0;
 
-  double ro_abort_rate = 0;
+  double scan_abort_rate = 0;
 
   // Theta in zipf distribution to control skewness
   double zipf_theta;
