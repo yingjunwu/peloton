@@ -136,8 +136,15 @@ void RunBackend(oid_t thread_id) {
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
+
   double update_ratio = 0;
   auto operation_count = state.operation_count;
+  bool is_read_only = state.declared;
+
+  if (is_read_only == true) {
+    auto SLEEP_TIME = std::chrono::milliseconds(500);
+    std::this_thread::sleep_for(SLEEP_TIME);
+  }
 
   oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
   oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
@@ -154,7 +161,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
     if (is_running == false) {
       break;
     }
-    while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, true) == false) {
+    while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, is_read_only) == false) {
       if (is_running == false) {
         break;
       }

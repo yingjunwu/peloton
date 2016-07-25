@@ -38,10 +38,10 @@ void Usage(FILE *out) {
           "   -o --operation_count   :  # of operations \n"
           "   -y --scan              :  # of scan backends \n"
           "   -v --read-only         :  # of read-only backends \n"
-          "   -n --sindex_count      :  # of secondary index\n"
+          "   -a --declared          :  declared read-only \n"
+          "   -n --sindex_count      :  # of secondary index \n"
           "   -u --write_ratio       :  Fraction of updates \n"
           "   -z --zipf_theta        :  theta to control skewness \n"
-          "   -m --mix_txn           :  run read/write mix txn \n"
           "   -e --exp_backoff       :  enable exponential backoff \n"
           "   -x --blind_write       :  enable blind write \n"
           "   -p --protocol          :  choose protocol, default OCC\n"
@@ -71,7 +71,7 @@ static struct option opts[] = {
     {"zipf_theta", optional_argument, NULL, 'z'},
     {"exp_backoff", no_argument, NULL, 'e'},
     {"blind_write", no_argument, NULL, 'x'},
-    {"mix_txn", no_argument, NULL, 'm'},
+    {"declared", no_argument, NULL, 'a'},
     {"protocol", optional_argument, NULL, 'p'},
     {"gc_protocol", optional_argument, NULL, 'g'},
     {"gc_thread", optional_argument, NULL, 't'},
@@ -229,6 +229,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.update_ratio = 0.5;
   state.backend_count = 2;
   state.zipf_theta = 0.0;
+  state.declared = false;
   state.run_backoff = false;
   state.blind_write = false;
   state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
@@ -241,11 +242,14 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "ahmexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:", opts, &idx);
+    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'a':
+        state.declared = true;
+        break;
       case 'n':
         state.sindex_count = atoi(optarg);
         break;
@@ -408,6 +412,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
 
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
   LOG_TRACE("%s : %d", "Run blind write", state.blind_write);
+  LOG_TRACE("%s : %d", "Run declared read-only", state.declared);
 }
 
 }  // namespace ycsb

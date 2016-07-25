@@ -91,6 +91,9 @@ class configuration {
   // Theta in zipf distribution to control skewness
   double zipf_theta;
 
+  // enable declared read-only transaction
+  bool declared;
+
   // enable exponential backoff
   bool run_backoff;
 
