@@ -65,7 +65,7 @@ static void WriteOutput() {
   }
 
   LOG_INFO("%lf tps, %lf; %lf tps, %lf; %lf ms; %d",
-             state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, state.total_snapshot_memory);
+             state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, total_snapshot_memory);
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
        ++round_id) {
@@ -76,6 +76,58 @@ static void WriteOutput() {
         << state.snapshot_abort_rate[round_id] << " " 
         << state.snapshot_memory[round_id] << "\n";
   }
+
+  out << "scalefactor=" << state.scale_factor << " ";
+  out << "skew=" << state.zipf_theta << " ";
+  out << "update=" << state.update_ratio << " ";
+  out << "opt=" << state.operation_count << " ";
+  if (state.protocol == CONCURRENCY_TYPE_OPTIMISTIC) {
+    out << "proto=occ ";
+  } else if (state.protocol == CONCURRENCY_TYPE_PESSIMISTIC) {
+    out << "proto=pcc ";
+  } else if (state.protocol == CONCURRENCY_TYPE_SSI) {
+    out << "proto=ssi ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO) {
+    out << "proto=to ";
+  } else if (state.protocol == CONCURRENCY_TYPE_EAGER_WRITE) {
+    out << "proto=ewrite ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_RB) {
+    out << "proto=occrb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+    out << "proto=occ_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+    out << "proto=to_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_SPECULATIVE_READ) {
+    out << "proto=sread ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_N2O) {
+    out << "proto=occn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_RB) {
+    out << "proto=torb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_N2O) {
+    out << "proto=ton2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+    out << "proto=tofullrb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB) {
+    out << "proto=to_full_central_rb ";
+  }
+  if (state.gc_protocol == GC_TYPE_OFF) {
+    out << "gc=off ";
+  }else if (state.gc_protocol == GC_TYPE_VACUUM) {
+    out << "gc=va ";
+  }else if (state.gc_protocol == GC_TYPE_CO) {
+    out << "gc=co ";
+  }else if (state.gc_protocol == GC_TYPE_N2O) {
+    out << "gc=n2o ";
+  } else if (state.gc_protocol == GC_TYPE_N2O_TXN) {
+    out << "gc=n2otxn ";
+  }
+  out << "column=" << state.column_count << " ";
+  out << "read_column=" << state.read_column_count << " ";
+  out << "update_column=" << state.update_column_count << " ";
+  out << "core_cnt=" << state.backend_count << " ";
+  out << "ro_core_cnt=" << state.ro_backend_count << " ";
+  out << "scan_core_cnt=" << state.scan_backend_count << " ";
+  out << "\n";
 
   out << state.throughput << " ";
   out << state.abort_rate << " ";
