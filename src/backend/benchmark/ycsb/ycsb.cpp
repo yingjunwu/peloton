@@ -127,6 +127,7 @@ static void WriteOutput() {
   out << "core_cnt=" << state.backend_count << " ";
   out << "ro_core_cnt=" << state.ro_backend_count << " ";
   out << "scan_core_cnt=" << state.scan_backend_count << " ";
+  out << "scan_mock_duration=" << state.scan_mock_duration << " ";
   out << "\n";
 
   out << state.throughput << " ";
