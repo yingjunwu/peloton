@@ -37,6 +37,7 @@ void Usage(FILE *out) {
           "   -r --read_col_count    :  # of read columns \n"
           "   -o --operation_count   :  # of operations \n"
           "   -y --scan              :  # of scan backends \n"
+          "   -w --mock_duration     :  scan mock duration \n"
           "   -v --read-only         :  # of read-only backends \n"
           "   -a --declared          :  declared read-only \n"
           "   -n --sindex_count      :  # of secondary index \n"
@@ -64,6 +65,7 @@ static struct option opts[] = {
     {"update_col_count", optional_argument, NULL, 'l'},
     {"read_col_count", optional_argument, NULL, 'r'},
     {"operation_count", optional_argument, NULL, 'o'},
+    {"scan_mock_duration", optional_argument, NULL, 'w'},
     {"scan_backend_count", optional_argument, NULL, 'y'},
     {"ro_backend_count", optional_argument, NULL, 'v'},
     {"update_ratio", optional_argument, NULL, 'u'},
@@ -146,6 +148,15 @@ void ValidateBackendCount(const configuration &state) {
   LOG_TRACE("%s : %d", "backend_count", state.backend_count);
 }
 
+void ValidateScanMockDuration(const configuration &state) {
+  if (state.scan_mock_duration < 0) {
+    LOG_ERROR("Invalid duration :: %d", state.scan_mock_duration);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "scan mock duration", state.scan_mock_duration);
+}
+
 void ValidateDuration(const configuration &state) {
   if (state.duration <= 0) {
     LOG_ERROR("Invalid duration :: %lf", state.duration);
@@ -225,6 +236,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.read_column_count = 1;
   state.operation_count = 10;
   state.scan_backend_count = 0;
+  state.scan_mock_duration = 0;
   state.ro_backend_count = 0;
   state.update_ratio = 0.5;
   state.backend_count = 2;
@@ -242,7 +254,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:", opts, &idx);
+    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:", opts, &idx);
 
     if (c == -1) break;
 
@@ -279,6 +291,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'y':
         state.scan_backend_count = atoi(optarg);
+        break;
+      case 'w':
+        state.scan_mock_duration = atoi(optarg);
         break;
       case 'v':
         state.ro_backend_count = atoi(optarg);
@@ -402,6 +417,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateOperationCount(state);
   ValidateUpdateRatio(state);
   ValidateBackendCount(state);
+  ValidateScanMockDuration(state);
   ValidateDuration(state);
   ValidateSnapshotDuration(state);
   ValidateZipfTheta(state);

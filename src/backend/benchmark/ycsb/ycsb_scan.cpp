@@ -78,6 +78,12 @@ namespace benchmark {
 namespace ycsb {
 
 bool RunScan() {
+  if (state.scan_mock_duration != 0) {
+    auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+    txn_manager.BeginReadonlyTransaction();
+    std::this_thread::sleep_for(std::chrono::seconds(state.scan_mock_duration));
+    txn_manager.EndReadonlyTransaction();
+  }
 
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
@@ -133,7 +139,6 @@ bool RunScan() {
 
   // transaction passed execution.
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
-
   auto result = txn_manager.EndReadonlyTransaction();
   // auto result = txn_manager.CommitTransaction();
 

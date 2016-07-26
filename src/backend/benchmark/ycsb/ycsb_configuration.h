@@ -54,6 +54,9 @@ class configuration {
   // number of scan backends
   int scan_backend_count;
 
+  // scan mock duration
+  int scan_mock_duration;
+
   // number of read-only backends
   int ro_backend_count;
 
@@ -138,6 +141,8 @@ void ValidateOperationCount(const configuration &state);
 void ValidateUpdateRatio(const configuration &state);
 
 void ValidateBackendCount(const configuration &state);
+
+void ValidateScanMockDuration(const configuration &state);
 
 void ValidateDuration(const configuration &state);
 
