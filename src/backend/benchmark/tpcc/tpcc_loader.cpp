@@ -117,6 +117,11 @@ const char *syllables[syllable_count] = {"BAR", "OUGHT", "ABLE", "PRI", "PRES",
 const std::string data_constant = std::string("FOO");
 
 NURandConstant nu_rand_const;
+
+
+const int loading_thread_count = 4;
+
+
 /////////////////////////////////////////////////////////
 // Create the tables
 /////////////////////////////////////////////////////////
@@ -1672,12 +1677,12 @@ void LoadItems() {
   txn_manager.CommitTransaction();
 }
 
-void LoadWarehouses(const int &warehouse_itr) {
+void LoadWarehouses(const int &warehouse_from, const int &warehouse_to) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   std::unique_ptr<executor::ExecutorContext> context;
 
   // WAREHOUSES
-  // for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
+  for (auto warehouse_itr = warehouse_from; warehouse_itr < warehouse_to; warehouse_itr++) {
     std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
 
     auto txn = txn_manager.BeginTransaction();
@@ -1782,7 +1787,7 @@ void LoadWarehouses(const int &warehouse_itr) {
       txn_manager.CommitTransaction();
     }
 
-  // } // END WAREHOUSES
+  } // END WAREHOUSES
 
 }
 
@@ -1796,12 +1801,34 @@ void LoadTPCCDatabase() {
   //   LoadWarehouses(warehouse_itr);
   // }
 
-  std::vector<std::unique_ptr<std::thread>> load_threads(state.warehouse_count);
-  for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
-    load_threads[warehouse_itr].reset(new std::thread(LoadWarehouses, warehouse_itr));
-  }
-  for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
-    load_threads[warehouse_itr]->join();
+  if (state.warehouse_count < loading_thread_count) {
+    std::vector<std::unique_ptr<std::thread>> load_threads(state.warehouse_count);
+    for (int thread_id = 0; thread_id < state.warehouse_count; ++thread_id) {
+      int warehouse_from = thread_id;
+      int warehouse_to = thread_id + 1;
+      load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
+    }
+
+    for (auto thread_id = 0; thread_id < state.warehouse_count; ++thread_id) {
+      load_threads[thread_id]->join();
+    }
+
+  } else {
+    std::vector<std::unique_ptr<std::thread>> load_threads(loading_thread_count);
+    int warehouse_per_thread = state.warehouse_count / loading_thread_count;
+    for (int thread_id = 0; thread_id < loading_thread_count - 1; ++thread_id) {
+      int warehouse_from = warehouse_per_thread * thread_id;
+      int warehouse_to = warehouse_per_thread * (thread_id + 1);
+      load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
+    }
+    int thread_id = loading_thread_count - 1;
+    int warehouse_from = warehouse_per_thread * thread_id;
+    int warehouse_to = state.warehouse_count;
+    load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
+
+    for (auto thread_id = 0; thread_id < loading_thread_count; ++thread_id) {
+      load_threads[thread_id]->join();
+    }
   }
   std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
   double diff = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
