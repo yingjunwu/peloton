@@ -155,6 +155,9 @@ namespace peloton {
         [this, &garbages, &tuple_counter, max_cid](const std::shared_ptr<GarbageContext>& g) -> bool {
           bool res = g->timestamp  < max_cid;
           if (res) {
+            for (auto t : g->garbages) {
+              DeleteTupleFromIndexes(t);
+            }
             garbages.push_back(g);
             tuple_counter++;
           }
@@ -173,8 +176,9 @@ namespace peloton {
         if (garbage_ctx->timestamp < max_cid) {
           // Now that we know we need to recycle tuple, we need to delete all
           // tuples from the indexes to which it belongs as well.
-          //DeleteTupleFromIndexes(tuple_metadata);
-
+          for (auto t : garbage_ctx->garbages) {
+            DeleteTupleFromIndexes(t);
+          }
           // Add to the garbage map
           // reclaim_map_.insert(std::make_pair(getnextcid(), tuple_metadata));
           garbages.push_back(garbage_ctx);
@@ -246,6 +250,85 @@ namespace peloton {
 
       return;
     }
+
+// delete a tuple from all its indexes it belongs to.
+void N2OTxn_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadata) {
+  LOG_TRACE("Deleting index for tuple(%u, %u)", tuple_metadata.tile_group_id,
+            tuple_metadata.tuple_slot_id);
+
+  auto &manager = catalog::Manager::GetInstance();
+  auto tile_group = manager.GetTileGroup(tuple_metadata.tile_group_id);
+
+  assert(tile_group != nullptr);
+  storage::DataTable *table =
+    dynamic_cast<storage::DataTable *>(tile_group->GetAbstractTable());
+  assert(table != nullptr);
+
+  // construct the expired version.
+  std::unique_ptr<storage::Tuple> expired_tuple(
+    new storage::Tuple(table->GetSchema(), true));
+  tile_group->CopyTuple(tuple_metadata.tuple_slot_id, expired_tuple.get());
+
+  // unlink the version from all the indexes.
+  for (size_t idx = 0; idx < table->GetIndexCount(); ++idx) {
+    auto index = table->GetIndex(idx);
+    auto index_schema = index->GetKeySchema();
+    auto indexed_columns = index_schema->GetIndexedColumns();
+
+    // build key.
+    std::unique_ptr<storage::Tuple> key(
+      new storage::Tuple(index_schema, true));
+    key->SetFromTuple(expired_tuple.get(), indexed_columns, index->GetPool());
+
+    switch (index->GetIndexType()) {
+      case INDEX_CONSTRAINT_TYPE_PRIMARY_KEY: {
+        LOG_TRACE("Deleting primary index");
+
+        // Do nothing for new to old version chain here
+        if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O ||
+            concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
+          continue;
+        }
+
+        // find next version the index bucket should point to.
+        auto tile_group_header = tile_group->GetHeader();
+        ItemPointer next_version =
+          tile_group_header->GetNextItemPointer(tuple_metadata.tuple_slot_id);
+
+        auto next_tile_group_header = manager.GetTileGroup(next_version.block)->GetHeader();
+        auto next_begin_cid = next_tile_group_header->GetBeginCommitId(next_version.offset);
+        assert(next_version.IsNull() == false);
+
+        assert(next_begin_cid != MAX_CID);
+
+        std::vector<ItemPointer *> item_pointer_containers;
+        // find the bucket.
+        index->ScanKey(key.get(), item_pointer_containers);
+        // as this is primary key, there should be exactly one entry.
+        assert(item_pointer_containers.size() == 1);
+
+
+        auto index_version = *item_pointer_containers[0];
+        auto index_tile_group_header = manager.GetTileGroup(index_version.block)->GetHeader();
+        auto index_begin_cid = index_tile_group_header->GetBeginCommitId(index_version.offset);
+
+        // if next_version is newer than index's version
+        // update index
+        if(index_begin_cid < next_begin_cid) {
+          AtomicUpdateItemPointer(item_pointer_containers[0], next_version);
+        }
+
+      } break;
+      default: {
+        LOG_TRACE("Deleting other index");
+        index->DeleteEntry(key.get(),
+                           ItemPointer(tuple_metadata.tile_group_id,
+                                       tuple_metadata.tuple_slot_id));
+      }
+    }
+  }
+}
+
 
   }  // namespace gc
 }  // namespace peloton

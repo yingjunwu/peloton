@@ -176,7 +176,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
 
     size_t chain_length = 0;
 
-    cid_t max_committed_cid = transaction_manager.GetMaxCommittedCid();
+    cid_t max_committed_cid =
+     (gc::GCManagerFactory::GetGCType() == GC_TYPE_CO) ? transaction_manager.GetMaxCommittedCid() : 0;
     while (true) {
       ++chain_length;
 
