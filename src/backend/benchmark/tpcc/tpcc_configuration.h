@@ -84,6 +84,9 @@ class configuration {
   // number of backends
   int backend_count;
 
+  // number of scan backends
+  int scan_backend_count;
+
   std::vector<double> snapshot_throughput;
 
   std::vector<double> snapshot_abort_rate;

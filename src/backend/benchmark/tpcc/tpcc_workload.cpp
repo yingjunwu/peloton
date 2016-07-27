@@ -81,7 +81,6 @@ namespace tpcc {
 
 #define STOCK_LEVEL_RATIO     0.04
 #define ORDER_STATUS_RATIO    0.04
-#define SCAN_STOCK_RATIO      0.0
 #define PAYMENT_RATIO         0.46
 
 volatile bool is_running = true;
@@ -117,6 +116,35 @@ size_t GenerateWarehouseId(const size_t &thread_id) {
     }
   } else {
     return GetRandomInteger(0, state.warehouse_count - 1);
+  }
+}
+
+void RunScanBackend(oid_t thread_id) {
+  PinToCore(thread_id);
+
+  bool slept = false;
+  auto SLEEP_TIME = std::chrono::milliseconds(500);
+
+  // backoff
+  while (true) {
+    if (is_running == false) {
+      break;
+    }
+    if (!slept) {
+      slept = true;
+      std::this_thread::sleep_for(SLEEP_TIME);
+    }
+    std::chrono::steady_clock::time_point start_time;
+    if (thread_id == 0) {
+      start_time = std::chrono::steady_clock::now();
+    }
+    RunScanStock();
+    if (thread_id == 0) {
+      std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+      double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+      scan_stock_avg_latency = (scan_stock_avg_latency * scan_stock_count + diff) / (scan_stock_count + 1);
+      scan_stock_count++;
+    }
   }
 }
 
@@ -220,23 +248,25 @@ void RunBackend(oid_t thread_id) {
           order_status_avg_latency = (order_status_avg_latency * order_status_count + diff) / (order_status_count + 1);
           order_status_count++;
        }
-     } else if (rng_val <= SCAN_STOCK_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
-        std::chrono::steady_clock::time_point start_time;
-        if (!slept) {
-          slept = true;
-          std::this_thread::sleep_for(SLEEP_TIME);
-        }
-        if (thread_id == 0) {
-          start_time = std::chrono::steady_clock::now();
-        }
-        RunScanStock();
-        if (thread_id == 0) {
-          std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-          double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-          scan_stock_avg_latency = (scan_stock_avg_latency * scan_stock_count + diff) / (scan_stock_count + 1);
-          scan_stock_count++;
-        }
-     } else if (rng_val <= PAYMENT_RATIO + SCAN_STOCK_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+     } 
+     // else if (rng_val <= SCAN_STOCK_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+     //    std::chrono::steady_clock::time_point start_time;
+     //    if (!slept) {
+     //      slept = true;
+     //      std::this_thread::sleep_for(SLEEP_TIME);
+     //    }
+     //    if (thread_id == 0) {
+     //      start_time = std::chrono::steady_clock::now();
+     //    }
+     //    RunScanStock();
+     //    if (thread_id == 0) {
+     //      std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+     //      double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
+     //      scan_stock_avg_latency = (scan_stock_avg_latency * scan_stock_count + diff) / (scan_stock_count + 1);
+     //      scan_stock_count++;
+     //    }
+     // } 
+     else if (rng_val <= PAYMENT_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
        while (RunPayment(payment_plans, thread_id) == false) {
           if (is_running == false) {
             break;
@@ -291,6 +321,7 @@ void RunWorkload() {
   // Execute the workload to build the log
   std::vector<std::thread> thread_group;
   oid_t num_threads = state.backend_count;
+  oid_t num_scan_threads = state.scan_backend_count;
   
   abort_counts = new oid_t[num_threads];
   memset(abort_counts, 0, sizeof(oid_t) * num_threads);
@@ -332,7 +363,11 @@ void RunWorkload() {
   }
 
   // Launch a group of threads
-  for (oid_t thread_itr = 0; thread_itr < num_threads; ++thread_itr) {
+  for (oid_t thread_itr = 0; thread_itr < num_scan_threads; ++thread_itr) {
+    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
+  }
+
+  for (oid_t thread_itr = num_scan_threads; thread_itr < num_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 

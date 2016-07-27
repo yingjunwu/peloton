@@ -31,6 +31,7 @@ void Usage(FILE *out) {
           "   -d --duration          :  execution duration \n"
           "   -s --snapshot_duration :  snapshot duration \n"
           "   -b --backend_count     :  # of backends \n"
+          "   -y --scan              :  # of scan backends \n"
           "   -w --warehouse_count   :  # of warehouses \n"
           "   -r --order_range       :  order range \n"
           "   -e --exp_backoff       :  enable exponential backoff \n"
@@ -46,13 +47,14 @@ void Usage(FILE *out) {
 }
 
 static struct option opts[] = {
-  { "scale_factor", optional_argument, NULL, 'k' },
+  { "scale_factor", optional_argument, NULL, 'k'},
   { "index", optional_argument, NULL, 'i'},
   { "duration", optional_argument, NULL, 'd' },
-  { "snapshot_duration", optional_argument, NULL, 's' },
+  { "snapshot_duration", optional_argument, NULL, 's'},
   { "backend_count", optional_argument, NULL, 'b'},
-  { "warehouse_count", optional_argument, NULL, 'w' },
-  { "order_range", optional_argument, NULL, 'r' },
+  { "scan_backend_count", optional_argument, NULL, 'y'},
+  { "warehouse_count", optional_argument, NULL, 'w'},
+  { "order_range", optional_argument, NULL, 'r'},
   { "exp_backoff", no_argument, NULL, 'e'},
   { "affinity", no_argument, NULL, 'a'},
   { "protocol", optional_argument, NULL, 'p'},
@@ -76,7 +78,10 @@ void ValidateBackendCount(const configuration &state) {
     LOG_ERROR("Invalid backend_count :: %d", state.backend_count);
     exit(EXIT_FAILURE);
   }
-
+  if (state.scan_backend_count > state.backend_count) {
+    LOG_ERROR("Invalid backend_count :: %d", state.scan_backend_count);
+    exit(EXIT_FAILURE);
+  }
   LOG_TRACE("%s : %d", "backend_count", state.backend_count);
 }
 
@@ -146,6 +151,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.duration = 10;
   state.snapshot_duration = 1;
   state.backend_count = 1;
+  state.scan_backend_count = 0;
   state.warehouse_count = 1;
   state.order_range = 20;
   state.run_affinity = false;
@@ -159,7 +165,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:", opts, &idx);
+    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:", opts, &idx);
 
     if (c == -1) break;
 
@@ -183,6 +189,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'b':
         state.backend_count = atoi(optarg);
+        break;
+      case 'y':
+        state.scan_backend_count = atoi(optarg);
         break;
       case 'a':
         state.run_affinity = true;
