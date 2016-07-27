@@ -387,7 +387,7 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
     LOG_TRACE("All constraints are equal : %d ", all_constraints_are_equal);
 
     index_key.SetFromKey(start_key.get());
-/*
+
     // If it is point query then we just do a GetValue() since GetValue()
     // is way more faster than scanning using iterator
     if(all_constraints_are_equal == true) {
@@ -396,7 +396,7 @@ BWTREE_INDEX_TYPE::Scan(const std::vector<Value> &values,
 
       return;
     }
-*/
+
     //printf("Non special case\n");
 
     // This returns an iterator pointing to index_key's values

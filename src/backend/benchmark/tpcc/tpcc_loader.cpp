@@ -312,16 +312,18 @@ const bool adapt_table = false;
 const bool is_inlined = true;
 const bool unique_index = false;
 const bool allocate = true;
-const size_t preallocate_scale = 10;
+const size_t preallocate_scale = 2;
 
 static IndexType GetSKeyIndexType() {
   if (concurrency::TransactionManagerFactory::IsRB() 
       && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
-    if (state.index == INDEX_TYPE_BTREE)
-      return INDEX_TYPE_RBBTREE;
-    if (state.index == INDEX_TYPE_HASH)
+    // if (state.index == INDEX_TYPE_BTREE)
+    //   return INDEX_TYPE_RBBTREE;
+    if (state.index == INDEX_TYPE_HASH) {
       return INDEX_TYPE_RBHASH;
-    return INDEX_TYPE_RBBTREE;  
+    } else {
+      return INDEX_TYPE_RBBTREE;
+    }
   } else {
     return state.index;
   }
@@ -387,7 +389,7 @@ void CreateWarehouseTable() {
   bool unique = true;
 
   index::IndexMetadata *index_metadata = new index::IndexMetadata(
-      "warehouse_pkey", warehouse_table_pkey_index_oid, INDEX_TYPE_BTREE,
+      "warehouse_pkey", warehouse_table_pkey_index_oid, state.index,
       INDEX_CONSTRAINT_TYPE_PRIMARY_KEY, tuple_schema, key_schema, unique);
 
   index::Index *pkey_index = nullptr;
@@ -466,7 +468,7 @@ void CreateDistrictTable() {
   bool unique = true;
 
   index::IndexMetadata* index_metadata = new index::IndexMetadata(
-    "district_pkey", district_table_pkey_index_oid, INDEX_TYPE_BTREE,
+    "district_pkey", district_table_pkey_index_oid, state.index,
     INDEX_CONSTRAINT_TYPE_PRIMARY_KEY, tuple_schema, key_schema, unique);
 
   index::Index *pkey_index = nullptr;
@@ -528,7 +530,7 @@ void CreateItemTable() {
   bool unique = true;
 
   index::IndexMetadata* index_metadata = new index::IndexMetadata(
-    "item_pkey", item_table_pkey_index_oid, INDEX_TYPE_BTREE,
+    "item_pkey", item_table_pkey_index_oid, state.index,
     INDEX_CONSTRAINT_TYPE_PRIMARY_KEY, tuple_schema, key_schema, unique);
 
   index::Index *pkey_index = nullptr;
@@ -643,7 +645,7 @@ void CreateCustomerTable() {
   key_schema->SetIndexedColumns(key_attrs);
 
   index_metadata = new index::IndexMetadata(
-    "customer_pkey", customer_table_pkey_index_oid, INDEX_TYPE_BTREE,
+    "customer_pkey", customer_table_pkey_index_oid, state.index,
     INDEX_CONSTRAINT_TYPE_PRIMARY_KEY, tuple_schema, key_schema, true);
 
   index::Index *pkey_index = nullptr;
@@ -815,7 +817,7 @@ void CreateStockTable() {
   bool unique = true;
 
   index::IndexMetadata* index_metadata = new index::IndexMetadata(
-      "stock_pkey", stock_table_pkey_index_oid, INDEX_TYPE_BTREE,
+      "stock_pkey", stock_table_pkey_index_oid, state.index,
     INDEX_CONSTRAINT_TYPE_PRIMARY_KEY, tuple_schema, key_schema, unique);
 
   index::Index *pkey_index = nullptr;
@@ -1221,7 +1223,7 @@ void GetStringFromValue(const Value &value, std::string &str) {
     str.push_back(*(str_bytes + i));
   }
 
-  LOG_INFO("Get string %s from value", str.c_str());
+  LOG_TRACE("Get string %s from value", str.c_str());
 }
 
 bool GetRandomBoolean(double ratio) {
@@ -1670,12 +1672,12 @@ void LoadItems() {
   txn_manager.CommitTransaction();
 }
 
-void LoadWarehouses() {
+void LoadWarehouses(const int &warehouse_itr) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   std::unique_ptr<executor::ExecutorContext> context;
 
   // WAREHOUSES
-  for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
+  // for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
     std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
 
     auto txn = txn_manager.BeginTransaction();
@@ -1780,24 +1782,40 @@ void LoadWarehouses() {
       txn_manager.CommitTransaction();
     }
 
-  } // END WAREHOUSES
+  // } // END WAREHOUSES
 
 }
 
 void LoadTPCCDatabase() {
-  LOG_INFO("============TABLE SIZES==========");
+  LOG_TRACE("============TABLE SIZES==========");
+  std::chrono::steady_clock::time_point start_time;
+  start_time = std::chrono::steady_clock::now();
   LoadItems();
-  LOG_INFO("item count = %u", item_table->GetAllCurrentTupleCount());
 
-  LoadWarehouses();
-  LOG_INFO("warehouse count = %u", warehouse_table->GetAllCurrentTupleCount());
-  LOG_INFO("district count  = %u", district_table->GetAllCurrentTupleCount());
-  LOG_INFO("customer count = %u", customer_table->GetAllCurrentTupleCount());
-  LOG_INFO("history count = %u", history_table->GetAllCurrentTupleCount());
-  LOG_INFO("stock count = %u", stock_table->GetAllCurrentTupleCount());
-  LOG_INFO("orders count = %u", orders_table->GetAllCurrentTupleCount());
-  LOG_INFO("new order count = %u", new_order_table->GetAllCurrentTupleCount());
-  LOG_INFO("order line count = %u", order_line_table->GetAllCurrentTupleCount());
+  // for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
+  //   LoadWarehouses(warehouse_itr);
+  // }
+
+  std::vector<std::unique_ptr<std::thread>> load_threads(state.warehouse_count);
+  for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
+    load_threads[warehouse_itr].reset(new std::thread(LoadWarehouses, warehouse_itr));
+  }
+  for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
+    load_threads[warehouse_itr]->join();
+  }
+  std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+  double diff = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+  LOG_INFO("time = %lf ms", diff);
+
+  LOG_TRACE("item count = %u", item_table->GetAllCurrentTupleCount());
+  LOG_TRACE("warehouse count = %u", warehouse_table->GetAllCurrentTupleCount());
+  LOG_TRACE("district count  = %u", district_table->GetAllCurrentTupleCount());
+  LOG_TRACE("customer count = %u", customer_table->GetAllCurrentTupleCount());
+  LOG_TRACE("history count = %u", history_table->GetAllCurrentTupleCount());
+  LOG_TRACE("stock count = %u", stock_table->GetAllCurrentTupleCount());
+  LOG_TRACE("orders count = %u", orders_table->GetAllCurrentTupleCount());
+  LOG_TRACE("new order count = %u", new_order_table->GetAllCurrentTupleCount());
+  LOG_TRACE("order line count = %u", order_line_table->GetAllCurrentTupleCount());
 
 }
 

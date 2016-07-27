@@ -26,7 +26,7 @@ void Usage(FILE *out) {
   fprintf(out,
           "Command line options : tpcc <options> \n"
           "   -h --help              :  Print help message \n"
-          "   -i --index             :  index type could be btree or bwtree\n"
+          "   -i --index             :  index type could be hash index or bwtree\n"
           "   -k --scale_factor      :  scale factor \n"
           "   -d --duration          :  execution duration \n"
           "   -s --snapshot_duration :  snapshot duration \n"
@@ -133,7 +133,8 @@ void ValidateProtocol(const configuration &state) {
 }
 
 void ValidateIndex(const configuration &state) {
-  if (state.index != INDEX_TYPE_BTREE && state.index != INDEX_TYPE_BWTREE && state.index != INDEX_TYPE_HASH) {
+  // if (state.index != INDEX_TYPE_BTREE && state.index != INDEX_TYPE_BWTREE && state.index != INDEX_TYPE_HASH) {
+  if (state.index != INDEX_TYPE_BWTREE && state.index != INDEX_TYPE_HASH) {
     LOG_ERROR("Invalid index");
     exit(EXIT_FAILURE);
   }
@@ -247,9 +248,10 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       }
       case 'i': {
         char *index = optarg;
-        if (strcmp(index, "btree") == 0) {
-          state.index = INDEX_TYPE_BTREE;
-        } else if (strcmp(index, "bwtree") == 0) {
+        // if (strcmp(index, "btree") == 0) {
+        //   state.index = INDEX_TYPE_BTREE;
+        // } else 
+        if (strcmp(index, "bwtree") == 0) {
           state.index = INDEX_TYPE_BWTREE;
         } else if (strcmp(index, "hash") == 0) {
           state.index = INDEX_TYPE_HASH;
