@@ -128,6 +128,12 @@ static void WriteOutput() {
   out << "ro_core_cnt=" << state.ro_backend_count << " ";
   out << "scan_core_cnt=" << state.scan_backend_count << " ";
   out << "scan_mock_duration=" << state.scan_mock_duration << " ";
+  out << "sindex_count=" << state.sindex_count << " ";
+  if (state.sindex == SECONDARY_INDEX_TYPE_VERSION) {
+    out << "sindex=version ";
+  } else {
+    out << "sindex=tuple ";
+  }
   out << "\n";
 
   out << state.throughput << " ";
