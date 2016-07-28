@@ -203,6 +203,10 @@ void N2O_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadata) 
   storage::DataTable *table =
     dynamic_cast<storage::DataTable *>(tile_group->GetAbstractTable());
   assert(table != nullptr);
+  if (table->GetIndexCount() == 1) {
+    // in this case, the table only has primary index. do nothing.
+    return;
+  }
 
   // construct the expired version.
   std::unique_ptr<storage::Tuple> expired_tuple(

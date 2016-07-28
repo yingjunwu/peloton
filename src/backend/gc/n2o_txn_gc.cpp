@@ -255,7 +255,6 @@ namespace peloton {
 void N2OTxn_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadata) {
   LOG_TRACE("Deleting index for tuple(%u, %u)", tuple_metadata.tile_group_id,
             tuple_metadata.tuple_slot_id);
-
   auto &manager = catalog::Manager::GetInstance();
   auto tile_group = manager.GetTileGroup(tuple_metadata.tile_group_id);
 
@@ -263,6 +262,10 @@ void N2OTxn_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadat
   storage::DataTable *table =
     dynamic_cast<storage::DataTable *>(tile_group->GetAbstractTable());
   assert(table != nullptr);
+  if (table->GetIndexCount() == 1) {
+    // in this case, the table only has primary index. do nothing.
+    return;
+  }
 
   // construct the expired version.
   std::unique_ptr<storage::Tuple> expired_tuple(
