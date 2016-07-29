@@ -101,6 +101,11 @@ static void WriteOutput() {
     out << "gc=n2otxn ";
   }
   out << "core_cnt=" << state.backend_count << " ";
+  if (state.sindex == SECONDARY_INDEX_TYPE_VERSION) {
+    out << "sindex=version ";
+  } else {
+    out << "sindex=tuple ";
+  }
   out << "\n";
 
   out << state.throughput << " ";
