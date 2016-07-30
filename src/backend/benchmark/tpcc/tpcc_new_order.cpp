@@ -752,7 +752,6 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
     assert(result == Result::RESULT_ABORTED ||
            result == Result::RESULT_FAILURE);
     LOG_TRACE("abort txn, thread_id = %d, d_id = %d, next_o_id = %d", (int)thread_id, (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
-    return true;
     return false;
   }
 }
