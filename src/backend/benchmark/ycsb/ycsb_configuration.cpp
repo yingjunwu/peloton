@@ -101,7 +101,7 @@ void ValidateColumnCount(const configuration &state) {
 }
 
 void ValidateUpdateColumnCount(const configuration &state) {
-  if (state.update_column_count <= 0 || state.update_column_count > state.column_count) {
+  if (state.update_column_count < 0 || state.update_column_count > state.column_count) {
     LOG_ERROR("Invalid update_column_count :: %d", state.update_column_count);
     exit(EXIT_FAILURE);
   }
