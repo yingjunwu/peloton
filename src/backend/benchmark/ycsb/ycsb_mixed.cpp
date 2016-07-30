@@ -228,18 +228,28 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
       TargetList target_list;
 
-      oid_t begin_update_column_id = BEGIN_UPDATE_CID;
-      oid_t end_update_column_id = begin_update_column_id + state.update_column_count - 1;
-
-      for (oid_t col_itr = begin_update_column_id; col_itr <= end_update_column_id; ++col_itr) {
-        int update_raw_value = col_itr;
-    
+      if (state.update_column_count == 0) {
+        // in this case, we randomly update a column.
+        oid_t update_column_id = BEGIN_UPDATE_CID + rng.next() % state.column_count;
+        int update_raw_value = update_column_id;
         Value update_val = ValueFactory::GetIntegerValue(update_raw_value);
-
         target_list.emplace_back(
-            col_itr, expression::ExpressionUtil::ConstantValueFactory(update_val));
-      }
+              update_column_id, expression::ExpressionUtil::ConstantValueFactory(update_val));
 
+      } else {
+        oid_t begin_update_column_id = BEGIN_UPDATE_CID;
+        oid_t end_update_column_id = begin_update_column_id + state.update_column_count - 1;
+
+        for (oid_t col_itr = begin_update_column_id; col_itr <= end_update_column_id; ++col_itr) {
+          int update_raw_value = col_itr;
+      
+          Value update_val = ValueFactory::GetIntegerValue(update_raw_value);
+
+          target_list.emplace_back(
+              col_itr, expression::ExpressionUtil::ConstantValueFactory(update_val));
+        }
+      }
+      
       mixed_plans.update_executor_->SetTargetList(target_list);
 
       ExecuteUpdateTest(mixed_plans.update_executor_);
