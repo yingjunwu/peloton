@@ -52,6 +52,8 @@ extern bool peloton_fsm;
 
 extern std::vector<peloton::oid_t> hyadapt_column_ids;
 
+const int NUM_PREALLOCATION = 10;
+
 namespace peloton {
 
 typedef std::map<oid_t, std::pair<oid_t, oid_t>> column_map_type;
@@ -229,7 +231,7 @@ class DataTable : public AbstractTable {
                                    bool check_constraint = true);
 
   // add a default unpartitioned tile group to table
-  oid_t AddDefaultTileGroup();
+  oid_t AddDefaultTileGroup(const size_t &tg_seq_id);
 
   // get a partitioning with given layout type
   column_map_type GetTileGroupLayout(LayoutType layout_type);
@@ -266,7 +268,7 @@ class DataTable : public AbstractTable {
   // set of tile groups
   RWLock tile_group_lock_;
 
-  std::shared_ptr<storage::TileGroup> last_tile_group_;
+  std::shared_ptr<storage::TileGroup> last_tile_groups_[NUM_PREALLOCATION];
 
   std::vector<oid_t> tile_groups_;
 

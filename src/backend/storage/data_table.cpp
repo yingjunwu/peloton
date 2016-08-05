@@ -12,6 +12,7 @@
 
 #include <mutex>
 #include <utility>
+#include <thread>
 
 #include "backend/brain/clusterer.h"
 #include "backend/storage/data_table.h"
@@ -63,7 +64,9 @@ DataTable::DataTable(catalog::Schema *schema, const std::string &table_name,
   LOG_TRACE("Data table %u created", table_oid);
 
   // Create a tile group.
-  AddDefaultTileGroup();
+  for (size_t i = 0; i < NUM_PREALLOCATION; ++i) {
+    AddDefaultTileGroup(i);
+  }
 }
 
 DataTable::~DataTable() {
@@ -148,7 +151,9 @@ ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple,
     return free_item_pointer;
   }
   //====================================================
-
+  size_t tg_seq_id = concurrency::current_txn->GetTransactionId() % NUM_PREALLOCATION;
+  // std::hash<std::thread::id>()(std::this_thread::get_id()) % NUM_PREALLOCATION;
+  // size_t tg_seq_id = 0;
   std::shared_ptr<storage::TileGroup> tile_group;
   oid_t tuple_slot = INVALID_OID;
   oid_t tile_group_id = INVALID_OID;
@@ -156,7 +161,7 @@ ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple,
   // get valid tuple.
   while (true) {
     // get the last tile group.
-    tile_group = last_tile_group_;
+    tile_group = last_tile_groups_[tg_seq_id];
 //    tile_group = GetTileGroup(tile_group_count_ - 1);
 
     tuple_slot = tile_group->InsertTuple(tuple);
@@ -170,7 +175,7 @@ ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple,
   // if this is the last tuple slot we can get
   // then create a new tile group
   if (tuple_slot == tile_group->GetAllocatedTupleCount() - 1) {
-    AddDefaultTileGroup();
+    AddDefaultTileGroup(tg_seq_id);
   }
 
   LOG_TRACE("tile group count: %lu, tile group id: %u, address: %p",
@@ -789,7 +794,7 @@ column_map_type DataTable::GetTileGroupLayout(LayoutType layout_type) {
   return column_map;
 }
 
-oid_t DataTable::AddDefaultTileGroup() {
+oid_t DataTable::AddDefaultTileGroup(const size_t &tg_seq_id) {
   column_map_type column_map;
   oid_t tile_group_id = INVALID_OID;
 
@@ -808,7 +813,7 @@ oid_t DataTable::AddDefaultTileGroup() {
   // add tile group metadata in locator
   catalog::Manager::GetInstance().AddTileGroup(tile_group_id, tile_group);
 
-  last_tile_group_ = tile_group;
+  last_tile_groups_[tg_seq_id] = tile_group;
 
   tile_groups_.push_back(tile_group_id);
   
