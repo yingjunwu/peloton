@@ -200,6 +200,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
           if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
             auto res = transaction_manager.PerformRead(tuple_location);
             if (!res) {
+              // try to rescue here...
+
               transaction_manager.SetTransactionResult(RESULT_FAILURE);
               transaction_manager.AddOneReadAbort();
               return res;
@@ -216,6 +218,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
             if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
               auto res = transaction_manager.PerformRead(tuple_location);
               if (!res) {
+                // try to rescue here...
+
                 transaction_manager.SetTransactionResult(RESULT_FAILURE);
                 transaction_manager.AddOneReadAbort();
                 return res;
