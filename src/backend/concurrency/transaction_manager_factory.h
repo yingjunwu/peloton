@@ -26,6 +26,7 @@
 #include "backend/concurrency/ts_order_n2o_txn_manager.h"
 #include "backend/concurrency/ts_order_full_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_full_central_rb_txn_manager.h"
+#include "backend/concurrency/ts_order_opt_n2o_txn_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -61,6 +62,8 @@ class TransactionManagerFactory {
        return TsOrderFullRbTxnManager::GetInstance();
       case CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB:
        return TsOrderFullCentralRbTxnManager::GetInstance();
+      case CONCURRENCY_TYPE_TO_OPT_N2O:
+       return TsOrderOptN2OTxnManager::GetInstance();
       default:
        return OptimisticTxnManager::GetInstance();
     }
@@ -83,6 +86,12 @@ class TransactionManagerFactory {
            protocol_ == CONCURRENCY_TYPE_TO_CENTRAL_RB ||
            protocol_ == CONCURRENCY_TYPE_TO_FULL_RB ||
            protocol_ == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
+  }
+
+  static bool IsN2O() {
+    return protocol_ == CONCURRENCY_TYPE_OCC_N2O ||
+           protocol_ == CONCURRENCY_TYPE_TO_N2O ||
+           protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O;
   }
 
  private:

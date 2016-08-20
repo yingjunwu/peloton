@@ -185,7 +185,9 @@ void ValidateZipfTheta(const configuration &state) {
 }
 
 void ValidateProtocol(const configuration &state) {
-  if (state.protocol != CONCURRENCY_TYPE_TO_N2O && state.protocol != CONCURRENCY_TYPE_OCC_N2O) {
+  if (state.protocol != CONCURRENCY_TYPE_TO_N2O && 
+      state.protocol != CONCURRENCY_TYPE_OCC_N2O &&
+      state.protocol != CONCURRENCY_TYPE_TO_OPT_N2O) {
     if (state.gc_protocol == GC_TYPE_N2O) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
@@ -348,7 +350,10 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
         } else if (strcmp(protocol, "to_full_central_rb") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
-        } else {
+        } else if (strcmp(protocol, "tooptn2o") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
+        } 
+        else {
           fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
           exit(EXIT_FAILURE);
         }

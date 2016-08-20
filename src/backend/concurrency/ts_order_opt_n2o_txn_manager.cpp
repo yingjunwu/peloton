@@ -84,6 +84,33 @@ TsOrderOptN2OTxnManager &TsOrderOptN2OTxnManager::GetInstance() {
   return txn_manager;
 }
 
+// if the current version's begin_ts is even smaller than the lower bound,
+// then it's impossible to rescue the transaction even if we move back
+// to an older version.
+bool TsOrderOptN2OTxnManager::IsRescuable(
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tuple_id) {
+  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
+  if (tuple_begin_cid < lower_bound_cid_) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+bool TsOrderOptN2OTxnManager::IsInRange(
+    const storage::TileGroupHeader *const tile_group_header, 
+    const oid_t &tuple_id) {
+  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
+  cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
+  if (tuple_end_cid < lower_bound_cid_ || tuple_begin_cid > upper_bound_cid_) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
+
 // Visibility check
 VisibilityType TsOrderOptN2OTxnManager::IsVisible(
     const storage::TileGroupHeader *const tile_group_header,
@@ -233,8 +260,8 @@ bool TsOrderOptN2OTxnManager::PerformRead(const ItemPointer &location) {
     // read is successful. record read in the transaction's read set.
     current_txn->RecordRead(location);
 
-    cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId();
-    cid_t tuple_end_cid = tile_group_header->GetEndCommitId();
+    cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
+    cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
     if (is_first_access_ == true) {
       lower_bound_cid_ = tuple_begin_cid;
       upper_bound_cid_ = tuple_end_cid;

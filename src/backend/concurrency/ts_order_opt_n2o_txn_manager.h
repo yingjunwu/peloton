@@ -101,9 +101,11 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t tuple_id);
 
-  bool IsInRange(const cid_t &begin_cid, const cid_t &end_cid) const {
-    return (begin_cid <= lower_bound_cid_ && end_cid >= upper_bound_cid_);
-  }
+  bool IsInRange(
+      const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
+
+  bool IsRescuable(
+      const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
 
  private:
 

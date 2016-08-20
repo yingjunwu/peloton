@@ -109,6 +109,8 @@ static void WriteOutput() {
     out << "proto=tofullrb ";
   } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB) {
     out << "proto=to_full_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_OPT_N2O) {
+    out << "proto=tooptn2o ";
   }
   if (state.gc_protocol == GC_TYPE_OFF) {
     out << "gc=off ";
@@ -293,9 +295,8 @@ void RunBenchmark() {
   LoadYCSBDatabase();
 
   // Validate MVCC storage
-  if (state.protocol != CONCURRENCY_TYPE_OCC_N2O 
-    && state.protocol != CONCURRENCY_TYPE_TO_N2O 
-    && concurrency::TransactionManagerFactory::IsRB()) {
+  if (concurrency::TransactionManagerFactory::IsN2O() == false
+    && concurrency::TransactionManagerFactory::IsRB() == false) {
     ValidateMVCC();
   }
 
@@ -303,9 +304,8 @@ void RunBenchmark() {
   RunWorkload();
 
   // Validate MVCC storage
-  if (state.protocol != CONCURRENCY_TYPE_OCC_N2O 
-    && state.protocol != CONCURRENCY_TYPE_TO_N2O 
-    && concurrency::TransactionManagerFactory::IsRB()) {
+  if (concurrency::TransactionManagerFactory::IsN2O() == false
+    && concurrency::TransactionManagerFactory::IsRB() == false) {
     ValidateMVCC();
   }
 

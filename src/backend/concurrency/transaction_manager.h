@@ -45,14 +45,21 @@ class TransactionManager {
   TransactionManager() {
     next_txn_id_ = ATOMIC_VAR_INIT(START_TXN_ID);
     next_cid_ = ATOMIC_VAR_INIT(START_CID);
-     read_abort_ = 0;
-     acquire_owner_abort_ = 0;
-     no_space_abort_ = 0;
-     cannot_own_abort_ = 0;
+    read_abort_ = 0;
+    acquire_owner_abort_ = 0;
+    no_space_abort_ = 0;
+    cannot_own_abort_ = 0;
+
+    rescue_not_visible_ = 0;
+    rescue_not_in_range_ = 0;
+    rescue_read_abort_ = 0;
+    rescue_not_possible_ = 0;
   }
 
   virtual ~TransactionManager() {
      printf("read_abort_ = %d, acquire_owner_abort_ = %d, no_space_abort_ = %d, cannot_own_abort_ = %d\n", read_abort_.load(), acquire_owner_abort_.load(), no_space_abort_.load(), cannot_own_abort_.load());
+
+     printf("rescue_not_visible_ = %d, rescue_not_in_range_ = %d, rescue_read_abort_ = %d, rescue_not_possible_ = %d\n", rescue_not_visible_.load(), rescue_not_in_range_.load(), rescue_read_abort_.load(), rescue_not_possible_.load());
   }
 
   txn_id_t GetNextTransactionId() { return next_txn_id_++; }
@@ -204,6 +211,22 @@ class TransactionManager {
      ++cannot_own_abort_;
   }
 
+  inline void AddRescueNotVisible() {
+     ++rescue_not_visible_;
+  }
+
+  inline void AddRescueNotInRange() {
+     ++rescue_not_in_range_;
+  }
+
+  inline void AddRescueReadAbort() {
+     ++rescue_read_abort_;
+  }
+
+  inline void AddRescueNotPossible() {
+     ++rescue_not_possible_;
+  }
+
  private:
   std::atomic<txn_id_t> next_txn_id_;
   std::atomic<cid_t> next_cid_;
@@ -212,6 +235,11 @@ class TransactionManager {
    std::atomic<int> acquire_owner_abort_;
    std::atomic<int> no_space_abort_;
    std::atomic<int> cannot_own_abort_;
+
+   std::atomic<int> rescue_not_visible_;
+   std::atomic<int> rescue_not_in_range_;
+   std::atomic<int> rescue_read_abort_;
+   std::atomic<int> rescue_not_possible_;
 
 };
 }  // End storage namespace

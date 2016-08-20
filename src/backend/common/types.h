@@ -370,21 +370,22 @@ enum ExpressionType {
 //===--------------------------------------------------------------------===//
 
 enum ConcurrencyType {
-  CONCURRENCY_TYPE_OPTIMISTIC = 0,        // optimistic
-  CONCURRENCY_TYPE_PESSIMISTIC = 1,       // pessimistic
-  CONCURRENCY_TYPE_SPECULATIVE_READ = 2,  // optimistic + speculative read
-  CONCURRENCY_TYPE_EAGER_WRITE = 3,       // pessimistic + eager write
-  CONCURRENCY_TYPE_TO = 4,                // timestamp ordering
-  CONCURRENCY_TYPE_SSI = 5,               // serializable snapshot isolation
-  CONCURRENCY_TYPE_OCC_RB = 6,            // optimistic + rollback segment
-  CONCURRENCY_TYPE_OCC_N2O = 7,           // optimisitic with new to old version chain
-  CONCURRENCY_TYPE_TO_RB = 8,             // timestamp ordering + rollback segment
-  CONCURRENCY_TYPE_TO_N2O = 9,            // timestamp ordering with new to old version chain
-  CONCURRENCY_TYPE_PESSIMISTIC_OPT = 10,  // pessimistic with optimization
-  CONCURRENCY_TYPE_TO_FULL_RB = 11,       // rollback segment with full tuple storage
-  CONCURRENCY_TYPE_OCC_CENTRAL_RB = 12,   // optimistic + central rb
-  CONCURRENCY_TYPE_TO_CENTRAL_RB = 13,    // timestamp ordering + central delta rb
-  CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB = 14 // timestamp ordering + full + central rb
+  CONCURRENCY_TYPE_OPTIMISTIC = 0,          // optimistic
+  CONCURRENCY_TYPE_PESSIMISTIC = 1,         // pessimistic
+  CONCURRENCY_TYPE_SPECULATIVE_READ = 2,    // optimistic + speculative read
+  CONCURRENCY_TYPE_EAGER_WRITE = 3,         // pessimistic + eager write
+  CONCURRENCY_TYPE_TO = 4,                  // timestamp ordering
+  CONCURRENCY_TYPE_SSI = 5,                 // serializable snapshot isolation
+  CONCURRENCY_TYPE_OCC_RB = 6,              // optimistic + rollback segment
+  CONCURRENCY_TYPE_OCC_N2O = 7,             // optimisitic with new to old version chain
+  CONCURRENCY_TYPE_TO_RB = 8,               // timestamp ordering + rollback segment
+  CONCURRENCY_TYPE_TO_N2O = 9,              // timestamp ordering with new to old version chain
+  CONCURRENCY_TYPE_PESSIMISTIC_OPT = 10,    // pessimistic with optimization
+  CONCURRENCY_TYPE_TO_FULL_RB = 11,         // rollback segment with full tuple storage
+  CONCURRENCY_TYPE_OCC_CENTRAL_RB = 12,     // optimistic + central rb
+  CONCURRENCY_TYPE_TO_CENTRAL_RB = 13,      // timestamp ordering + central delta rb
+  CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB = 14, // timestamp ordering + full + central rb
+  CONCURRENCY_TYPE_TO_OPT_N2O = 15          // optimized timestamp ordering with new to old version chain
 };
 
 enum IsolationLevelType {
