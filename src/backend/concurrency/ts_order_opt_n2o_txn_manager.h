@@ -84,7 +84,7 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
     gc::GCManagerFactory::GetInstance().CreateGCContext();
 
     lower_bound_cid_ = 0;
-    upper_bound_cid_ = MAX_CID;
+    upper_bound_cid_ = begin_cid;
     is_first_access_ = true;
 
     return txn;

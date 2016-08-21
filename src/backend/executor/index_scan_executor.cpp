@@ -182,13 +182,12 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
       ++chain_length;
 
       auto visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
-
       // if the tuple is deleted
       if (visibility == VISIBILITY_DELETED) {
-        LOG_TRACE("encounter deleted tuple: %u, %u", tuple_location.block, tuple_location.offset);
+        LOG_INFO("encounter deleted tuple: %u, %u", tuple_location.block, tuple_location.offset);
         break;
       }
-        // if the tuple is visible.
+      // if the tuple is visible.
       else if (visibility == VISIBILITY_OK) {
         LOG_TRACE("perform read: %u, %u", tuple_location.block,
                  tuple_location.offset);
@@ -202,14 +201,19 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
         }
         if (eval == true) {
           // if the evaluation result is correct, then attempt to perform read.
-          visible_tuples[tuple_location.block].push_back(tuple_location.offset);
 
-          if (is_blind_write_ == false && concurrency::current_txn->IsStaticReadOnlyTxn() == false) {
+          if (is_blind_write_ == true || concurrency::current_txn->IsStaticReadOnlyTxn() == true) {
+            // if it's blind write or read-only transaction, then directly add to visible tuple vector.
+            visible_tuples[tuple_location.block].push_back(tuple_location.offset);
+          } else {
             auto res = transaction_manager.PerformRead(tuple_location);
-            if (!res) {
+            if (res == true) {
+              // add to visible tuple vector.
+              visible_tuples[tuple_location.block].push_back(tuple_location.offset);
+            } else {
               // try to rescue here...
               /////////////////////////////////////////////////////////////////
-              if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_OPT_N2O) {
+              if (concurrency::TransactionManagerFactory::IsOptN2O() == true) {
                 bool is_rescuable = 
                     ((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->IsRescuable(tile_group_header, tuple_location.offset);
                 if (is_rescuable == true) {
@@ -230,29 +234,21 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
                   tile_group_header = tile_group.get()->GetHeader();
 
                   // check the visibility of next version.
-                  // visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
-                  // if (visibility == VISIBILITY_DELETED) {
-                  //   break;
-                  // }
-                  // if (visibility == VISIBILITY_OK) {
+                  visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
+                  if (visibility != VISIBILITY_OK) {
                     // to rescue, the version must be visible.
-                    bool is_in_range = 
-                        ((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->IsInRange(tile_group_header, tuple_location.offset);
-                    if (is_in_range == false) {
-                      transaction_manager.SetTransactionResult(RESULT_FAILURE);
-                      transaction_manager.AddRescueNotInRange();
-                      return res;
-                    }
-                  // } else {
-                  //   transaction_manager.SetTransactionResult(RESULT_FAILURE);
-                  //   transaction_manager.AddRescueNotVisible();
-                  //   return res;
-                  // }
+                    transaction_manager.SetTransactionResult(RESULT_FAILURE);
+                    transaction_manager.AddRescueNotInRange();
+                    return res;
+                  }
 
                   // try again.
                   res = transaction_manager.PerformRead(tuple_location);
 
-                  if (res == false) {
+                  if (res == true) {
+                    // add to visible tuple vector.
+                    visible_tuples[tuple_location.block].push_back(tuple_location.offset);
+                  } else {
                     transaction_manager.SetTransactionResult(RESULT_FAILURE);
                     transaction_manager.AddRescueReadAbort();
                     return res;
@@ -272,10 +268,13 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
               /////////////////////////////////////////////////////////////////
             }
           }
+        } // end eval == true
+        else {
+          LOG_INFO("evaluation failure...");
         }
         break;
-      }
-        // if the tuple is not visible.
+      } // end if VISIBILITY_OK
+      // if the tuple is not visible.
       else {
 
         // Break for new to old
@@ -307,19 +306,19 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
           continue;
         }
 
-        // Break for new to old
-        if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_OPT_N2O
-          && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
-          && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
-          // See an invisible version that does not belong to any one in a new to old version chain
-          // Wire back
-          tuple_location = *((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->
-            GetHeadPtr(tile_group_header, tuple_location.offset);
-          tile_group = manager.GetTileGroup(tuple_location.block);
-          tile_group_header = tile_group.get()->GetHeader();
-          chain_length = 0;
-          continue;
-        }
+        // // Break for new to old
+        // if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_OPT_N2O
+        //   && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
+        //   && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
+        //   // See an invisible version that does not belong to any one in a new to old version chain
+        //   // Wire back
+        //   tuple_location = *((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->
+        //     GetHeadPtr(tile_group_header, tuple_location.offset);
+        //   tile_group = manager.GetTileGroup(tuple_location.block);
+        //   tile_group_header = tile_group.get()->GetHeader();
+        //   chain_length = 0;
+        //   continue;
+        // }
 
         ItemPointer old_item = tuple_location;
         tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
@@ -431,7 +430,6 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
       }
     }
   }
-
 
   // Construct a logical tile for each block
   for (auto tuples : visible_tuples) {

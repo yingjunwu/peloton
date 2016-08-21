@@ -94,6 +94,10 @@ class TransactionManagerFactory {
            protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O;
   }
 
+  static bool IsOptN2O() {
+    return protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O;
+  }
+
  private:
   static ConcurrencyType protocol_;
   static IsolationLevelType isolation_level_;

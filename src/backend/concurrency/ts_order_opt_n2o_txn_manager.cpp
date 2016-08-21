@@ -103,7 +103,7 @@ bool TsOrderOptN2OTxnManager::IsInRange(
     const oid_t &tuple_id) {
   cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
   cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
-  if (tuple_end_cid < lower_bound_cid_ || tuple_begin_cid > upper_bound_cid_) {
+  if (tuple_end_cid <= lower_bound_cid_ || tuple_begin_cid > upper_bound_cid_) {
     return false;
   } else {
     return true;
@@ -120,13 +120,22 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
   cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
   bool own = (current_txn->GetTransactionId() == tuple_txn_id);
-  bool activated = (current_txn->GetBeginCommitId() >= tuple_begin_cid);
-  bool invalidated = (current_txn->GetBeginCommitId() >= tuple_end_cid);
+
+  // bool activated = (current_txn->GetBeginCommitId() >= tuple_begin_cid);
+  // bool invalidated = (current_txn->GetBeginCommitId() >= tuple_end_cid);
+  // bool is_in_range = activated && !invalidated;
+
+  bool is_in_range = IsInRange(tile_group_header, tuple_id);
+  
 
   if (tuple_txn_id == INVALID_TXN_ID) {
+    // TODO: NOTICE: temporarily add.
+    return VISIBILITY_INVISIBLE;
+
     // the tuple is not available.
-    if (activated && !invalidated) {
+    if (is_in_range == true) {
       // deleted tuple
+      // TODO: double check.
       return VISIBILITY_DELETED;
     } else {
       // aborted tuple
@@ -157,7 +166,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
         return VISIBILITY_INVISIBLE;
       } else {
         // the older version may be visible.
-        if (activated && !invalidated) {
+        if (is_in_range) {
           return VISIBILITY_OK;
         } else {
           return VISIBILITY_INVISIBLE;
@@ -165,7 +174,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
       }
     } else {
       // if the tuple is not owned by any transaction.
-      if (activated && !invalidated) {
+      if (is_in_range) {
         return VISIBILITY_OK;
       } else {
         return VISIBILITY_INVISIBLE;

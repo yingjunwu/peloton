@@ -105,6 +105,7 @@ void RunBackend(oid_t thread_id) {
   MixedPlans mixed_plans = PrepareMixedPlan();
   // backoff
   uint32_t backoff_shifts = 0;
+
   while (true) {
     if (is_running == false) {
       break;
