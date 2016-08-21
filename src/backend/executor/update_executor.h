@@ -48,6 +48,10 @@ class UpdateExecutor : public AbstractExecutor {
   
   bool DExecute();
 
+  bool DExecuteSV();
+
+  bool DExecuteMV();
+
  private:
   storage::DataTable *target_table_ = nullptr;
   bool _is_blind_write;

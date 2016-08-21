@@ -70,6 +70,107 @@ bool UpdateExecutor::DExecute() {
   if (!children_[0]->Execute()) {
     return false;
   }
+
+  if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_SV) {
+    // single version concurrency control
+    return DExecuteSV();
+  } else {
+    // multi version concurrency control
+    return DExecuteMV();    
+  }
+
+}
+
+
+bool UpdateExecutor::DExecuteSV() {
+  std::unique_ptr<LogicalTile> source_tile(children_[0]->GetOutput());
+
+  auto &pos_lists = source_tile.get()->GetPositionLists();
+  storage::Tile *tile = source_tile->GetBaseTile(0);
+  storage::TileGroup *tile_group = tile->GetTileGroup();
+  storage::TileGroupHeader *tile_group_header = tile_group->GetHeader();
+  auto tile_group_id = tile_group->GetTileGroupId();
+
+  auto &transaction_manager =
+      concurrency::TransactionManagerFactory::GetInstance();
+
+  // Update tuples in given table
+  for (oid_t visible_tuple_id : *source_tile) {
+    oid_t physical_tuple_id = pos_lists[0][visible_tuple_id];
+
+    ItemPointer old_location(tile_group_id, physical_tuple_id);
+
+    LOG_TRACE("Visible Tuple id : %u, Physical Tuple id : %u ",
+              visible_tuple_id, physical_tuple_id);
+
+    if (transaction_manager.IsOwner(tile_group_header, physical_tuple_id) == true) {
+      
+      // Make a copy of the original tuple and allocate a new tuple
+      expression::ContainerTuple<storage::TileGroup> old_tuple(
+          tile_group, physical_tuple_id);
+      // Create a temp copy
+      std::unique_ptr<storage::Tuple> new_tuple(new storage::Tuple(target_table_->GetSchema(), true));
+      // Execute the projections
+      // FIXME: reduce memory copy by doing inplace update
+      project_info_->Evaluate(new_tuple.get(), &old_tuple, nullptr,
+                              executor_context_);
+
+      tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
+      transaction_manager.PerformUpdate(old_location);
+
+    } else if (transaction_manager.IsOwnable(tile_group_header, physical_tuple_id) == true) {
+      // if the tuple is not owned by any transaction and is visible to current
+      // transaction.
+      if (transaction_manager.AcquireOwnership(tile_group_header, tile_group_id,
+                                               physical_tuple_id) == false) {
+        LOG_TRACE("Fail to insert new tuple. Set txn failure.");
+        transaction_manager.SetTransactionResult(Result::RESULT_FAILURE);
+        transaction_manager.AddOneAcquireOwnerAbort();
+        return false;
+      }
+      // if it is the latest version and not locked by other threads, then
+      // insert a new version.
+      std::unique_ptr<storage::Tuple> new_tuple(new storage::Tuple(target_table_->GetSchema(), true));
+      // Make a copy of the original tuple and allocate a new tuple
+      expression::ContainerTuple<storage::TileGroup> old_tuple(
+          tile_group, physical_tuple_id);
+      // Execute the projections
+      project_info_->Evaluate(new_tuple.get(), &old_tuple, nullptr,
+                              executor_context_);
+
+      ItemPointer new_location;
+      // finally insert updated tuple into the table
+      new_location = target_table_->InsertVersion(new_tuple.get());
+      
+      // PerformUpdate() will not be executed if the insertion failed,
+      // There is a write lock acquired, but it is not in the write set.
+      // the acquired lock can't be released when the txn is aborted.
+      if (new_location.IsNull() == true) {
+        LOG_TRACE("Fail to insert new tuple. Set txn failure.");
+        // First yield ownership
+        transaction_manager.YieldOwnership(tile_group_id, physical_tuple_id);
+        transaction_manager.SetTransactionResult(Result::RESULT_FAILURE);
+        transaction_manager.AddOneNoSpaceAbort();
+        return false;
+      }
+
+      LOG_TRACE("perform update old location: %u, %u", old_location.block, old_location.offset);
+      LOG_TRACE("perform update new location: %u, %u", new_location.block, new_location.offset);
+      transaction_manager.PerformUpdate(old_location, new_location);
+
+    } else {
+      // transaction should be aborted as we cannot update the latest version.
+      LOG_TRACE("Fail to update tuple. Set txn failure.");
+      transaction_manager.SetTransactionResult(Result::RESULT_FAILURE);
+      transaction_manager.AddOneCannotOwnAbort();
+      return false;
+    }
+  }
+  return true;
+}
+
+
+bool UpdateExecutor::DExecuteMV() {
   std::unique_ptr<LogicalTile> source_tile(children_[0]->GetOutput());
 
   auto &pos_lists = source_tile.get()->GetPositionLists();
@@ -234,6 +335,7 @@ bool UpdateExecutor::DExecute() {
     }
   }
   return true;
+
 }
 
 }  // namespace executor
