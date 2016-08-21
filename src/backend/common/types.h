@@ -385,7 +385,8 @@ enum ConcurrencyType {
   CONCURRENCY_TYPE_OCC_CENTRAL_RB = 12,     // optimistic + central rb
   CONCURRENCY_TYPE_TO_CENTRAL_RB = 13,      // timestamp ordering + central delta rb
   CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB = 14, // timestamp ordering + full + central rb
-  CONCURRENCY_TYPE_TO_OPT_N2O = 15          // optimized timestamp ordering with new to old version chain
+  CONCURRENCY_TYPE_TO_OPT_N2O = 15,         // optimized timestamp ordering with new to old version chain
+  CONCURRENCY_TYPE_TO_SV = 16               // single-version timestamp ordering
 };
 
 enum IsolationLevelType {

@@ -22,6 +22,7 @@ namespace concurrency {
 // timestamp ordering
 //===--------------------------------------------------------------------===//
 
+// adapted from timestamp ordering with oldest-to-newest version chain ordering.
 class TsOrderSVTxnManager : public TransactionManager {
  public:
   TsOrderSVTxnManager() {}
@@ -48,12 +49,7 @@ class TsOrderSVTxnManager : public TransactionManager {
   virtual void YieldOwnership(const oid_t &tile_group_id,
     const oid_t &tuple_id);
 
-  virtual bool PerformInsert(const ItemPointer &location __attribute__((unused)))
-    {assert(false); return false;}
-
-  // The itemptr_ptr is the address of the head node of the version chain, 
-  // which is directly pointed by the primary index.
-  bool PerformInsert(const ItemPointer &location, ItemPointer *itemptr_ptr);
+  virtual bool PerformInsert(const ItemPointer &location);
 
   virtual bool PerformRead(const ItemPointer &location);
 
@@ -81,8 +77,6 @@ class TsOrderSVTxnManager : public TransactionManager {
 
     current_txn = txn;
 
-    gc::GCManagerFactory::GetInstance().CreateGCContext();
-
     return txn;
   }
 
@@ -93,15 +87,11 @@ class TsOrderSVTxnManager : public TransactionManager {
     current_txn = nullptr;
   }
 
-  ItemPointer *GetHeadPtr(
-    const storage::TileGroupHeader *const tile_group_header,
-    const oid_t tuple_id);
 
  private:
-
+  
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);
-  static const int ITEM_POINTER_OFFSET = (LAST_READER_OFFSET + 8);
 
 
   Spinlock *GetSpinlockField(
@@ -116,20 +106,12 @@ class TsOrderSVTxnManager : public TransactionManager {
       const storage::TileGroupHeader *const tile_group_header,
       const oid_t &tuple_id);
 
-  void SetHeadPtr(
-      const storage::TileGroupHeader *const tile_group_header, 
-      const oid_t tuple_id, ItemPointer *item_ptr);
-
-  // Init reserved area of a tuple
-  // delete_flag is used to mark that the transaction that owns the tuple
-  // has deleted the tuple
-  // Primary index header ptr (8 bytes)
-  static void InitTupleReserved(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+  // init reserved area of a tuple
+  void InitTupleReserved(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
     auto reserved_area = tile_group_header->GetReservedFieldRef(tuple_id);
 
     new ((reserved_area + LOCK_OFFSET)) Spinlock();
     *(cid_t*)(reserved_area + LAST_READER_OFFSET) = 0;
-    *(reinterpret_cast<ItemPointer**>(reserved_area + ITEM_POINTER_OFFSET)) = nullptr;
   }
 };
 }

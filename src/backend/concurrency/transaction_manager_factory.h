@@ -27,6 +27,7 @@
 #include "backend/concurrency/ts_order_full_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_full_central_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_opt_n2o_txn_manager.h"
+#include "backend/concurrency/ts_order_sv_txn_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -64,6 +65,8 @@ class TransactionManagerFactory {
        return TsOrderFullCentralRbTxnManager::GetInstance();
       case CONCURRENCY_TYPE_TO_OPT_N2O:
        return TsOrderOptN2OTxnManager::GetInstance();
+      case CONCURRENCY_TYPE_TO_SV:
+       return TsOrderSVTxnManager::GetInstance();
       default:
        return OptimisticTxnManager::GetInstance();
     }

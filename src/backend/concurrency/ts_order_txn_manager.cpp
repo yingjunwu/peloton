@@ -2,7 +2,7 @@
 //
 //                         Peloton
 //
-// pessimistic_txn_manager.cpp
+// ts_order_txn_manager.cpp
 //
 // Identification: src/backend/concurrency/ts_order_txn_manager.cpp
 //
