@@ -78,18 +78,11 @@ VisibilityType TsOrderSVTxnManager::IsVisible(
   cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
   bool own = (current_txn->GetTransactionId() == tuple_txn_id);
-  bool activated = (current_txn->GetBeginCommitId() >= tuple_begin_cid);
-  bool invalidated = (current_txn->GetBeginCommitId() >= tuple_end_cid);
 
   if (tuple_txn_id == INVALID_TXN_ID) {
     // the tuple is not available.
-    if (activated && !invalidated) {
-      // deleted tuple
-      return VISIBILITY_DELETED;
-    } else {
-      // aborted tuple
-      return VISIBILITY_INVISIBLE;
-    }
+    // deleted tuple
+    return VISIBILITY_DELETED;
   }
 
   // there are exactly two versions that can be owned by a transaction.
@@ -107,28 +100,8 @@ VisibilityType TsOrderSVTxnManager::IsVisible(
       return VISIBILITY_INVISIBLE;
     }
   } else {
-    if (tuple_txn_id != INITIAL_TXN_ID) {
-      // if the tuple is owned by other transactions.
-      if (tuple_begin_cid == MAX_CID) {
-        // in this protocol, we do not allow cascading abort. so never read an
-        // uncommitted version.
-        return VISIBILITY_INVISIBLE;
-      } else {
-        // the older version may be visible.
-        if (activated && !invalidated) {
-          return VISIBILITY_OK;
-        } else {
-          return VISIBILITY_INVISIBLE;
-        }
-      }
-    } else {
-      // if the tuple is not owned by any transaction.
-      if (activated && !invalidated) {
-        return VISIBILITY_OK;
-      } else {
-        return VISIBILITY_INVISIBLE;
-      }
-    }
+    // we return VISIBILITY_OK even if this tuple is currently owned by other transactions.
+    return VISIBILITY_OK;
   }
 }
 
@@ -439,9 +412,6 @@ Result TsOrderSVTxnManager::CommitTransaction() {
                                                 INITIAL_TXN_ID);
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
-        // GC recycle.
-        RecycleOldTupleSlot(tile_group_id, tuple_slot, end_commit_id);
-
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
             tile_group_header->GetNextItemPointer(tuple_slot);
@@ -464,8 +434,6 @@ Result TsOrderSVTxnManager::CommitTransaction() {
                                                 INVALID_TXN_ID);
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
-        // GC recycle.
-        RecycleOldTupleSlot(tile_group_id, tuple_slot, end_commit_id);
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==

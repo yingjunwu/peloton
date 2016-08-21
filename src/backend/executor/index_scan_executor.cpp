@@ -108,15 +108,25 @@ bool IndexScanExecutor::DInit() {
 bool IndexScanExecutor::DExecute() {
   LOG_TRACE("Index Scan executor :: 0 child");
 
-
   if (!done_) {
-    if (index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
-      auto status = ExecPrimaryIndexLookup();
-      if (status == false) return false;
+    if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_SV) {
+      if (index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+        auto status = ExecPrimaryIndexLookupSV();
+        if (status == false) return false;
+      } else {
+        bool status;
+        status = ExecSecondaryIndexLookupSV();
+        if (status == false) return false;
+      }
     } else {
-      bool status;
-      status = ExecSecondaryIndexLookup();
-      if (status == false) return false;
+      if (index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
+        auto status = ExecPrimaryIndexLookup();
+        if (status == false) return false;
+      } else {
+        bool status;
+        status = ExecSecondaryIndexLookup();
+        if (status == false) return false;
+      }
     }
   }
   // Already performed the index lookup
@@ -134,6 +144,111 @@ bool IndexScanExecutor::DExecute() {
   }  // end while
   return false;
 }
+
+
+bool IndexScanExecutor::ExecPrimaryIndexLookupSV() {
+  LOG_TRACE("Exec primary index lookup for single-version concurrency control");
+  assert(!done_);
+
+  std::vector<ItemPointer *> tuple_location_ptrs;
+
+  assert(index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY);
+
+  if (0 == key_column_ids_.size()) {
+    index_->ScanAllKeys(tuple_location_ptrs);
+  } else {
+    index_->Scan(values_, key_column_ids_, expr_types_,
+                 SCAN_DIRECTION_TYPE_FORWARD, tuple_location_ptrs);
+  }
+
+
+  if (tuple_location_ptrs.size() == 0) {
+    LOG_TRACE("no tuple is retrieved from index.");
+    return false;
+  }
+
+  auto &transaction_manager =
+    concurrency::TransactionManagerFactory::GetInstance();
+
+  if (tuple_location_ptrs.size() != 1) {
+    LOG_INFO("number of tuples found should always be 1");
+    return false;
+  }
+
+  ItemPointer tuple_location = *(tuple_location_ptrs[0]);
+
+  auto &manager = catalog::Manager::GetInstance();
+  auto tile_group = manager.GetTileGroup(tuple_location.block);
+  auto tile_group_header = tile_group.get()->GetHeader();
+
+  auto visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
+
+  if (visibility != VISIBILITY_OK) {
+      LOG_INFO("something wrong happens...");
+  }
+
+  // if the tuple is deleted
+  if (visibility == VISIBILITY_DELETED) {
+    done_ = true;
+    LOG_INFO("encounter deleted tuple: %u, %u", tuple_location.block, tuple_location.offset);
+    return true;
+  } if (visibility == VISIBILITY_INVISIBLE) {
+    // if the tuple is owned by the transaction but it is a before image.
+    ItemPointer old_item = tuple_location;
+    tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+    if (transaction_manager.IsVisible(tile_group_header, tuple_location.offset) != VISIBILITY_OK) {
+      LOG_INFO("something wrong happens...");
+      return false;
+    }
+  }
+
+  tile_group = manager.GetTileGroup(tuple_location.block);
+
+  bool eval = true;
+  if (predicate_ != nullptr) {
+    expression::ContainerTuple<storage::TileGroup> tuple(
+      tile_group.get(), tuple_location.offset);
+    eval = predicate_->Evaluate(&tuple, nullptr, executor_context_).IsTrue();
+  }
+  if (eval == true) {
+    if (is_blind_write_ != true && concurrency::current_txn->IsStaticReadOnlyTxn() != true) {
+      // if it's not blind write or read-only transaction.
+      bool res = transaction_manager.PerformRead(tuple_location);
+      if (res == false) {
+        transaction_manager.SetTransactionResult(RESULT_FAILURE);
+        transaction_manager.AddOneReadAbort();
+        return res;
+      }
+    }
+
+    // Construct a logical tile for each block
+    auto &manager = catalog::Manager::GetInstance();
+    auto tile_group = manager.GetTileGroup(tuple_location.block);
+
+    std::unique_ptr<LogicalTile> logical_tile(LogicalTileFactory::GetTile());
+    // Add relevant columns to logical tile
+    logical_tile->AddColumns(tile_group, full_column_ids_);
+    
+    std::vector<oid_t> position_list;
+    position_list.push_back(tuple_location.offset);
+    logical_tile->AddPositionList(std::move(position_list));
+
+    if (column_ids_.size() != 0) {
+      logical_tile->ProjectColumns(full_column_ids_, column_ids_);
+    }
+
+    result_.push_back(logical_tile.release());
+
+  }
+
+  done_ = true;
+
+  LOG_TRACE("Result tiles : %lu", result_.size());
+
+  return true;
+
+}
+
 
 bool IndexScanExecutor::ExecPrimaryIndexLookup() {
   LOG_TRACE("Exec primary index lookup");
@@ -484,6 +599,11 @@ void IndexScanExecutor::RBVerifyVisible(std::vector<ItemPointer> &tuple_location
     }
   }
 }
+
+bool IndexScanExecutor::ExecSecondaryIndexLookupSV() {
+  return false;
+}
+
 
 bool IndexScanExecutor::ExecSecondaryIndexLookup() {
   LOG_TRACE("ExecSecondaryIndexLookup");
