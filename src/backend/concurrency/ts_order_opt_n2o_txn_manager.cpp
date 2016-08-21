@@ -271,18 +271,14 @@ bool TsOrderOptN2OTxnManager::PerformRead(const ItemPointer &location) {
 
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
     cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
-    if (is_first_access_ == true) {
+
+    if (tuple_begin_cid < lower_bound_cid_) {
       lower_bound_cid_ = tuple_begin_cid;
-      upper_bound_cid_ = tuple_end_cid;
-      is_first_access_ = false;
-    } else {
-      if (tuple_begin_cid < lower_bound_cid_) {
-        lower_bound_cid_ = tuple_begin_cid;
-      }
-      if (tuple_end_cid > upper_bound_cid_) {
-        upper_bound_cid_ = tuple_end_cid;
-      }
     }
+    if (tuple_end_cid > upper_bound_cid_) {
+      upper_bound_cid_ = tuple_end_cid;
+    }
+
     return true;
   } else {
     // some other concurrent transactions have acquired the lock. abort.
