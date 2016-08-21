@@ -277,10 +277,10 @@ bool TsOrderOptN2OTxnManager::PerformRead(const ItemPointer &location) {
       is_first_access_ = false;
     } else {
       if (tuple_begin_cid < lower_bound_cid_) {
-        tuple_begin_cid = lower_bound_cid_;
+        lower_bound_cid_ = tuple_begin_cid;
       }
       if (tuple_end_cid > upper_bound_cid_) {
-        tuple_end_cid = upper_bound_cid_;
+        upper_bound_cid_ = tuple_end_cid;
       }
     }
     return true;
