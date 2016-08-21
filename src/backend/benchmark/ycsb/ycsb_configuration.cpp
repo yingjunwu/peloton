@@ -46,7 +46,7 @@ void Usage(FILE *out) {
           "   -e --exp_backoff       :  enable exponential backoff \n"
           "   -x --blind_write       :  enable blind write \n"
           "   -p --protocol          :  choose protocol, default OCC\n"
-          "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, to_central_rb, to_full_central_rb and ton2o\n"
+          "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, to_central_rb, to_full_central_rb, ton2o, tooptn2o, and tosv\n"
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/n2otxn/va\n"
@@ -185,7 +185,13 @@ void ValidateZipfTheta(const configuration &state) {
 }
 
 void ValidateProtocol(const configuration &state) {
-  if (state.protocol != CONCURRENCY_TYPE_TO_N2O && 
+  if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
+    if (state.gc_protocol != GC_TYPE_OFF) {
+      LOG_ERROR("Invalid protocol");
+      exit(EXIT_FAILURE);
+    }
+  }
+  else if (state.protocol != CONCURRENCY_TYPE_TO_N2O && 
       state.protocol != CONCURRENCY_TYPE_OCC_N2O &&
       state.protocol != CONCURRENCY_TYPE_TO_OPT_N2O) {
     if (state.gc_protocol == GC_TYPE_N2O) {
@@ -352,7 +358,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
         } else if (strcmp(protocol, "tooptn2o") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
-        } 
+        } else if (strcmp(protocol, "tosv") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_SV;
+        }
         else {
           fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
           exit(EXIT_FAILURE);

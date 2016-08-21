@@ -111,6 +111,8 @@ static void WriteOutput() {
     out << "proto=to_full_central_rb ";
   } else if (state.protocol == CONCURRENCY_TYPE_TO_OPT_N2O) {
     out << "proto=tooptn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
+    out << "proto=tosv ";
   }
   if (state.gc_protocol == GC_TYPE_OFF) {
     out << "gc=off ";
