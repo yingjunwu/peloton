@@ -85,7 +85,7 @@ void Tuple::SetValue(const oid_t column_id, const Value &value,
   }
 }
 
-void Tuple::SetFromTuple(const storage::Tuple *tuple,
+void Tuple::SetFromTuple(const AbstractTuple *tuple,
                          const std::vector<oid_t> &columns, VarlenPool *pool) {
   // We don't do any checks here about the source tuple and
   // this tuple's schema

@@ -135,19 +135,18 @@ bool DataTable::CheckConstraints(const storage::Tuple *tuple) const {
 // new tile group.
 // we just wait until a new tuple slot in the newly allocated tile group is
 // available.
-ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple,
-                                            bool check_constraint) {
-  assert(tuple);
-  if (check_constraint == true && CheckConstraints(tuple) == false) {
-    return INVALID_ITEMPOINTER;
-  }
+ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple) {
+  // assert(tuple);
+  // if (check_constraint == true && CheckConstraints(tuple) == false) {
+  //   return INVALID_ITEMPOINTER;
+  // }
   //=============== garbage collection==================
   // check if there are recycled tuple slots
   auto &gc_manager = gc::GCManagerFactory::GetInstance();
   auto free_item_pointer = gc_manager.ReturnFreeSlot(this->table_oid);
   if (free_item_pointer.IsNull() == false) {
-    auto tg = catalog::Manager::GetInstance().GetTileGroup(free_item_pointer.block);
-    tg->CopyTuple(tuple, free_item_pointer.offset);
+    // auto tg = catalog::Manager::GetInstance().GetTileGroup(free_item_pointer.block);
+    // tg->CopyTuple(tuple, free_item_pointer.offset);
     return free_item_pointer;
   }
   //====================================================
@@ -190,25 +189,25 @@ ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple,
 //===--------------------------------------------------------------------===//
 // INSERT
 //===--------------------------------------------------------------------===//
-ItemPointer DataTable::InsertEmptyVersion(const storage::Tuple *tuple) {
+ItemPointer DataTable::InsertEmptyVersion() {
   // First, do integrity checks and claim a slot
-  ItemPointer location = FillInEmptyTupleSlot(tuple, false);
+  ItemPointer location = FillInEmptyTupleSlot(nullptr);
   if (location.block == INVALID_OID) {
     LOG_TRACE("Failed to get tuple slot.");
     return INVALID_ITEMPOINTER;
   }
 
   // Index checks and updates
-  if (InsertInSecondaryIndexes(tuple, location) == false) {
-    LOG_TRACE("Index constraint violated when inserting secondary index");
-    return INVALID_ITEMPOINTER;
-  }
+  // if (InsertInSecondaryIndexes(tuple, location) == false) {
+  //   LOG_TRACE("Index constraint violated when inserting secondary index");
+  //   return INVALID_ITEMPOINTER;
+  // }
 
   // ForeignKey checks
-  if (CheckForeignKeyConstraints(tuple) == false) {
-    LOG_TRACE("ForeignKey constraint violated");
-    return INVALID_ITEMPOINTER;
-  }
+  // if (CheckForeignKeyConstraints(tuple) == false) {
+  //   LOG_TRACE("ForeignKey constraint violated");
+  //   return INVALID_ITEMPOINTER;
+  // }
 
   LOG_TRACE("Location: %u, %u", location.block, location.offset);
 
@@ -219,7 +218,7 @@ ItemPointer DataTable::InsertEmptyVersion(const storage::Tuple *tuple) {
 ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
       const TargetList *targets_ptr, ItemPointer *master_ptr) {
   // First, do integrity checks and claim a slot
-  ItemPointer location = FillInEmptyTupleSlot(tuple, true);
+  ItemPointer location = FillInEmptyTupleSlot(tuple);
   if (location.block == INVALID_OID) {
     LOG_TRACE("Failed to get tuple slot.");
     return INVALID_ITEMPOINTER;
@@ -228,7 +227,7 @@ ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
   // Index checks and updates
   if ( concurrency::TransactionManagerFactory::IsRB() == false
       && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
-    if (InsertInSecondaryTupleIndexes(tuple, location, targets_ptr, master_ptr) == false) {
+    if (InsertInSecondaryTupleIndexes(tuple, targets_ptr, master_ptr) == false) {
       LOG_TRACE("Index constraint violated when inserting secondary index");
       return INVALID_ITEMPOINTER;
     }
@@ -240,10 +239,10 @@ ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
   }
 
   // ForeignKey checks
-  if (CheckForeignKeyConstraints(tuple) == false) {
-    LOG_TRACE("ForeignKey constraint violated");
-    return INVALID_ITEMPOINTER;
-  }
+  // if (CheckForeignKeyConstraints(tuple) == false) {
+  //   LOG_TRACE("ForeignKey constraint violated");
+  //   return INVALID_ITEMPOINTER;
+  // }
 
   LOG_TRACE("Location: %u, %u", location.block, location.offset);
 
@@ -255,6 +254,51 @@ ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
 
   return location;
 }
+
+ItemPointer DataTable::AcquireVersion() {
+  // First, claim a slot
+  ItemPointer location = FillInEmptyTupleSlot(nullptr);
+  if (location.block == INVALID_OID) {
+    LOG_TRACE("Failed to get tuple slot.");
+    return INVALID_ITEMPOINTER;
+  }
+
+  LOG_TRACE("Location: %u, %u", location.block, location.offset);
+
+  IncreaseNumberOfTuplesBy(1);
+  return location;
+}
+
+bool DataTable::InstallVersion(const AbstractTuple *tuple, const ItemPointer &location,
+                               const TargetList *targets_ptr, 
+                               ItemPointer *master_ptr) {
+  // Index checks and updates
+  if ( concurrency::TransactionManagerFactory::IsRB() == false
+      && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+    if (InsertInSecondaryTupleIndexes(tuple, targets_ptr, master_ptr) == false) {
+      LOG_TRACE("Index constraint violated when inserting secondary index");
+      return false;
+    }
+  } else {
+    if (InsertInSecondaryIndexes(tuple, location) == false) {
+      LOG_TRACE("Index constraint violated when inserting secondary index");
+      return false;
+    }
+  }
+
+  // ForeignKey checks
+  // if (CheckForeignKeyConstraints(tuple) == false) {
+  //   LOG_TRACE("ForeignKey constraint violated");
+  //   return false;
+  // }
+
+  // Write down the master version's pointer into tile group header
+  auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
+  tg_hdr->SetMasterPointer(location.offset, master_ptr);
+
+  return true;
+}
+
 
 ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **itemptr_ptr) {
   // First, do integrity checks and claim a slot
@@ -280,10 +324,10 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
   }
 
   // ForeignKey checks
-  if (CheckForeignKeyConstraints(tuple) == false) {
-    LOG_TRACE("ForeignKey constraint violated");
-    return INVALID_ITEMPOINTER;
-  }
+  // if (CheckForeignKeyConstraints(tuple) == false) {
+  //   LOG_TRACE("ForeignKey constraint violated");
+  //   return INVALID_ITEMPOINTER;
+  // }
 
   // Write down the master version's pointer into tile group header
   auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
@@ -319,10 +363,10 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, index::RBItemPoi
   }
 
   // ForeignKey checks
-  if (CheckForeignKeyConstraints(tuple) == false) {
-    LOG_TRACE("ForeignKey constraint violated");
-    return INVALID_ITEMPOINTER;
-  }
+  // if (CheckForeignKeyConstraints(tuple) == false) {
+  //   LOG_TRACE("ForeignKey constraint violated");
+  //   return INVALID_ITEMPOINTER;
+  // }
 
   // Increase the table's number of tuples by 1
   IncreaseNumberOfTuplesBy(1);
@@ -504,8 +548,7 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
   return true;
 }
 
-bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSED_ATTRIBUTE ItemPointer location,
-              const TargetList *targets_ptr, ItemPointer *master_ptr) {
+bool DataTable::InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const TargetList *targets_ptr, ItemPointer *master_ptr) {
   int index_count = GetIndexCount();
   auto &transaction_manager = concurrency::TransactionManagerFactory::GetInstance();
 
@@ -549,6 +592,7 @@ bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSE
 
     // Key attributes are updated, insert a new entry in all secondary index
     std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
+
     key->SetFromTuple(tuple, indexed_columns, index->GetPool());
 
     switch (index->GetIndexType()) {
@@ -575,7 +619,7 @@ bool DataTable::InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, UNUSE
 }
 
 
-bool DataTable::InsertInSecondaryIndexes(const storage::Tuple *tuple,
+bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
                                          ItemPointer location) {
   int index_count = GetIndexCount();
   auto &transaction_manager =
@@ -591,7 +635,9 @@ bool DataTable::InsertInSecondaryIndexes(const storage::Tuple *tuple,
     auto index = GetIndex(index_itr);
     auto index_schema = index->GetKeySchema();
     auto indexed_columns = index_schema->GetIndexedColumns();
+
     std::unique_ptr<storage::Tuple> key(new storage::Tuple(index_schema, true));
+
     key->SetFromTuple(tuple, indexed_columns, index->GetPool());
 
     ItemPointer *itempointer_ptr = nullptr;

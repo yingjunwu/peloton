@@ -122,14 +122,10 @@ bool DeleteExecutor::DExecute() {
       } else {
         // if it is the latest version and not locked by other threads, then
         // insert a new version.
-        std::unique_ptr<storage::Tuple> new_tuple(new storage::Tuple(target_table_->GetSchema(), true));
-
-        // Make a copy of the original tuple and allocate a new tuple
-        expression::ContainerTuple<storage::TileGroup> old_tuple(
-          tile_group, physical_tuple_id);
+        // std::unique_ptr<storage::Tuple> new_tuple(new storage::Tuple(target_table_->GetSchema(), true));
 
         // finally insert updated tuple into the table
-        ItemPointer new_location = target_table_->InsertEmptyVersion(new_tuple.get());
+        ItemPointer new_location = target_table_->InsertEmptyVersion();
 
         if (new_location.IsNull() == true) {
           LOG_TRACE("Fail to insert new tuple. Set txn failure.");

@@ -72,6 +72,36 @@ bool ProjectInfo::Evaluate(storage::Tuple *dest, const AbstractTuple *tuple1,
   return true;
 }
 
+
+bool ProjectInfo::Evaluate(AbstractTuple *dest, 
+                           const AbstractTuple *tuple1,
+                           const AbstractTuple *tuple2,
+                           executor::ExecutorContext *econtext) const {
+  // (A) Execute target list
+  for (auto target : target_list_) {
+    auto col_id = target.first;
+    auto expr = target.second;
+    auto value = expr->Evaluate(tuple1, tuple2, econtext);
+
+    dest->SetValue(col_id, value);
+  }
+
+  // (B) Execute direct map
+  for (auto dm : direct_map_list_) {
+    auto dest_col_id = dm.first;
+    // whether left tuple or right tuple ?
+    auto tuple_index = dm.second.first;
+    auto src_col_id = dm.second.second;
+
+    Value value = (tuple_index == 0) ? tuple1->GetValue(src_col_id)
+                                     : tuple2->GetValue(src_col_id);
+
+    dest->SetValue(dest_col_id, value);
+  }
+
+  return true;
+}
+
 std::string ProjectInfo::Debug() const {
   std::ostringstream buffer;
   buffer << "Target List: < DEST_column_id , expression >\n";

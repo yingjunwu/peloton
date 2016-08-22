@@ -37,7 +37,7 @@ thread_local std::unordered_map<ItemPointer, void *> updated_index_entries;
  * @param tuple New tuple
  */
 bool RBTxnManager::RBInsertVersion(storage::DataTable *target_table,
-  const ItemPointer &location, const storage::Tuple *tuple) {
+  const ItemPointer &location, const AbstractTuple *tuple) {
 
   bool is_sindex_version = (index::IndexFactory::GetSecondaryIndexType() == 
     SECONDARY_INDEX_TYPE_VERSION);

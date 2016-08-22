@@ -102,10 +102,19 @@ class DataTable : public AbstractTable {
   // TUPLE OPERATIONS
   //===--------------------------------------------------------------------===//
   // insert version in table
-  ItemPointer InsertEmptyVersion(const Tuple *tuple);
+  ItemPointer InsertEmptyVersion();
   ItemPointer InsertVersion(const Tuple *tuple,
              // Only for tuple type secondary index
              const TargetList *targets_ptr = nullptr, ItemPointer *master_ptr = nullptr);
+  
+  // these two functions are designed for reducing memory allocation by performing in-place update.
+  // in the update executor, we first acquire a version slot from the data table, and then
+  // copy the content into the version. after that, we need to check constraints and then install the version
+  // into all the corresponding indexes.
+  ItemPointer AcquireVersion();
+  bool InstallVersion(const AbstractTuple *tuple, const ItemPointer &location, const TargetList *targets_ptr = nullptr, ItemPointer *index_entry_ptr = nullptr);
+
+  
   // insert tuple in table
   ItemPointer InsertTuple(const Tuple *tuple, ItemPointer **itemptr_ptr = nullptr);
   // For RB
@@ -227,8 +236,7 @@ class DataTable : public AbstractTable {
   bool CheckConstraints(const storage::Tuple *tuple) const;
 
   // Claim a tuple slot in a tile group
-  ItemPointer FillInEmptyTupleSlot(const storage::Tuple *tuple,
-                                   bool check_constraint = true);
+  ItemPointer FillInEmptyTupleSlot(const storage::Tuple *tuple);
 
   // add a default unpartitioned tile group to table
   oid_t AddDefaultTileGroup(const size_t &tg_seq_id);
@@ -246,10 +254,11 @@ class DataTable : public AbstractTable {
   // For RB
   bool InsertInIndexes(const storage::Tuple *tuple, ItemPointer location, index::RBItemPointer **rb_itemptr_ptr);
 
-  bool InsertInSecondaryIndexes(const storage::Tuple *tuple,
+
+  bool InsertInSecondaryIndexes(const AbstractTuple *tuple,
                                 ItemPointer location);
 
-  bool InsertInSecondaryTupleIndexes(const storage::Tuple *tuple, ItemPointer location,
+  bool InsertInSecondaryTupleIndexes(const AbstractTuple *tuple,
           const TargetList *targetes_ptr, ItemPointer *masterPtr);
 
   // check the foreign key constraints

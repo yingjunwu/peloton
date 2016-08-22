@@ -163,6 +163,8 @@ class TileGroup : public Printable {
   oid_t GetTileColumnId(oid_t column_id);
 
   Value GetValue(oid_t tuple_id, oid_t column_id);
+  
+  void SetValue(Value &value, oid_t tuple_id, oid_t column_id);
 
   double GetSchemaDifference(const storage::column_map_type &new_column_map);
 

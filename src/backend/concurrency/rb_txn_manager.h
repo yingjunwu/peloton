@@ -100,7 +100,7 @@ public:
 
   // Insert a version, basically maintain secondary index
   virtual bool RBInsertVersion(storage::DataTable *target_table,
-    const ItemPointer &location, const storage::Tuple *tuple);
+    const ItemPointer &location, const AbstractTuple *tuple);
 
   // Rollback the master copy of a tuple to the status at the begin of the 
   // current transaction
