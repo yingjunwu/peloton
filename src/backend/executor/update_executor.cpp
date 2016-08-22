@@ -202,12 +202,6 @@ bool UpdateExecutor::DExecuteMV() {
         // Make a copy of the original tuple and allocate a new tuple
         expression::ContainerTuple<storage::TileGroup> old_tuple(
             tile_group, physical_tuple_id);
-        // Create a temp copy
-        // std::unique_ptr<storage::Tuple> new_tuple(new storage::Tuple(target_table_->GetSchema(), true));
-        // Execute the projections
-        // FIXME: reduce memory copy by doing inplace update
-        // project_info_->Evaluate(new_tuple.get(), &old_tuple, nullptr,
-        //                         executor_context_);
 
 
         if ((concurrency_protocol == CONCURRENCY_TYPE_TO_FULL_RB
@@ -224,7 +218,6 @@ bool UpdateExecutor::DExecuteMV() {
           }
           
           // Overwrite the master copy
-          // tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
           project_info_->Evaluate(&old_tuple, &old_tuple, nullptr,
                                   executor_context_);
 
@@ -248,7 +241,6 @@ bool UpdateExecutor::DExecuteMV() {
           }
 
           // Overwrite the master copy
-          // tile_group->CopyTuple(new_tuple.get(), physical_tuple_id);
           project_info_->Evaluate(&old_tuple, &old_tuple, nullptr,
                                   executor_context_);
 
@@ -300,14 +292,11 @@ bool UpdateExecutor::DExecuteMV() {
 
         // Ask the txn manager to append the rollback segment
         rb_txn_manager->PerformUpdateWithRb(old_location, rb_seg);
-
         
         // Overwrite the master copy
         // Execute the projections
-        // std::unique_ptr<storage::Tuple> new_tuple(new storage::Tuple(target_table_->GetSchema(), true));
         project_info_->Evaluate(&old_tuple, &old_tuple, nullptr,
                                 executor_context_);
-        // tile_group->CopyTuple(new_tuple.get(), old_location.offset);
 
         // Insert into secondary index. Maybe we can insert index before
         // CopyTuple? -- RX
