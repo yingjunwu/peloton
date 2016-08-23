@@ -17,6 +17,7 @@
 #include "backend/gc/off_gc.h"
 #include "backend/gc/n2o_gc.h"
 #include "backend/gc/n2o_txn_gc.h"
+#include "backend/gc/sv_gc.h"
 
 namespace peloton {
 namespace gc {
@@ -33,6 +34,8 @@ class GCManagerFactory {
         return N2O_GCManager::GetInstance(gc_thread_count_);
       case GC_TYPE_N2O_TXN:
         return N2OTxn_GCManager::GetInstance(gc_thread_count_);
+      case GC_TYPE_SV:
+        return SV_GCManager::GetInstance();
       case GC_TYPE_OFF:
         return Off_GCManager::GetInstance();
       default:

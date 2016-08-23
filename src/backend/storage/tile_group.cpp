@@ -128,7 +128,7 @@ void TileGroup::ApplyRollbackSegment(char *rb_seg, const oid_t &tuple_slot_id) {
  *
  * Returns slot where inserted (INVALID_ID if not inserted)
  */
-void TileGroup::CopyTuple(const Tuple *tuple, const oid_t &tuple_slot_id) {
+void TileGroup::CopyTuple(const AbstractTuple *tuple, const oid_t &tuple_slot_id) {
   LOG_TRACE("Tile Group Id :: %u status :: %u out of %u slots ",
             tile_group_id, tuple_slot_id, num_tuple_slots);
 

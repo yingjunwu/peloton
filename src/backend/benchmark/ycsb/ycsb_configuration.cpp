@@ -186,7 +186,7 @@ void ValidateZipfTheta(const configuration &state) {
 
 void ValidateProtocol(const configuration &state) {
   if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
-    if (state.gc_protocol != GC_TYPE_OFF) {
+    if (state.gc_protocol != GC_TYPE_OFF && state.gc_protocol != GC_TYPE_SV) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
     }
@@ -371,14 +371,16 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         char *gc_protocol = optarg;
         if (strcmp(gc_protocol, "off") == 0) {
           state.gc_protocol = GC_TYPE_OFF;
-        }else if (strcmp(gc_protocol, "va") == 0) {
+        } else if (strcmp(gc_protocol, "va") == 0) {
           state.gc_protocol = GC_TYPE_VACUUM;
-        }else if (strcmp(gc_protocol, "co") == 0) {
+        } else if (strcmp(gc_protocol, "co") == 0) {
           state.gc_protocol = GC_TYPE_CO;
-        }else if (strcmp(gc_protocol, "n2o") == 0) {
+        } else if (strcmp(gc_protocol, "n2o") == 0) {
           state.gc_protocol = GC_TYPE_N2O;
         } else if (strcmp(gc_protocol, "n2otxn") == 0) {
           state.gc_protocol = GC_TYPE_N2O_TXN;
+        } else if (strcmp(gc_protocol, "sv") == 0 ) {
+          state.gc_protocol = GC_TYPE_SV;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);

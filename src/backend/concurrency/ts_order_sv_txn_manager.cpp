@@ -122,9 +122,10 @@ bool TsOrderSVTxnManager::IsOwnable(
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t &tuple_id) {
   auto tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
-  auto tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
-  // As long as the tuple is valid, and it is visible to the current txn
-  return tuple_txn_id == INITIAL_TXN_ID && tuple_end_cid > current_txn->GetBeginCommitId();
+  // auto tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
+  // As long as the tuple is valid, 
+  // this is a single-version cc. we do not need to check begin/end cid in the tuple.
+  return tuple_txn_id == INITIAL_TXN_ID; //&& tuple_end_cid > current_txn->GetBeginCommitId();
 }
 
 bool TsOrderSVTxnManager::AcquireOwnership(
@@ -375,7 +376,7 @@ Result TsOrderSVTxnManager::CommitTransaction() {
   auto &manager = catalog::Manager::GetInstance();
 
   // generate transaction id.
-  cid_t end_commit_id = current_txn->GetBeginCommitId();
+  // cid_t end_commit_id = current_txn->GetBeginCommitId();
 
   auto &rw_set = current_txn->GetRWSet();
 
@@ -386,25 +387,37 @@ Result TsOrderSVTxnManager::CommitTransaction() {
     auto tile_group_header = tile_group->GetHeader();
     for (auto &tuple_entry : tile_group_entry.second) {
       auto tuple_slot = tuple_entry.first;
-      if (tuple_entry.second == RW_TYPE_READ) {
-        continue;
-      } else if (tuple_entry.second == RW_TYPE_UPDATE) {
+      if (tuple_entry.second == RW_TYPE_UPDATE) {
         // we must guarantee that, at any time point, only one version is
         // visible.
         ItemPointer new_version =
             tile_group_header->GetNextItemPointer(tuple_slot);
+        
+        auto new_tile_group = manager.GetTileGroup(new_version.block);
+        auto new_tile_group_header = new_tile_group->GetHeader();
+        
+        expression::ContainerTuple<storage::TileGroup> new_tuple(
+              new_tile_group.get(), new_version.offset);
 
-        auto cid = tile_group_header->GetEndCommitId(tuple_slot);
-        assert(cid > end_commit_id);
-        auto new_tile_group_header =
-            manager.GetTileGroup(new_version.block)->GetHeader();
-        new_tile_group_header->SetBeginCommitId(new_version.offset,
-                                                end_commit_id);
-        new_tile_group_header->SetEndCommitId(new_version.offset, cid);
+        tile_group->CopyTuple(&new_tuple, tuple_slot);
 
-        COMPILER_MEMORY_FENCE;
+        tile_group_header->SetNextItemPointer(tuple_slot, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
 
-        tile_group_header->SetEndCommitId(tuple_slot, end_commit_id);
+        // COMPILER_MEMORY_FENCE;
+
+        // tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
+
+        // auto cid = tile_group_header->GetEndCommitId(tuple_slot);
+        // assert(cid > end_commit_id);
+        // new_tile_group_header->SetBeginCommitId(new_version.offset,
+                                                // end_commit_id);
+        // new_tile_group_header->SetEndCommitId(new_version.offset, cid);
+
+        // COMPILER_MEMORY_FENCE;
+
+        // tile_group_header->SetEndCommitId(tuple_slot, end_commit_id);
 
         COMPILER_MEMORY_FENCE;
 
@@ -412,21 +425,36 @@ Result TsOrderSVTxnManager::CommitTransaction() {
                                                 INITIAL_TXN_ID);
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
+
+        RecycleInvalidTupleSlot(new_version.block, new_version.offset);
+
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
+
         ItemPointer new_version =
             tile_group_header->GetNextItemPointer(tuple_slot);
 
-        auto cid = tile_group_header->GetEndCommitId(tuple_slot);
-        assert(cid > end_commit_id);
+        // auto cid = tile_group_header->GetEndCommitId(tuple_slot);
+        // assert(cid > end_commit_id);
         auto new_tile_group_header =
             manager.GetTileGroup(new_version.block)->GetHeader();
-        new_tile_group_header->SetBeginCommitId(new_version.offset,
-                                                end_commit_id);
-        new_tile_group_header->SetEndCommitId(new_version.offset, cid);
+        
+        tile_group_header->SetNextItemPointer(tuple_slot, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
 
-        COMPILER_MEMORY_FENCE;
+        tile_group_header->SetEndCommitId(tuple_slot, INVALID_CID);
 
-        tile_group_header->SetEndCommitId(tuple_slot, end_commit_id);
+        // COMPILER_MEMORY_FENCE;
+
+        // tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
+
+        // new_tile_group_header->SetBeginCommitId(new_version.offset,
+        //                                         end_commit_id);
+        // new_tile_group_header->SetEndCommitId(new_version.offset, cid);
+
+        // COMPILER_MEMORY_FENCE;
+
+        // tile_group_header->SetEndCommitId(tuple_slot, end_commit_id);
 
         COMPILER_MEMORY_FENCE;
 
@@ -434,12 +462,13 @@ Result TsOrderSVTxnManager::CommitTransaction() {
                                                 INVALID_TXN_ID);
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
+        RecycleInvalidTupleSlot(new_version.block, new_version.offset);
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==
                current_txn->GetTransactionId());
         // set the begin commit id to persist insert
-        tile_group_header->SetBeginCommitId(tuple_slot, end_commit_id);
+        tile_group_header->SetBeginCommitId(tuple_slot, MAX_CID);
         tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
 
         COMPILER_MEMORY_FENCE;
@@ -457,6 +486,8 @@ Result TsOrderSVTxnManager::CommitTransaction() {
 
         // set the begin commit id to persist insert
         tile_group_header->SetTransactionId(tuple_slot, INVALID_TXN_ID);
+
+        RecycleInvalidTupleSlot(tile_group_id, tuple_slot);
       }
     }
   }
@@ -482,39 +513,54 @@ Result TsOrderSVTxnManager::AbortTransaction() {
     for (auto &tuple_entry : tile_group_entry.second) {
       auto tuple_slot = tuple_entry.first;
       if (tuple_entry.second == RW_TYPE_UPDATE) {
-        
         ItemPointer new_version =
             tile_group_header->GetNextItemPointer(tuple_slot);
         
-        auto new_tile_group_header =
-            manager.GetTileGroup(new_version.block)->GetHeader();
-        new_tile_group_header->SetBeginCommitId(new_version.offset, MAX_CID);
-        new_tile_group_header->SetEndCommitId(new_version.offset, MAX_CID);
+        auto new_tile_group = manager.GetTileGroup(new_version.block);
+        auto new_tile_group_header = new_tile_group->GetHeader();
 
-        // TODO: I think there is no need to set this fence.
+        tile_group_header->SetNextItemPointer(tuple_slot, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+
         COMPILER_MEMORY_FENCE;
 
         new_tile_group_header->SetTransactionId(new_version.offset,
-                                                INVALID_TXN_ID);
-
-        // reset the item pointers.
-        auto old_next = new_tile_group_header->GetNextItemPointer(new_version.offset);
-        if (old_next.IsNull() == false){
-          auto old_next_tile_group_header = catalog::Manager::GetInstance()
-            .GetTileGroup(old_next.block)->GetHeader();
-          old_next_tile_group_header->SetPrevItemPointer(old_next.offset, ItemPointer(tile_group_id, tuple_slot));
-        }
-
-
-        tile_group_header->SetNextItemPointer(tuple_slot, old_next);
-        COMPILER_MEMORY_FENCE;
-        new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
-        new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
-        // tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
-
-        COMPILER_MEMORY_FENCE;
-
+                                                INITIAL_TXN_ID);
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
+  
+        // ItemPointer new_version =
+        //     tile_group_header->GetNextItemPointer(tuple_slot);
+        
+        // auto new_tile_group_header =
+        //     manager.GetTileGroup(new_version.block)->GetHeader();
+        // new_tile_group_header->SetBeginCommitId(new_version.offset, MAX_CID);
+        // new_tile_group_header->SetEndCommitId(new_version.offset, MAX_CID);
+
+        // // TODO: I think there is no need to set this fence.
+        // COMPILER_MEMORY_FENCE;
+
+        // new_tile_group_header->SetTransactionId(new_version.offset,
+        //                                         INVALID_TXN_ID);
+
+        // // reset the item pointers.
+        // auto old_next = new_tile_group_header->GetNextItemPointer(new_version.offset);
+        // if (old_next.IsNull() == false){
+        //   auto old_next_tile_group_header = catalog::Manager::GetInstance()
+        //     .GetTileGroup(old_next.block)->GetHeader();
+        //   old_next_tile_group_header->SetPrevItemPointer(old_next.offset, ItemPointer(tile_group_id, tuple_slot));
+        // }
+
+
+        // tile_group_header->SetNextItemPointer(tuple_slot, old_next);
+        // COMPILER_MEMORY_FENCE;
+        // new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        // new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        // // tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
+
+        // COMPILER_MEMORY_FENCE;
+
+        // tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
         // GC recycle
         RecycleInvalidTupleSlot(new_version.block, new_version.offset);
@@ -526,32 +572,47 @@ Result TsOrderSVTxnManager::AbortTransaction() {
             tile_group_header->GetNextItemPointer(tuple_slot);
         auto new_tile_group_header =
             manager.GetTileGroup(new_version.block)->GetHeader();
-        new_tile_group_header->SetBeginCommitId(new_version.offset, MAX_CID);
-        new_tile_group_header->SetEndCommitId(new_version.offset, MAX_CID);
 
-        // TODO: I think there is no need to set this fence.
+        
+        tile_group_header->SetNextItemPointer(tuple_slot, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+
+        tile_group_header->SetEndCommitId(tuple_slot, INVALID_CID);
+
         COMPILER_MEMORY_FENCE;
 
         new_tile_group_header->SetTransactionId(new_version.offset,
                                                 INVALID_TXN_ID);
-
-        // reset the item pointers.
-        auto old_next = new_tile_group_header->GetNextItemPointer(new_version.offset);
-        if (!old_next.IsNull()){
-          auto old_next_tile_group_header = catalog::Manager::GetInstance()
-            .GetTileGroup(old_next.block)->GetHeader();
-          old_next_tile_group_header->SetPrevItemPointer(old_next.offset, ItemPointer(tile_group_id, tuple_slot));
-        }
-
-
-        tile_group_header->SetNextItemPointer(tuple_slot, old_next);
-        COMPILER_MEMORY_FENCE;
-        new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
-        new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
-        // tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
-
-        COMPILER_MEMORY_FENCE;
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
+
+
+        // new_tile_group_header->SetBeginCommitId(new_version.offset, MAX_CID);
+        // new_tile_group_header->SetEndCommitId(new_version.offset, MAX_CID);
+
+        // // TODO: I think there is no need to set this fence.
+        // COMPILER_MEMORY_FENCE;
+
+        // new_tile_group_header->SetTransactionId(new_version.offset,
+        //                                         INVALID_TXN_ID);
+
+        // // reset the item pointers.
+        // auto old_next = new_tile_group_header->GetNextItemPointer(new_version.offset);
+        // if (!old_next.IsNull()){
+        //   auto old_next_tile_group_header = catalog::Manager::GetInstance()
+        //     .GetTileGroup(old_next.block)->GetHeader();
+        //   old_next_tile_group_header->SetPrevItemPointer(old_next.offset, ItemPointer(tile_group_id, tuple_slot));
+        // }
+
+
+        // tile_group_header->SetNextItemPointer(tuple_slot, old_next);
+        // COMPILER_MEMORY_FENCE;
+        // new_tile_group_header->SetPrevItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        // new_tile_group_header->SetNextItemPointer(new_version.offset, INVALID_ITEMPOINTER);
+        // // tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
+
+        // COMPILER_MEMORY_FENCE;
+        // tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
         // GC recycle
         RecycleInvalidTupleSlot(new_version.block, new_version.offset);
@@ -565,7 +626,7 @@ Result TsOrderSVTxnManager::AbortTransaction() {
         tile_group_header->SetTransactionId(tuple_slot, INVALID_TXN_ID);
 
         // GC recycle
-        //RecycleInvalidTupleSlot(tile_group_id, tuple_slot);
+        RecycleInvalidTupleSlot(tile_group_id, tuple_slot);
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
         tile_group_header->SetBeginCommitId(tuple_slot, MAX_CID);

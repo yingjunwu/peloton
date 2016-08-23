@@ -124,6 +124,8 @@ static void WriteOutput() {
     out << "gc=n2o ";
   } else if (state.gc_protocol == GC_TYPE_N2O_TXN) {
     out << "gc=n2otxn ";
+  } else if (state.gc_protocol == GC_TYPE_SV) {
+    out << "gc=sv ";
   }
   out << "column=" << state.column_count << " ";
   out << "read_column=" << state.read_column_count << " ";

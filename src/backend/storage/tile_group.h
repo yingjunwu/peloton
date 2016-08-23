@@ -81,7 +81,7 @@ class TileGroup : public Printable {
   void ApplyRollbackSegment(char *rb_seg, const oid_t &tuple_slot_id);
 
   // copy tuple in place.
-  void CopyTuple(const Tuple *tuple, const oid_t &tuple_slot_id);
+  void CopyTuple(const AbstractTuple *tuple, const oid_t &tuple_slot_id);
 
   void CopyTuple(const oid_t &tuple_slot_id, Tuple *tuple);
 

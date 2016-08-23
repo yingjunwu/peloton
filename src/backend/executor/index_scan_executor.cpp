@@ -114,8 +114,7 @@ bool IndexScanExecutor::DExecute() {
         auto status = ExecPrimaryIndexLookupSV();
         if (status == false) return false;
       } else {
-        bool status;
-        status = ExecSecondaryIndexLookupSV();
+        auto status = ExecSecondaryIndexLookupSV();
         if (status == false) return false;
       }
     } else {

@@ -9,6 +9,7 @@ gc_FILES = \
            backend/gc/vacuum_gc.cpp \
            backend/gc/n2o_gc.cpp \
            backend/gc/n2o_txn_gc.cpp \
+           backend/gc/sv_gc.cpp \
            backend/gc/gc_manager_factory.cpp
 
 gc_INCLUDES = \

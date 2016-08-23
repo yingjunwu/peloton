@@ -62,6 +62,7 @@ enum GCType {
   GC_TYPE_VACUUM,
   GC_TYPE_N2O,
   GC_TYPE_N2O_TXN,
+  GC_TYPE_SV
 };
 
 //===--------------------------------------------------------------------===//
