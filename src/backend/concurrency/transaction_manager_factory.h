@@ -97,6 +97,10 @@ class TransactionManagerFactory {
            protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O;
   }
 
+  static bool IsSV() {
+    return protocol_ == CONCURRENCY_TYPE_TO_SV;
+  }
+
   static bool IsOptN2O() {
     return protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O;
   }

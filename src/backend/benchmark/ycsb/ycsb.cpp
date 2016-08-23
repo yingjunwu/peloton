@@ -300,7 +300,8 @@ void RunBenchmark() {
 
   // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
-    && concurrency::TransactionManagerFactory::IsRB() == false) {
+    && concurrency::TransactionManagerFactory::IsRB() == false
+    && concurrency::TransactionManagerFactory::IsSV() == false) {
     ValidateMVCC();
   }
 
@@ -309,7 +310,8 @@ void RunBenchmark() {
 
   // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
-    && concurrency::TransactionManagerFactory::IsRB() == false) {
+    && concurrency::TransactionManagerFactory::IsRB() == false
+    && concurrency::TransactionManagerFactory::IsSV() == false) {
     ValidateMVCC();
   }
 
