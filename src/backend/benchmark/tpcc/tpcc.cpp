@@ -94,7 +94,11 @@ static void WriteOutput() {
     out << "proto=occbestn2o ";
   } else if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
     out << "proto=tosv ";
-  }
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_SV) {
+    out << "proto=occsv ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_SV_BEST) {
+    out << "proto=occsvbest ";
+  } 
   if (state.gc_protocol == GC_TYPE_OFF) {
     out << "gc=off ";
   }else if (state.gc_protocol == GC_TYPE_VACUUM) {

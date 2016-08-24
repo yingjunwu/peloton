@@ -29,6 +29,8 @@
 #include "backend/concurrency/ts_order_opt_n2o_txn_manager.h"
 #include "backend/concurrency/ts_order_sv_txn_manager.h"
 #include "backend/concurrency/optimistic_best_n2o_txn_manager.h"
+#include "backend/concurrency/optimistic_sv_txn_manager.h"
+#include "backend/concurrency/optimistic_sv_best_txn_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -102,7 +104,9 @@ class TransactionManagerFactory {
   }
 
   static bool IsSV() {
-    return protocol_ == CONCURRENCY_TYPE_TO_SV;
+    return protocol_ == CONCURRENCY_TYPE_TO_SV ||
+           protocol_ == CONCURRENCY_TYPE_OCC_SV ||
+           protocol_ == CONCURRENCY_TYPE_OCC_SV_BEST;
   }
 
   static bool IsOptN2O() {

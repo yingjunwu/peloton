@@ -71,7 +71,7 @@ bool UpdateExecutor::DExecute() {
     return false;
   }
 
-  if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_SV) {
+  if (concurrency::TransactionManagerFactory::IsSV() == true) {
     // single version concurrency control
     return DExecuteSV();
   } else {

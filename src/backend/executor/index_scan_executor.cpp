@@ -109,7 +109,7 @@ bool IndexScanExecutor::DExecute() {
   LOG_TRACE("Index Scan executor :: 0 child");
 
   if (!done_) {
-    if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_SV) {
+    if (concurrency::TransactionManagerFactory::IsSV() == true) {
       if (index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
         auto status = ExecPrimaryIndexLookupSV();
         if (status == false) return false;
@@ -119,11 +119,11 @@ bool IndexScanExecutor::DExecute() {
       }
     } else {
       if (index_->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
-        auto status = ExecPrimaryIndexLookup();
+        auto status = ExecPrimaryIndexLookupMV();
         if (status == false) return false;
       } else {
         bool status;
-        status = ExecSecondaryIndexLookup();
+        status = ExecSecondaryIndexLookupMV();
         if (status == false) return false;
       }
     }
@@ -249,7 +249,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupSV() {
 }
 
 
-bool IndexScanExecutor::ExecPrimaryIndexLookup() {
+bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
   LOG_TRACE("Exec primary index lookup");
   assert(!done_);
 
@@ -575,8 +575,8 @@ bool IndexScanExecutor::ExecSecondaryIndexLookupSV() {
 }
 
 
-bool IndexScanExecutor::ExecSecondaryIndexLookup() {
-  LOG_TRACE("ExecSecondaryIndexLookup");
+bool IndexScanExecutor::ExecSecondaryIndexLookupMV() {
+  LOG_TRACE("ExecSecondaryIndexLookupMV");
   assert(!done_);
 
   if (concurrency::TransactionManagerFactory::IsRB() == false &&

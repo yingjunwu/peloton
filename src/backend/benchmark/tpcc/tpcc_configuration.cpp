@@ -122,7 +122,9 @@ void ValidateOrderRange(const configuration &state) {
 }
 
 void ValidateProtocol(const configuration &state) {
-  if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
+  if (state.protocol == CONCURRENCY_TYPE_TO_SV ||
+      state.protocol == CONCURRENCY_TYPE_OCC_SV ||
+      state.protocol == CONCURRENCY_TYPE_OCC_SV_BEST) {
     if (state.gc_protocol != GC_TYPE_OFF && state.gc_protocol != GC_TYPE_SV) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
@@ -246,6 +248,10 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_TO_SV;
         } else if (strcmp(protocol, "occbestn2o") == 0) {
           state.protocol = CONCURRENCY_TYPE_OCC_BEST_N2O;
+        } else if (strcmp(protocol, "occsv") == 0) {
+          state.protocol = CONCURRENCY_TYPE_OCC_SV;
+        } else if (strcmp(protocol, "occsvbest") == 0) {
+          state.protocol = CONCURRENCY_TYPE_OCC_SV_BEST;
         } else {
           fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
           exit(EXIT_FAILURE);

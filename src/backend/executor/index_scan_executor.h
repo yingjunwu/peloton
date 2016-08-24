@@ -71,8 +71,8 @@ class IndexScanExecutor : public AbstractScanExecutor {
   //===--------------------------------------------------------------------===//
   // Helper
   //===--------------------------------------------------------------------===//
-  bool ExecPrimaryIndexLookup();
-  bool ExecSecondaryIndexLookup();
+  bool ExecPrimaryIndexLookupMV();
+  bool ExecSecondaryIndexLookupMV();
   bool ExecPrimaryIndexLookupSV();
   bool ExecSecondaryIndexLookupSV();
   void RBVerifyVisible(std::vector<ItemPointer> &tuple_locations);
