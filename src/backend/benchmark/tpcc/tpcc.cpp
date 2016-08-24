@@ -90,8 +90,8 @@ static void WriteOutput() {
     out << "proto=to_full_central_rb ";
   } else if (state.protocol == CONCURRENCY_TYPE_TO_OPT_N2O) {
     out << "proto=tooptn2o ";
-  } else if (state.protocol == CONCURRENCY_TYPE_TO_BEST_N2O) {
-    out << "proto=tobestn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_BEST_N2O) {
+    out << "proto=occbestn2o ";
   } else if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
     out << "proto=tosv ";
   }

@@ -26,7 +26,7 @@ concurrency_FILES = \
     backend/concurrency/rb_txn_manager.cpp \
     backend/concurrency/ts_order_opt_n2o_txn_manager.cpp \
     backend/concurrency/ts_order_sv_txn_manager.cpp \
-    backend/concurrency/ts_order_best_n2o_txn_manager.cpp
+    backend/concurrency/optimistic_best_n2o_txn_manager.cpp
     
 concurrency_INCLUDES = \
 					   -I$(srcdir)/concurrency

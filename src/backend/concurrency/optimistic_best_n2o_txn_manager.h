@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// ts_order_best_n2o_txn_manager.h
+// optimistic_best_n2o_txn_manager.h
 //
-// Identification: src/backend/concurrency/ts_order_best_n2o_txn_manager.h
+// Identification: src/backend/concurrency/optimistic_best_n2o_txn_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -19,37 +19,37 @@ namespace peloton {
 namespace concurrency {
 
 //===--------------------------------------------------------------------===//
-// timestamp ordering
+// optimistic concurrency control
 //===--------------------------------------------------------------------===//
 
-class TsOrderBestN2OTxnManager : public TransactionManager {
- public:
-  TsOrderBestN2OTxnManager() {}
+class OptimisticBestN2OTxnManager : public TransactionManager {
+public:
+  OptimisticBestN2OTxnManager() {}
 
-  virtual ~TsOrderBestN2OTxnManager() {}
+  virtual ~OptimisticBestN2OTxnManager() {}
 
-  static TsOrderBestN2OTxnManager &GetInstance();
+  static OptimisticBestN2OTxnManager &GetInstance();
 
   virtual VisibilityType IsVisible(
-      const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id);
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tuple_id);
 
   virtual bool IsOwner(const storage::TileGroupHeader *const tile_group_header,
                        const oid_t &tuple_id);
 
   virtual bool IsOwnable(
-      const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id);
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tuple_id);
 
   virtual bool AcquireOwnership(
-      const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tile_group_id, const oid_t &tuple_id);
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tile_group_id, const oid_t &tuple_id);
 
   virtual void YieldOwnership(const oid_t &tile_group_id,
     const oid_t &tuple_id);
 
   virtual bool PerformInsert(const ItemPointer &location __attribute__((unused)))
-    { LOG_ERROR("never call this function!"); return false;}
+    {LOG_ERROR("never call this function!"); return false;}
 
   // The itemptr_ptr is the address of the head node of the version chain, 
   // which is directly pointed by the primary index.
@@ -66,6 +66,7 @@ class TsOrderBestN2OTxnManager : public TransactionManager {
   virtual void PerformUpdate(const ItemPointer &location);
 
   virtual void PerformDelete(const ItemPointer &location);
+
 
   virtual Result CommitTransaction();
 
@@ -93,32 +94,11 @@ class TsOrderBestN2OTxnManager : public TransactionManager {
     current_txn = nullptr;
   }
 
-  ItemPointer *GetHeadPtr(
-    const storage::TileGroupHeader *const tile_group_header,
-    const oid_t tuple_id);
+  virtual ItemPointer *GetHeadPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
+    return *(reinterpret_cast<ItemPointer**>(tile_group_header->GetReservedFieldRef(tuple_id)));
+  }
 
- private:
-
-  static const int LOCK_OFFSET = 0;
-  static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);
-  static const int ITEM_POINTER_OFFSET = (LAST_READER_OFFSET + 8);
-
-
-  Spinlock *GetSpinlockField(
-      const storage::TileGroupHeader *const tile_group_header, 
-      const oid_t &tuple_id);
-
-  cid_t GetLastReaderCid(
-      const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id);
-
-  bool SetLastReaderCid(
-      const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id);
-
-  void SetHeadPtr(
-      const storage::TileGroupHeader *const tile_group_header, 
-      const oid_t tuple_id, ItemPointer *item_ptr);
+private:
 
   // Init reserved area of a tuple
   // delete_flag is used to mark that the transaction that owns the tuple
@@ -126,11 +106,14 @@ class TsOrderBestN2OTxnManager : public TransactionManager {
   // Primary index header ptr (8 bytes)
   static void InitTupleReserved(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id) {
     auto reserved_area = tile_group_header->GetReservedFieldRef(tuple_id);
-
-    new ((reserved_area + LOCK_OFFSET)) Spinlock();
-    *(cid_t*)(reserved_area + LAST_READER_OFFSET) = 0;
-    *(reinterpret_cast<ItemPointer**>(reserved_area + ITEM_POINTER_OFFSET)) = nullptr;
+    *(reinterpret_cast<ItemPointer**>(reserved_area)) = nullptr;
   }
+
+  static inline void SetHeadPtr(const storage::TileGroupHeader *tile_group_header, const oid_t tuple_id,
+                         ItemPointer *item_ptr) {
+    *(reinterpret_cast<ItemPointer**>(tile_group_header->GetReservedFieldRef(tuple_id))) = item_ptr;
+  }
+
 };
 }
 }
