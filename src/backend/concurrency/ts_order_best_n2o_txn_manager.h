@@ -49,7 +49,7 @@ class TsOrderBestN2OTxnManager : public TransactionManager {
     const oid_t &tuple_id);
 
   virtual bool PerformInsert(const ItemPointer &location __attribute__((unused)))
-    {assert(false); return false;}
+    { LOG_ERROR("never call this function!"); return false;}
 
   // The itemptr_ptr is the address of the head node of the version chain, 
   // which is directly pointed by the primary index.

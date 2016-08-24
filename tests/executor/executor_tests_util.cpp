@@ -220,15 +220,9 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
     EXPECT_TRUE(location.block != INVALID_OID);
 
     bool res;
-    if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O) {
+    if (concurrency::TransactionManagerFactory::IsN2O() == true) {
       // If we are using OCC N2O txn manager, use another form of perform insert
-      res = ((concurrency::OptimisticN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
-      // If we are using TO N2O txn manager, use another form of perform insert
-      res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_OPT_N2O) {
-      // If we are using TO OPT N2O txn manager, use another form of perform insert
-      res = ((concurrency::TsOrderOptN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
+      res = transaction_manager.PerformInsert(location, itemptr_ptr);
     } else if (concurrency::TransactionManagerFactory::IsRB()) {
       res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
     } else {
