@@ -392,47 +392,18 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
       else {
 
         // Break for new to old
-        if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O
+        if (concurrency::TransactionManagerFactory::IsN2O() == true
           && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
           && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
           // See an invisible version that does not belong to any one in a new to old version chain.
           // In such case, we assert that there should be either a deleted version or a newly updated version.
           // So we just wire back using the index head ptr stored in the reserve field.
-          tuple_location = *((concurrency::OptimisticN2OTxnManager*)(&transaction_manager))->
-              GetHeadPtr(tile_group_header, tuple_location.offset);
+          tuple_location = *(transaction_manager.GetHeadPtr(tile_group_header, tuple_location.offset));
           tile_group = manager.GetTileGroup(tuple_location.block);
           tile_group_header = tile_group.get()->GetHeader();
           chain_length = 0;
           continue;
         }
-
-        // Break for new to old
-        if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O
-          && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
-          && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
-          // See an invisible version that does not belong to any one in a new to old version chain
-          // Wire back
-          tuple_location = *((concurrency::TsOrderN2OTxnManager*)(&transaction_manager))->
-            GetHeadPtr(tile_group_header, tuple_location.offset);
-          tile_group = manager.GetTileGroup(tuple_location.block);
-          tile_group_header = tile_group.get()->GetHeader();
-          chain_length = 0;
-          continue;
-        }
-
-        // // Break for new to old
-        // if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_OPT_N2O
-        //   && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
-        //   && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
-        //   // See an invisible version that does not belong to any one in a new to old version chain
-        //   // Wire back
-        //   tuple_location = *((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->
-        //     GetHeadPtr(tile_group_header, tuple_location.offset);
-        //   tile_group = manager.GetTileGroup(tuple_location.block);
-        //   tile_group_header = tile_group.get()->GetHeader();
-        //   chain_length = 0;
-        //   continue;
-        // }
 
         ItemPointer old_item = tuple_location;
         tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);

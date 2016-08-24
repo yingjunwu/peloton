@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// ts_order_txn_manager.h
+// ts_order_best_n2o_txn_manager.h
 //
-// Identification: src/backend/concurrency/ts_order_txn_manager.h
+// Identification: src/backend/concurrency/ts_order_best_n2o_txn_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -22,13 +22,13 @@ namespace concurrency {
 // timestamp ordering
 //===--------------------------------------------------------------------===//
 
-class TsOrderN2OTxnManager : public TransactionManager {
+class TsOrderBestN2OTxnManager : public TransactionManager {
  public:
-  TsOrderN2OTxnManager() {}
+  TsOrderBestN2OTxnManager() {}
 
-  virtual ~TsOrderN2OTxnManager() {}
+  virtual ~TsOrderBestN2OTxnManager() {}
 
-  static TsOrderN2OTxnManager &GetInstance();
+  static TsOrderBestN2OTxnManager &GetInstance();
 
   virtual VisibilityType IsVisible(
       const storage::TileGroupHeader *const tile_group_header,
@@ -93,7 +93,7 @@ class TsOrderN2OTxnManager : public TransactionManager {
     current_txn = nullptr;
   }
 
-  virtual ItemPointer *GetHeadPtr(
+  ItemPointer *GetHeadPtr(
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t tuple_id);
 

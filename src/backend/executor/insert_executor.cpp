@@ -110,15 +110,9 @@ bool InsertExecutor::DExecute() {
       }
       bool res;
 
-      if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_OCC_N2O) {
+      if (concurrency::TransactionManagerFactory::IsN2O() == true) {
         // If we are using OCC N2O txn manager, use another form of perform insert
-        res = ((concurrency::OptimisticN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-      } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_N2O) {
-        // If we are using TO N2O txn manager, use another form of perform insert
-        res = ((concurrency::TsOrderN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-      } else if (concurrency::TransactionManagerFactory::GetProtocol() == CONCURRENCY_TYPE_TO_OPT_N2O) {
-        // If we are using TO N2O txn manager, use another form of perform insert
-        res = ((concurrency::TsOrderOptN2OTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
+        res = transaction_manager.PerformInsert(location, itemptr_ptr);
       } else if (concurrency::TransactionManagerFactory::IsRB()
         && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
         res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);

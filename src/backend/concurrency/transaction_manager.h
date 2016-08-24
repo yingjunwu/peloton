@@ -89,6 +89,11 @@ class TransactionManager {
 
   virtual bool PerformInsert(const ItemPointer &location) = 0;
 
+  virtual bool PerformInsert(const ItemPointer &location UNUSED_ATTRIBUTE, ItemPointer *itemptr_ptr UNUSED_ATTRIBUTE) {
+    LOG_ERROR("never call this function!");
+    return false;
+  }
+
   virtual bool PerformRead(const ItemPointer &location) = 0;
 
   virtual void PerformUpdate(const ItemPointer &old_location,
@@ -187,6 +192,14 @@ class TransactionManager {
     next_txn_id_ = START_TXN_ID;
     next_cid_ = START_CID;
   }
+
+  virtual ItemPointer *GetHeadPtr(
+    const storage::TileGroupHeader *const tile_group_header UNUSED_ATTRIBUTE,
+    const oid_t tuple_id UNUSED_ATTRIBUTE) {
+    LOG_ERROR("never call this function!");
+    return nullptr;
+  }
+
 
   // this function generates the maximum commit id of committed transactions.
   // please note that this function only returns a "safe" value instead of a
