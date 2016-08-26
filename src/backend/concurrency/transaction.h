@@ -38,6 +38,20 @@ enum RWType {
   RW_TYPE_INS_DEL  // delete after insert.
 };
 
+struct TsContent {
+  TsContent() {
+    rw_type_ = RW_TYPE_READ;
+    begin_cid_ = 0;
+  }
+  TsContent(const RWType rw_type, const cid_t &begin_cid) {
+    rw_type_ = rw_type;
+    begin_cid_ = begin_cid;
+  }
+
+  RWType rw_type_;
+  cid_t begin_cid_;
+};
+
 class Transaction : public Printable {
   Transaction(Transaction const &) = delete;
 
@@ -107,6 +121,32 @@ class Transaction : public Printable {
     return rw_set_;
   }
 
+  void RecordReadTs(const ItemPointer &, const cid_t &);
+
+  void RecordUpdateTs(const ItemPointer &);
+
+  void RecordInsertTs(const ItemPointer &);
+
+  // Return true if we detect INS_DEL
+  bool RecordDeleteTs(const ItemPointer &);
+
+  inline const std::unordered_map<oid_t, std::unordered_map<oid_t, TsContent>> &GetTsRWSet() {
+    return ts_rw_set_;
+  }
+
+  cid_t GetMinCid() const {
+    cid_t min_ts = 0;
+    for (auto &entries : ts_rw_set_) {
+      for (auto &entry : entries.second) {
+        if (entry.second.begin_cid_ > min_ts) {
+          min_ts = entry.second.begin_cid_;
+        }
+      }
+    }
+    return min_ts;
+  }
+
+
   // Get a string representation for debugging
   const std::string GetInfo() const;
 
@@ -149,6 +189,8 @@ class Transaction : public Printable {
   // it does not need to reorder rw-set to guarantee deadlock-free.
   //std::map<oid_t, std::map<oid_t, RWType>> rw_set_;
   std::unordered_map<oid_t, std::unordered_map<oid_t, RWType>> rw_set_;
+
+  std::unordered_map<oid_t, std::unordered_map<oid_t, TsContent>> ts_rw_set_;
 
   // result of the transaction
   Result result_ = peloton::RESULT_SUCCESS;

@@ -182,10 +182,6 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupSV() {
 
   auto visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
 
-  if (visibility != VISIBILITY_OK) {
-      LOG_INFO("something wrong happens...");
-  }
-
   // if the tuple is deleted
   if (visibility == VISIBILITY_DELETED) {
     done_ = true;
@@ -193,12 +189,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupSV() {
     return true;
   } if (visibility == VISIBILITY_INVISIBLE) {
     // if the tuple is owned by the transaction but it is a before image.
-    ItemPointer old_item = tuple_location;
-    tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
-    if (transaction_manager.IsVisible(tile_group_header, tuple_location.offset) != VISIBILITY_OK) {
-      LOG_INFO("something wrong happens...");
-      return false;
-    }
+    tuple_location = tile_group_header->GetNextItemPointer(tuple_location.offset);
   }
 
   tile_group = manager.GetTileGroup(tuple_location.block);

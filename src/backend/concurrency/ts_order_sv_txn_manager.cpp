@@ -74,8 +74,8 @@ VisibilityType TsOrderSVTxnManager::IsVisible(
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t &tuple_id) {
   txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
-  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
-  cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
+  // cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
+  // cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
   bool own = (current_txn->GetTransactionId() == tuple_txn_id);
 
@@ -87,18 +87,22 @@ VisibilityType TsOrderSVTxnManager::IsVisible(
 
   // there are exactly two versions that can be owned by a transaction.
   // unless it is an insertion.
+  // currently we assume that we never read our own insert.
   if (own == true) {
-    if (tuple_begin_cid == MAX_CID && tuple_end_cid != INVALID_CID) {
-      assert(tuple_end_cid == MAX_CID);
-      // the only version that is visible is the newly inserted/updated one.
-      return VISIBILITY_OK;
-    } else if (tuple_end_cid == INVALID_CID) {
-      // tuple being deleted by current txn
-      return VISIBILITY_DELETED;
-    } else {
-      // old version of the tuple that is being updated by current txn
-      return VISIBILITY_INVISIBLE;
-    }
+    return VISIBILITY_INVISIBLE;
+
+    // if (tuple_begin_cid == MAX_CID && tuple_end_cid != INVALID_CID) {
+    //   assert(tuple_end_cid == MAX_CID);
+    //   // the only version that is visible is the newly inserted/updated one.
+    //   return VISIBILITY_OK;
+    // } else if (tuple_end_cid == INVALID_CID) {
+    //   // tuple being deleted by current txn
+    //   return VISIBILITY_DELETED;
+    // } else {
+    //   // old version of the tuple that is being updated by current txn
+    //   return VISIBILITY_INVISIBLE;
+    // }
+
   } else {
     // we return VISIBILITY_OK even if this tuple is currently owned by other transactions.
     return VISIBILITY_OK;
@@ -331,7 +335,7 @@ void TsOrderSVTxnManager::PerformDelete(const ItemPointer &old_location,
 
   new_tile_group_header->SetTransactionId(new_location.offset, transaction_id);
   
-  new_tile_group_header->SetEndCommitId(new_location.offset, INVALID_CID);
+  // new_tile_group_header->SetEndCommitId(new_location.offset, INVALID_CID);
 
   InitTupleReserved(new_tile_group_header, new_location.offset);
   
