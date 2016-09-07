@@ -301,6 +301,7 @@ Result OptimisticSVTxnManager::CommitTransaction() {
             continue;
           }
           // otherwise, validation fails. abort transaction.
+          AddOneReadAbort();
           return AbortTransaction();
         } else {
           assert(tuple_entry.second == RW_TYPE_INS_DEL);

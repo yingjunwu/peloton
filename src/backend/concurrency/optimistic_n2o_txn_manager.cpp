@@ -360,6 +360,7 @@ Result OptimisticN2OTxnManager::CommitTransaction() {
             continue;
           }
           // otherwise, validation fails. abort transaction.
+          AddOneReadAbort();
           return AbortTransaction();
         } else {
           assert(tuple_entry.second == RW_TYPE_INS_DEL);
@@ -408,6 +409,7 @@ Result OptimisticN2OTxnManager::CommitTransaction() {
         LOG_TRACE("end commit id=%lu",
                   tile_group_header->GetEndCommitId(tuple_slot));
         // otherwise, validation fails. abort transaction.
+        AddOneReadAbort();
         return AbortTransaction();
       }
     }
