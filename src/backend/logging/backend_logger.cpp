@@ -43,7 +43,7 @@ BackendLogger::~BackendLogger() {
 }
 
 /**
- * @brief create and eturn the backend logger based on logging type
+ * @brief create and return the backend logger based on logging type
  * @param logging type can be stdout(debug), aries, peloton
  */
 BackendLogger *BackendLogger::GetBackendLogger(LoggingType logging_type) {
