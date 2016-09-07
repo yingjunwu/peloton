@@ -63,9 +63,6 @@ class PlanTransformer {
   std::shared_ptr<const planner::AbstractPlan> TransformPlan(
       AbstractPlanState *planstate, const char *prepStmtName);
 
-  // Analyze the plan
-  static void AnalyzePlan(planner::AbstractPlan *plan, PlanState *planstate);
-
   static std::vector<Value> BuildParams(const ParamListInfo param_list);
 
  private:
@@ -170,11 +167,6 @@ class PlanTransformer {
   // Common utility functions for Scans
   //===--------------------------------------------------------------------===//
 
-  // Analyze the columns in the plan
-  static void GetColumnsAccessed(const planner::AbstractPlan *plan,
-                                 std::vector<oid_t> &target_list,
-                                 std::vector<oid_t> &qual, oid_t &database_oid,
-                                 oid_t &table_id);
 
   static void GetGenericInfoFromScanState(
       planner::AbstractPlan *&parent,

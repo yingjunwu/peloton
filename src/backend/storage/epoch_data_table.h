@@ -60,7 +60,6 @@ typedef std::map<oid_t, std::pair<oid_t, oid_t>> column_map_type;
 
 namespace index {
   class Index;
-  class RBItemPointer;
 }
 
 namespace storage {
@@ -69,7 +68,7 @@ class Tuple;
 class TileGroup;
 
 //===--------------------------------------------------------------------===//
-// DataTable
+// EpochDataTable
 //===--------------------------------------------------------------------===//
 
 /**
@@ -81,45 +80,42 @@ class TileGroup;
  * <Tile Group n>
  *
  */
-class DataTable : public AbstractTable {
+class EpochDataTable : public AbstractTable {
   friend class TileGroup;
   friend class TileGroupFactory;
   friend class TableFactory;
 
-  DataTable() = delete;
-  DataTable(DataTable const &) = delete;
+  EpochDataTable() = delete;
+  EpochDataTable(EpochDataTable const &) = delete;
 
  public:
   // Table constructor
-  DataTable(catalog::Schema *schema, const std::string &table_name,
+  EpochDataTable(catalog::Schema *schema, const std::string &table_name,
             const oid_t &database_oid, const oid_t &table_oid,
             const size_t &tuples_per_tilegroup, const bool own_schema,
             const bool adapt_table);
 
-  ~DataTable();
+  ~EpochDataTable();
 
   //===--------------------------------------------------------------------===//
   // TUPLE OPERATIONS
   //===--------------------------------------------------------------------===//
   // insert version in table
-  ItemPointer InsertEmptyVersion();
+  ItemPointer InsertEmptyVersion(const cid_t &epoch_id);
   
   // these two functions are designed for reducing memory allocation by performing in-place update.
   // in the update executor, we first acquire a version slot from the data table, and then
   // copy the content into the version. after that, we need to check constraints and then install the version
   // into all the corresponding indexes.
   ItemPointer AcquireVersion();
-  bool InstallVersion(const AbstractTuple *tuple, const ItemPointer &location, const TargetList *targets_ptr = nullptr, ItemPointer *index_entry_ptr = nullptr);
+  bool InstallVersion(const AbstractTuple *tuple, 
+    const ItemPointer &location, 
+    const TargetList *targets_ptr = nullptr, 
+    ItemPointer *index_entry_ptr = nullptr);
 
   
   // insert tuple in table
   ItemPointer InsertTuple(const Tuple *tuple, ItemPointer **itemptr_ptr = nullptr);
-  // For RB
-  ItemPointer InsertTuple(const Tuple *tuple, index::RBItemPointer **rb_itemptr_ptr);
-
-  // delete the tuple at given location
-  // bool DeleteTuple(const concurrency::Transaction *transaction,
-  //                  ItemPointer location);
 
   //===--------------------------------------------------------------------===//
   // TILE GROUP
@@ -195,15 +191,6 @@ class DataTable : public AbstractTable {
 
   void ResetDirty();
 
-  const column_map_type &GetDefaultPartition();
-
-  //===--------------------------------------------------------------------===//
-  // Clustering
-  //===--------------------------------------------------------------------===//
-
-  void RecordSample(const brain::Sample &sample);
-
-  void UpdateDefaultPartition();
 
   //===--------------------------------------------------------------------===//
   // UTILITIES
@@ -248,8 +235,6 @@ class DataTable : public AbstractTable {
   // try to insert into the indices
   // the forth argument return the itempointer ptr inserted into the primary index
   bool InsertInIndexes(const storage::Tuple *tuple, ItemPointer location, ItemPointer **itemptr_ptr);
-  // For RB
-  bool InsertInIndexes(const storage::Tuple *tuple, ItemPointer location, index::RBItemPointer **rb_itemptr_ptr);
 
 
   bool InsertInSecondaryIndexes(const AbstractTuple *tuple,
@@ -279,6 +264,9 @@ class DataTable : public AbstractTable {
   std::vector<oid_t> tile_groups_;
 
   std::atomic<size_t> tile_group_count_ = ATOMIC_VAR_INIT(0);
+
+  // epoch tile groups
+  std::shared_ptr<storage::TileGroup> epoch_tile_groups_[10];
   
   // tile group mutex
   // TODO: don't know why need this mutex --Yingjun

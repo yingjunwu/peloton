@@ -16,7 +16,8 @@ storage_FILES = \
 				backend/storage/tile_group_factory.cpp \
 				backend/storage/tile_group_iterator.cpp \
 				backend/storage/tuple.cpp \
-				backend/storage/rollback_segment.cpp
+				backend/storage/rollback_segment.cpp \
+				backend/storage/epoch_data_table.cpp
 
 storage_INCLUDES = \
 				   -I$(srcdir)/backend/storage

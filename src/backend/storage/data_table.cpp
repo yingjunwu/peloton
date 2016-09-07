@@ -215,46 +215,6 @@ ItemPointer DataTable::InsertEmptyVersion() {
   return location;
 }
 
-ItemPointer DataTable::InsertVersion(const storage::Tuple *tuple,
-      const TargetList *targets_ptr, ItemPointer *master_ptr) {
-  // First, do integrity checks and claim a slot
-  ItemPointer location = FillInEmptyTupleSlot(tuple);
-  if (location.block == INVALID_OID) {
-    LOG_TRACE("Failed to get tuple slot.");
-    return INVALID_ITEMPOINTER;
-  }
-
-  // Index checks and updates
-  if ( concurrency::TransactionManagerFactory::IsRB() == false
-      && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
-    if (InsertInSecondaryTupleIndexes(tuple, targets_ptr, master_ptr) == false) {
-      LOG_TRACE("Index constraint violated when inserting secondary index");
-      return INVALID_ITEMPOINTER;
-    }
-  } else {
-    if (InsertInSecondaryIndexes(tuple, location) == false) {
-      LOG_TRACE("Index constraint violated when inserting secondary index");
-      return INVALID_ITEMPOINTER;
-    }
-  }
-
-  // ForeignKey checks
-  // if (CheckForeignKeyConstraints(tuple) == false) {
-  //   LOG_TRACE("ForeignKey constraint violated");
-  //   return INVALID_ITEMPOINTER;
-  // }
-
-  LOG_TRACE("Location: %u, %u", location.block, location.offset);
-
-  IncreaseNumberOfTuplesBy(1);
-
-  // Write down the master version's pointer into tile group header
-  auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
-  tg_hdr->SetMasterPointer(location.offset, master_ptr);
-
-  return location;
-}
-
 ItemPointer DataTable::AcquireVersion() {
   // First, claim a slot
   ItemPointer location = FillInEmptyTupleSlot(nullptr);

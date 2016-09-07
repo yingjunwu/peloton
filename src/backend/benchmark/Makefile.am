@@ -11,19 +11,6 @@ benchmark_common_cppflags = -I. -I$(top_srcdir)/src -I.. $(postgres_common_INCLU
 
 benchmark_common_ldadd = libpelotonpg.la libpeloton.la -lpthread
 
-######################################################################
-# HYADAPT
-######################################################################
-
-hyadapt_SOURCES =  \
-					backend/benchmark/hyadapt/hyadapt.cpp \
-                    backend/benchmark/hyadapt/hyadapt_configuration.cpp \
-                    backend/benchmark/hyadapt/hyadapt_workload.cpp \
-                    backend/benchmark/hyadapt/hyadapt_loader.cpp
-
-hyadapt_LDFLAGS =
-hyadapt_CPPFLAGS = $(benchmark_common_cppflags)
-hyadapt_LDADD = $(benchmark_common_ldadd)
 
 ######################################################################
 # LOGGER
