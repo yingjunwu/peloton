@@ -15,9 +15,14 @@
 #include "backend/common/types.h"
 #include "backend/common/printable.h"
 
+#include <map>
 #include <string>
 
+const int NUM_PREALLOCATION = 10;
+
 namespace peloton {
+
+typedef std::map<oid_t, std::pair<oid_t, oid_t>> column_map_type;
 
 namespace catalog {
 class Manager;

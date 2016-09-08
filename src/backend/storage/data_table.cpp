@@ -17,7 +17,6 @@
 #include "backend/brain/clusterer.h"
 #include "backend/storage/data_table.h"
 
-#include "backend/benchmark/hyadapt/hyadapt_configuration.h"
 #include "backend/storage/database.h"
 #include "backend/common/exception.h"
 #include "backend/common/logger.h"

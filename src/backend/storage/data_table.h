@@ -52,11 +52,7 @@ extern bool peloton_fsm;
 
 extern std::vector<peloton::oid_t> hyadapt_column_ids;
 
-const int NUM_PREALLOCATION = 10;
-
 namespace peloton {
-
-typedef std::map<oid_t, std::pair<oid_t, oid_t>> column_map_type;
 
 namespace index {
   class Index;

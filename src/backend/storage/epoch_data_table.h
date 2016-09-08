@@ -24,39 +24,15 @@
 #include "backend/common/platform.h"
 #include "backend/index/index.h"
 
-//===--------------------------------------------------------------------===//
-// GUC Variables
-//===--------------------------------------------------------------------===//
-
-/* Possible values for peloton_tilegroup_layout GUC */
-typedef enum LayoutType {
-  LAYOUT_ROW,    /* Pure row layout */
-  LAYOUT_COLUMN, /* Pure column layout */
-  LAYOUT_HYBRID  /* Hybrid layout */
-} LayoutType;
-
-extern LayoutType peloton_layout_mode;
 
 //===--------------------------------------------------------------------===//
 // Configuration Variables
 //===--------------------------------------------------------------------===//
 
-// Projectivity for determining FSM layout
-extern double peloton_projectivity;
 
-// # of groups
-extern int peloton_num_groups;
-
-// FSM or not ?
-extern bool peloton_fsm;
-
-extern std::vector<peloton::oid_t> hyadapt_column_ids;
-
-const int NUM_PREALLOCATION = 10;
 
 namespace peloton {
 
-typedef std::map<oid_t, std::pair<oid_t, oid_t>> column_map_type;
 
 namespace index {
   class Index;
@@ -101,7 +77,7 @@ class EpochDataTable : public AbstractTable {
   // TUPLE OPERATIONS
   //===--------------------------------------------------------------------===//
   // insert version in table
-  ItemPointer InsertEmptyVersion(const cid_t &epoch_id);
+  ItemPointer InsertEmptyVersion();
   
   // these two functions are designed for reducing memory allocation by performing in-place update.
   // in the update executor, we first acquire a version slot from the data table, and then
@@ -137,9 +113,6 @@ class EpochDataTable : public AbstractTable {
 
   size_t GetTileGroupCount() const;
 
-  // Get a tile group with given layout
-  TileGroup *GetTileGroupWithLayout(const column_map_type &partitioning);
-
   oid_t GetAllCurrentTupleCount();
 
   //===--------------------------------------------------------------------===//
@@ -169,13 +142,6 @@ class EpochDataTable : public AbstractTable {
   oid_t GetForeignKeyCount() const;
 
   //===--------------------------------------------------------------------===//
-  // TRANSFORMERS
-  //===--------------------------------------------------------------------===//
-
-  storage::TileGroup *TransformTileGroup(const oid_t &tile_group_offset,
-                                         const double &theta);
-
-  //===--------------------------------------------------------------------===//
   // STATS
   //===--------------------------------------------------------------------===//
 
@@ -202,11 +168,6 @@ class EpochDataTable : public AbstractTable {
 
   bool HasForeignKeys() { return (GetForeignKeyCount() > 0); }
 
-  column_map_type GetStaticColumnMap(const std::string &table_name,
-                                     const oid_t &column_count);
-
-  std::map<oid_t, oid_t> GetColumnMapStats();
-
   // Get a string representation for debugging
   const std::string GetInfo() const;
 
@@ -225,8 +186,11 @@ class EpochDataTable : public AbstractTable {
   // add a default unpartitioned tile group to table
   oid_t AddDefaultTileGroup(const size_t &tg_seq_id);
 
+
+  TileGroup *GetTileGroupWithLayout(const column_map_type &partitioning);
+
   // get a partitioning with given layout type
-  column_map_type GetTileGroupLayout(LayoutType layout_type);
+  column_map_type GetTileGroupLayout();
 
   //===--------------------------------------------------------------------===//
   // INDEX HELPERS
