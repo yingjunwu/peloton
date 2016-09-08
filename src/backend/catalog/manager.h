@@ -62,6 +62,8 @@ class Manager {
 
   oid_t GetNextOid() { return ++oid; }
 
+  oid_t GetNextTileOid() { return ++tile_oid; }
+
   oid_t GetCurrentOid() { return oid; }
 
   void SetNextOid(oid_t next_oid) { oid = next_oid; }
@@ -114,6 +116,8 @@ class Manager {
   //===--------------------------------------------------------------------===//
 
   std::atomic<oid_t> oid = ATOMIC_VAR_INIT(START_OID);
+
+  std::atomic<oid_t> tile_oid = ATOMIC_VAR_INIT(START_OID);
 
   //lookup_dir locator;
   std::shared_ptr<storage::TileGroup> locator[MaxTileGroupCount];
