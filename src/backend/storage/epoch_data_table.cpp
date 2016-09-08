@@ -41,11 +41,6 @@ EpochDataTable::EpochDataTable(catalog::Schema *schema, const std::string &table
     : AbstractTable(database_oid, table_oid, table_name, schema, own_schema),
       tuples_per_tilegroup_(tuples_per_tilegroup),
       adapt_table_(adapt_table) {
-  // Init default partition
-  auto col_count = schema->GetColumnCount();
-  for (oid_t col_itr = 0; col_itr < col_count; col_itr++) {
-    default_partition_[col_itr] = std::make_pair(0, col_itr);
-  }
 
   LOG_TRACE("Data table %u created", table_oid);
 
@@ -520,64 +515,6 @@ bool EpochDataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
   return true;
 }
 
-/**
- * @brief Check if all the foreign key constraints on this table
- * is satisfied by checking whether the key exist in the referred table
- *
- * FIXME: this still does not guarantee correctness under concurrent transaction
- *   because it only check if the key exists the referred table's index
- *   -- however this key might be a uncommitted key that is not visible to
- * others
- *   and it might be deleted if that txn abort.
- *   We should modify this function and add logic to check
- *   if the result of the ScanKey is visible.
- *
- * @returns True on success, false if any foreign key constraints fail
- */
-bool EpochDataTable::CheckForeignKeyConstraints(const storage::Tuple *tuple
-                                           __attribute__((unused))) {
-
-  for (auto foreign_key : foreign_keys_) {
-    oid_t sink_table_id = foreign_key->GetSinkTableOid();
-    storage::EpochDataTable *ref_table =
-        (storage::EpochDataTable *)catalog::Manager::GetInstance().GetTableWithOid(
-            database_oid, sink_table_id);
-
-    int ref_table_index_count = ref_table->GetIndexCount();
-
-    for (int index_itr = ref_table_index_count - 1; index_itr >= 0;
-         --index_itr) {
-      auto index = ref_table->GetIndex(index_itr);
-
-      // The foreign key constraints only refer to the primary key
-      if (index->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
-        LOG_TRACE("BEGIN checking referred table");
-        auto key_attrs = foreign_key->GetFKColumnOffsets();
-
-        std::unique_ptr<catalog::Schema> foreign_key_schema(
-            catalog::Schema::CopySchema(schema, key_attrs));
-        std::unique_ptr<storage::Tuple> key(
-            new storage::Tuple(foreign_key_schema.get(), true));
-        //FIXME: what is the 3rd arg should be?
-        key->SetFromTuple(tuple, key_attrs, index->GetPool());
-
-        LOG_TRACE("check key: %s", key->GetInfo().c_str());
-
-        std::vector<ItemPointer> locations;
-        index->ScanKey(key.get(), locations);
-
-        // if this key doesn't exist in the refered column
-        if (locations.size() == 0) {
-          return false;
-        }
-
-        break;
-      }
-    }
-  }
-
-  return true;
-}
 
 //===--------------------------------------------------------------------===//
 // STATS
@@ -665,16 +602,10 @@ column_map_type EpochDataTable::GetTileGroupLayout() {
   column_map_type column_map;
 
   auto col_count = schema->GetColumnCount();
-  // if (adapt_table_ == false) layout_type = LAYOUT_ROW;
 
-  // pure row layout map
-  // if (layout_type == LAYOUT_ROW) {
-    for (oid_t col_itr = 0; col_itr < col_count; col_itr++) {
-      column_map[col_itr] = std::make_pair(0, col_itr);
-    }
-  // } else {
-    // LOG_ERROR("the tile group layout must be LAYOUT_ROW!");
-  // }
+  for (oid_t col_itr = 0; col_itr < col_count; col_itr++) {
+    column_map[col_itr] = std::make_pair(0, col_itr);
+  }
 
   return column_map;
 }

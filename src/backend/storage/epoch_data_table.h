@@ -207,8 +207,6 @@ class EpochDataTable : public AbstractTable {
   bool InsertInSecondaryTupleIndexes(const AbstractTuple *tuple,
           const TargetList *targetes_ptr, ItemPointer *masterPtr);
 
-  // check the foreign key constraints
-  bool CheckForeignKeyConstraints(const storage::Tuple *tuple);
 
  private:
   //===--------------------------------------------------------------------===//
@@ -254,17 +252,8 @@ class EpochDataTable : public AbstractTable {
   // dirty flag
   bool dirty_ = false;
 
-  // clustering mutex
-  std::mutex clustering_mutex_;
-
   // adapt table
   bool adapt_table_ = true;
-
-  // default partition map for table
-  column_map_type default_partition_;
-
-  // samples for clustering
-  std::vector<brain::Sample> samples_;
 };
 
 }  // End storage namespace

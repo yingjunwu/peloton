@@ -24,33 +24,6 @@
 #include "backend/common/platform.h"
 #include "backend/index/index.h"
 
-//===--------------------------------------------------------------------===//
-// GUC Variables
-//===--------------------------------------------------------------------===//
-
-/* Possible values for peloton_tilegroup_layout GUC */
-typedef enum LayoutType {
-  LAYOUT_ROW,    /* Pure row layout */
-  LAYOUT_COLUMN, /* Pure column layout */
-  LAYOUT_HYBRID  /* Hybrid layout */
-} LayoutType;
-
-extern LayoutType peloton_layout_mode;
-
-//===--------------------------------------------------------------------===//
-// Configuration Variables
-//===--------------------------------------------------------------------===//
-
-// Projectivity for determining FSM layout
-extern double peloton_projectivity;
-
-// # of groups
-extern int peloton_num_groups;
-
-// FSM or not ?
-extern bool peloton_fsm;
-
-extern std::vector<peloton::oid_t> hyadapt_column_ids;
 
 namespace peloton {
 
@@ -113,10 +86,6 @@ class DataTable : public AbstractTable {
   // For RB
   ItemPointer InsertTuple(const Tuple *tuple, index::RBItemPointer **rb_itemptr_ptr);
 
-  // delete the tuple at given location
-  // bool DeleteTuple(const concurrency::Transaction *transaction,
-  //                  ItemPointer location);
-
   //===--------------------------------------------------------------------===//
   // TILE GROUP
   //===--------------------------------------------------------------------===//
@@ -169,13 +138,6 @@ class DataTable : public AbstractTable {
   oid_t GetForeignKeyCount() const;
 
   //===--------------------------------------------------------------------===//
-  // TRANSFORMERS
-  //===--------------------------------------------------------------------===//
-
-  storage::TileGroup *TransformTileGroup(const oid_t &tile_group_offset,
-                                         const double &theta);
-
-  //===--------------------------------------------------------------------===//
   // STATS
   //===--------------------------------------------------------------------===//
 
@@ -191,16 +153,6 @@ class DataTable : public AbstractTable {
 
   void ResetDirty();
 
-  const column_map_type &GetDefaultPartition();
-
-  //===--------------------------------------------------------------------===//
-  // Clustering
-  //===--------------------------------------------------------------------===//
-
-  void RecordSample(const brain::Sample &sample);
-
-  void UpdateDefaultPartition();
-
   //===--------------------------------------------------------------------===//
   // UTILITIES
   //===--------------------------------------------------------------------===//
@@ -211,11 +163,6 @@ class DataTable : public AbstractTable {
 
   bool HasForeignKeys() { return (GetForeignKeyCount() > 0); }
 
-  column_map_type GetStaticColumnMap(const std::string &table_name,
-                                     const oid_t &column_count);
-
-  std::map<oid_t, oid_t> GetColumnMapStats();
-
   // Get a string representation for debugging
   const std::string GetInfo() const;
 
@@ -224,10 +171,6 @@ class DataTable : public AbstractTable {
   // INTEGRITY CHECKS
   //===--------------------------------------------------------------------===//
 
-  bool CheckNulls(const storage::Tuple *tuple) const;
-
-  bool CheckConstraints(const storage::Tuple *tuple) const;
-
   // Claim a tuple slot in a tile group
   ItemPointer FillInEmptyTupleSlot(const storage::Tuple *tuple);
 
@@ -235,7 +178,7 @@ class DataTable : public AbstractTable {
   oid_t AddDefaultTileGroup(const size_t &tg_seq_id);
 
   // get a partitioning with given layout type
-  column_map_type GetTileGroupLayout(LayoutType layout_type);
+  column_map_type GetTileGroupLayout();
 
   //===--------------------------------------------------------------------===//
   // INDEX HELPERS
@@ -253,9 +196,6 @@ class DataTable : public AbstractTable {
 
   bool InsertInSecondaryTupleIndexes(const AbstractTuple *tuple,
           const TargetList *targetes_ptr, ItemPointer *masterPtr);
-
-  // check the foreign key constraints
-  bool CheckForeignKeyConstraints(const storage::Tuple *tuple);
 
  private:
   //===--------------------------------------------------------------------===//
@@ -298,17 +238,9 @@ class DataTable : public AbstractTable {
   // dirty flag
   bool dirty_ = false;
 
-  // clustering mutex
-  std::mutex clustering_mutex_;
-
   // adapt table
   bool adapt_table_ = true;
 
-  // default partition map for table
-  column_map_type default_partition_;
-
-  // samples for clustering
-  std::vector<brain::Sample> samples_;
 };
 
 }  // End storage namespace

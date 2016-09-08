@@ -18,6 +18,15 @@
 #include <map>
 #include <string>
 
+/* Possible values for peloton_tilegroup_layout GUC */
+typedef enum LayoutType {
+  LAYOUT_ROW,    /* Pure row layout */
+  LAYOUT_COLUMN, /* Pure column layout */
+  LAYOUT_HYBRID  /* Hybrid layout */
+} LayoutType;
+
+extern LayoutType peloton_layout_mode;
+
 const int NUM_PREALLOCATION = 10;
 
 namespace peloton {
