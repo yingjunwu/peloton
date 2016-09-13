@@ -91,6 +91,8 @@ class configuration {
 
   double scan_latency = 0;
 
+  int epoch_length;
+
   // Theta in zipf distribution to control skewness
   double zipf_theta;
 

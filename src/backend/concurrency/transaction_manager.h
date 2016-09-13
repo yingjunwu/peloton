@@ -19,7 +19,7 @@
 #include "backend/common/platform.h"
 #include "backend/common/types.h"
 #include "backend/concurrency/transaction.h"
-#include "backend/concurrency/epoch_manager.h"
+#include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/storage/data_table.h"
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"

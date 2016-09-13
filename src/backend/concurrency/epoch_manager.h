@@ -59,8 +59,9 @@ class EpochManager {
   static const int safety_interval_ = 2;
 
  public:
-  EpochManager()
- : epoch_queue_(epoch_queue_size_),
+  EpochManager(const int epoch_length)
+ : epoch_length_(epoch_length),
+   epoch_queue_(epoch_queue_size_),
    queue_tail_(0), reclaim_tail_(0), current_epoch_(0),
    queue_tail_token_(true), reclaim_tail_token_(true),
     max_cid_ro_(READ_ONLY_START_CID), max_cid_gc_(0), finish_(false) {
@@ -151,7 +152,7 @@ class EpochManager {
   void Start() {
     while (!finish_) {
       // the epoch advances every 40 milliseconds.
-      std::this_thread::sleep_for(std::chrono::milliseconds(EPOCH_LENGTH));
+      std::this_thread::sleep_for(std::chrono::milliseconds(epoch_length_));
 
       auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
       auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
@@ -286,6 +287,7 @@ class EpochManager {
 private:
   // queue size
   static const size_t epoch_queue_size_ = 4096;
+  const int epoch_length_;
 
   // Epoch vector
   std::vector<Epoch> epoch_queue_;
@@ -301,14 +303,6 @@ private:
   std::thread ts_thread_;
 };
 
-
-class EpochManagerFactory {
- public:
-  static EpochManager &GetInstance() {
-    static EpochManager epoch_manager;
-    return epoch_manager;
-  }
-};
 
 }
 }

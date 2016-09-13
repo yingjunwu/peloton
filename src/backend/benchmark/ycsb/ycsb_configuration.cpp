@@ -51,7 +51,8 @@ void Usage(FILE *out) {
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/n2otxn/va\n"
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
-          "   -j --sindex_scan       :  use secondary index to scan\n "
+          "   -j --sindex_scan       :  use secondary index to scan\n"
+          "   -f --epoch_length      :  epoch length\n "
   );
   exit(EXIT_FAILURE);
 }
@@ -80,6 +81,7 @@ static struct option opts[] = {
     {"sindex_count", optional_argument, NULL, 'n'},
     {"sindex_mode", optional_argument, NULL, 'q'},
     {"sindex_scan", optional_argument, NULL, 'j'},
+    {"epoch_length", optional_argument, NULL, 'f'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -262,10 +264,11 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.sindex_count = 0;
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
   state.sindex_scan = false;
+  state.epoch_length = 40;
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:", opts, &idx);
+    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:", opts, &idx);
 
     if (c == -1) break;
 
@@ -326,6 +329,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'j':
         state.sindex_scan = true;
+        break;
+      case 'f':
+        state.epoch_length = atoi(optarg);
         break;
       case 'p': {
         char *protocol = optarg;
