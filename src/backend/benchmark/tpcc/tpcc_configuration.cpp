@@ -42,6 +42,7 @@ void Usage(FILE *out) {
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
+          "   -f --epoch_length      :  epoch length\n "
   );
   exit(EXIT_FAILURE);
 }
@@ -61,6 +62,7 @@ static struct option opts[] = {
   { "gc_protocol", optional_argument, NULL, 'g'},
   { "gc_thread", optional_argument, NULL, 't'},
   { "sindex_mode", optional_argument, NULL, 'q'},
+  {"epoch_length", optional_argument, NULL, 'f'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -156,6 +158,15 @@ void ValidateIndex(const configuration &state) {
   }
 }
 
+void ValidateEpoch(const configuration &state) {
+  if (state.epoch_length <= 0) {
+    LOG_ERROR("Invalid epoch length :: %d", state.epoch_length);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "epoch_length", state.epoch_length);
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -172,11 +183,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+  state.epoch_length = 40;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:", opts, &idx);
+    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:f:", opts, &idx);
 
     if (c == -1) break;
 
@@ -209,6 +221,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'e':
         state.run_backoff = true;
+        break;
+      case 'f':
+        state.epoch_length = atoi(optarg);
         break;
       case 'p': {
         char *protocol = optarg;
@@ -332,6 +347,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateProtocol(state);
   ValidateIndex(state);
   ValidateOrderRange(state);
+  ValidateEpoch(state);
   
   LOG_TRACE("%s : %d", "Run client affinity", state.run_affinity);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);

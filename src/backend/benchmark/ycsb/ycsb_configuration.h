@@ -91,8 +91,6 @@ class configuration {
 
   double scan_latency = 0;
 
-  int epoch_length;
-
   // Theta in zipf distribution to control skewness
   double zipf_theta;
 
@@ -123,6 +121,8 @@ class configuration {
   // number of threads used in GC,
   // Only available when gc type is n2o and va
   int gc_thread_count;
+
+  int epoch_length;
   
 };
 
@@ -153,6 +153,8 @@ void ValidateSnapshotDuration(const configuration &state);
 void ValidateProtocol(const configuration &state);
 
 void ValidateIndex(const configuration &state);
+
+void ValidateEpoch(const configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 

@@ -141,6 +141,7 @@ static void WriteOutput() {
 // Main Entry Point
 void RunBenchmark() {
   gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
+  concurrency::EpochManagerFactory::Configure(state.epoch_length);
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 

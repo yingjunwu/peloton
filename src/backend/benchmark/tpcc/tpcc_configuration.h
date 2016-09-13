@@ -133,6 +133,8 @@ class configuration {
   // Only available when gc type is n2o and va
   int gc_thread_count;
 
+  int epoch_length;
+
 };
 
 extern configuration state;
@@ -152,6 +154,8 @@ void ValidateWarehouseCount(const configuration &state);
 void ValidateProtocol(const configuration &state);
 
 void ValidateIndex(const configuration &state);
+
+void ValidateEpoch(const configuration &state);
 
 void ValidateOrderRange(const configuration &state);
 

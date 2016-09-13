@@ -239,6 +239,15 @@ void ValidateSecondaryIndex(const configuration &state) {
   }
 }
 
+void ValidateEpoch(const configuration &state) {
+  if (state.epoch_length <= 0) {
+    LOG_ERROR("Invalid epoch length :: %d", state.epoch_length);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "epoch_length", state.epoch_length);
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -453,6 +462,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateProtocol(state);
   ValidateIndex(state);
   ValidateSecondaryIndex(state);
+  ValidateEpoch(state);
   ValidateSecondaryIndexScan(state);
 
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
