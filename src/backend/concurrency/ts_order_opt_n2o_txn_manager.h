@@ -104,9 +104,6 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t tuple_id);
 
-  // bool IsReadRescuable(
-  //     const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
-
  private:
 
   static const int LOCK_OFFSET = 0;

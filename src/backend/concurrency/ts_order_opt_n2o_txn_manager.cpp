@@ -136,7 +136,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
   if (tuple_txn_id == INVALID_TXN_ID) {
     // LOG_ERROR("line 129 impossible!, is_rescue=%d", (int)is_rescue);
     // TODO: NOTICE: temporarily add.
-    return VISIBILITY_INVISIBLE;
+    // return VISIBILITY_INVISIBLE;
 
     // the tuple is not available.
     if (is_in_range == true) {
@@ -152,7 +152,6 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
   // there are exactly two versions that can be owned by a transaction.
   // unless it is an insertion.
   if (own == true) {
-    // LOG_ERROR("line 146 impossible!");
     if (tuple_begin_cid == MAX_CID && tuple_end_cid != INVALID_CID) {
       assert(tuple_end_cid == MAX_CID);
       // the only version that is visible is the newly inserted/updated one.
@@ -355,22 +354,6 @@ bool TsOrderOptN2OTxnManager::PerformInsert(const ItemPointer &location, ItemPoi
 
   return true;
 }
-
-// if the current version's begin_ts is even smaller than the lower bound,
-// then it's impossible to rescue the transaction even if we move back
-// to an older version.
-// bool TsOrderOptN2OTxnManager::IsReadRescuable(
-//     const storage::TileGroupHeader *const tile_group_header,
-//     const oid_t &tuple_id) {
-//   cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
-//   // only if lower_bound_cid is smaller than tuple_begin_cid can we have 
-//   // chance to read an older version.
-//   if (tuple_begin_cid > current_txn->lower_bound_cid_) {
-//     return true;
-//   } else {
-//     return false;
-//   }
-// }
 
 void TsOrderOptN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
                                       const ItemPointer &new_location, UNUSED_ATTRIBUTE const bool is_blind_write) {
