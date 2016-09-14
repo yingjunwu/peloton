@@ -67,6 +67,27 @@ bool TsOrderOptN2OTxnManager::SetLastReaderCid(
   }
 }
 
+cid_t TsOrderOptN2OTxnManager::GetLastCommitReaderCid(
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tuple_id) {
+  return *(cid_t*)(tile_group_header->GetReservedFieldRef(tuple_id) + LAST_COMMIT_READER_OFFSET);
+}
+
+void TsOrderOptN2OTxnManager::SetLastCommitReaderCid(
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tuple_id) {
+
+  assert(IsOwner(tile_group_header, tuple_id) == false);
+
+  cid_t *ts_ptr = (cid_t*)(tile_group_header->GetReservedFieldRef(tuple_id) + LAST_COMMIT_READER_OFFSET);
+
+  cid_t current_cid = lower_bound_cid_;
+
+  if (*ts_ptr < current_cid) {
+    *ts_ptr = current_cid;
+  }
+}
+
 
 ItemPointer *TsOrderOptN2OTxnManager::GetHeadPtr(
     const storage::TileGroupHeader *const tile_group_header, 
@@ -188,16 +209,18 @@ bool TsOrderOptN2OTxnManager::AcquireOwnership(
 
   GetSpinlockField(tile_group_header, tuple_id)->Lock();
   // change timestamp
-  // if (latest_last_read_cid_ >= upper_bound_cid_) {
-  //   GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+
+  auto last_commit_read_cid = GetLastCommitReaderCid(tile_group_header, tuple_id);
+  if (last_commit_read_cid >= upper_bound_cid_) {
+    GetSpinlockField(tile_group_header, tuple_id)->Unlock();
     
-  //   SetTransactionResult(Result::RESULT_FAILURE);
-  //   printf("line 199, %d, %d\n", (int)latest_last_read_cid_, (int)upper_bound_cid_);
-  //   return false;
-  // }
-  // if (latest_last_read_cid_ >= lower_bound_cid_) {
-  //   lower_bound_cid_ = latest_last_read_cid_ + 1;  
-  // }
+    SetTransactionResult(Result::RESULT_FAILURE);
+    return false;
+  }
+  if (last_commit_read_cid >= lower_bound_cid_) {
+    lower_bound_cid_ = last_commit_read_cid + 1;  
+  }
+
   if (tuple_begin_cid >= lower_bound_cid_) {
     lower_bound_cid_ = tuple_begin_cid + 1;
   }
@@ -567,7 +590,12 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
     auto tile_group = manager.GetTileGroup(tile_group_id);
     auto tile_group_header = tile_group->GetHeader();
     for (auto &tuple_entry : tile_group_entry.second) {
+      
       auto tuple_slot = tuple_entry.first;
+      
+
+      SetLastCommitReaderCid(tile_group_header, tuple_slot);
+
       if (tuple_entry.second == RW_TYPE_UPDATE) {
         // we must guarantee that, at any time point, only one version is
         // visible.

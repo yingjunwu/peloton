@@ -110,7 +110,8 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);
-  static const int ITEM_POINTER_OFFSET = (LAST_READER_OFFSET + 8);
+  static const int LAST_COMMIT_READER_OFFSET = (LAST_READER_OFFSET + 8);
+  static const int ITEM_POINTER_OFFSET = (LAST_COMMIT_READER_OFFSET + 8);
 
 
   Spinlock *GetSpinlockField(
@@ -122,6 +123,14 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
       const oid_t &tuple_id);
 
   bool SetLastReaderCid(
+      const storage::TileGroupHeader *const tile_group_header,
+      const oid_t &tuple_id);
+
+  cid_t GetLastCommitReaderCid(
+      const storage::TileGroupHeader *const tile_group_header,
+      const oid_t &tuple_id);
+
+  void SetLastCommitReaderCid(
       const storage::TileGroupHeader *const tile_group_header,
       const oid_t &tuple_id);
 
@@ -138,6 +147,7 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
     new ((reserved_area + LOCK_OFFSET)) Spinlock();
     *(cid_t*)(reserved_area + LAST_READER_OFFSET) = 0;
+    *(cid_t*)(reserved_area + LAST_COMMIT_READER_OFFSET) = 0;
     *(reinterpret_cast<ItemPointer**>(reserved_area + ITEM_POINTER_OFFSET)) = nullptr;
   }
 };
