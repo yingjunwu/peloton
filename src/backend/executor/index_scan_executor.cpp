@@ -317,10 +317,11 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
               visible_tuples[tuple_location.block].push_back(tuple_location.offset);
             } else {
               // try to rescue here...
+              // note that we rescue only when reading a version that is locked by certain concurrent transactions.
               /////////////////////////////////////////////////////////////////
               if (concurrency::TransactionManagerFactory::IsOptN2O() == true) {
                 bool is_rescuable = 
-                    ((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->IsRescuable(tile_group_header, tuple_location.offset);
+                    ((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->IsReadRescuable(tile_group_header, tuple_location.offset);
                 if (is_rescuable == true) {
                   // rescue the transaction...
                   
@@ -349,8 +350,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
 
                   // try again.
                   res = transaction_manager.PerformRead(tuple_location);
-
                   if (res == true) {
+                    transaction_manager.AddRescueSuccessful();
                     // add to visible tuple vector.
                     visible_tuples[tuple_location.block].push_back(tuple_location.offset);
                   } else {

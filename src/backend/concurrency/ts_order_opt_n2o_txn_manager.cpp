@@ -46,7 +46,9 @@ bool TsOrderOptN2OTxnManager::SetLastReaderCid(
 
   cid_t *ts_ptr = (cid_t*)(tile_group_header->GetReservedFieldRef(tuple_id) + LAST_READER_OFFSET);
   
-  cid_t current_cid = current_txn->GetBeginCommitId();
+  // cid_t current_cid = current_txn->GetBeginCommitId();
+
+  cid_t current_cid = upper_bound_cid_;
 
   GetSpinlockField(tile_group_header, tuple_id)->Lock();
   
@@ -84,33 +86,6 @@ TsOrderOptN2OTxnManager &TsOrderOptN2OTxnManager::GetInstance() {
   return txn_manager;
 }
 
-// if the current version's begin_ts is even smaller than the lower bound,
-// then it's impossible to rescue the transaction even if we move back
-// to an older version.
-bool TsOrderOptN2OTxnManager::IsRescuable(
-    const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tuple_id) {
-  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
-  if (tuple_begin_cid < lower_bound_cid_) {
-    return false;
-  } else {
-    return true;
-  }
-}
-
-bool TsOrderOptN2OTxnManager::IsInRange(
-    const storage::TileGroupHeader *const tile_group_header, 
-    const oid_t &tuple_id) {
-  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
-  cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
-  if (tuple_end_cid <= lower_bound_cid_ || tuple_begin_cid > upper_bound_cid_) {
-    return false;
-  } else {
-    return true;
-  }
-}
-
-
 // Visibility check
 VisibilityType TsOrderOptN2OTxnManager::IsVisible(
     const storage::TileGroupHeader *const tile_group_header,
@@ -121,12 +96,13 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
 
   bool own = (current_txn->GetTransactionId() == tuple_txn_id);
 
-  // bool activated = (current_txn->GetBeginCommitId() >= tuple_begin_cid);
-  // bool invalidated = (current_txn->GetBeginCommitId() >= tuple_end_cid);
-  // bool is_in_range = activated && !invalidated;
+  // check whether the timestamps of the tuple fall into the range.
+  bool is_in_range = true;
+  if (tuple_end_cid <= lower_bound_cid_ || tuple_begin_cid > upper_bound_cid_) {
+    is_in_range = false;
+    // printf("out of range: (%d, %d), (%d, %d)\n", (int) tuple_begin_cid, (int) tuple_end_cid, (int) lower_bound_cid_, (int) upper_bound_cid_);
+  }
 
-  bool is_in_range = IsInRange(tile_group_header, tuple_id);
-  
 
   if (tuple_txn_id == INVALID_TXN_ID) {
     // TODO: NOTICE: temporarily add.
@@ -208,30 +184,42 @@ bool TsOrderOptN2OTxnManager::AcquireOwnership(
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t &tile_group_id __attribute__((unused)), const oid_t &tuple_id) {
   auto txn_id = current_txn->GetTransactionId();
+  auto tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
 
   GetSpinlockField(tile_group_header, tuple_id)->Lock();
   // change timestamp
-  cid_t last_reader_cid = GetLastReaderCid(tile_group_header, tuple_id);
-
-  if (last_reader_cid > current_txn->GetBeginCommitId()) {
-    GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+  // if (latest_last_read_cid_ >= upper_bound_cid_) {
+  //   GetSpinlockField(tile_group_header, tuple_id)->Unlock();
     
+  //   SetTransactionResult(Result::RESULT_FAILURE);
+  //   printf("line 199, %d, %d\n", (int)latest_last_read_cid_, (int)upper_bound_cid_);
+  //   return false;
+  // }
+  // if (latest_last_read_cid_ >= lower_bound_cid_) {
+  //   lower_bound_cid_ = latest_last_read_cid_ + 1;  
+  // }
+  if (tuple_begin_cid >= lower_bound_cid_) {
+    lower_bound_cid_ = tuple_begin_cid + 1;
+  }
+
+  if (lower_bound_cid_ > upper_bound_cid_) {
+    GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+      
+    SetTransactionResult(Result::RESULT_FAILURE);
+    return false;
+  }
+
+  if (tile_group_header->SetAtomicTransactionId(tuple_id, txn_id) == false) {    
+    GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+  
     SetTransactionResult(Result::RESULT_FAILURE);
     return false;
   } else {
-    if (tile_group_header->SetAtomicTransactionId(tuple_id, txn_id) == false) {    
-      GetSpinlockField(tile_group_header, tuple_id)->Unlock();
-    
-      SetTransactionResult(Result::RESULT_FAILURE);
-      return false;
-    } else {
-      
-      GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+    GetSpinlockField(tile_group_header, tuple_id)->Unlock();
 
-      return true;
-    }
-
+    return true;
   }
+
 }
 
 // release write lock on a tuple.
@@ -272,11 +260,17 @@ bool TsOrderOptN2OTxnManager::PerformRead(const ItemPointer &location) {
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
     cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
-    if (tuple_begin_cid < lower_bound_cid_) {
+    if (tuple_begin_cid > lower_bound_cid_) {
       lower_bound_cid_ = tuple_begin_cid;
     }
-    if (tuple_end_cid > upper_bound_cid_) {
-      upper_bound_cid_ = tuple_end_cid;
+    if (tuple_end_cid <= upper_bound_cid_) {
+      // if (upper_bound_cid_ > current_txn->GetBeginCommitId()) {
+      //   LOG_ERROR("impossible! %lu, %lu, %lu", upper_bound_cid_, current_txn->GetBeginCommitId(), tuple_end_cid - 1);
+      // }
+      upper_bound_cid_ = tuple_end_cid - 1;
+    }
+    if (lower_bound_cid_ > upper_bound_cid_) {
+      return false;
     }
 
     return true;
@@ -322,6 +316,23 @@ bool TsOrderOptN2OTxnManager::PerformInsert(const ItemPointer &location, ItemPoi
 //  }
 
   return true;
+}
+
+// if the current version's begin_ts is even smaller than the lower bound,
+// then it's impossible to rescue the transaction even if we move back
+// to an older version.
+bool TsOrderOptN2OTxnManager::IsReadRescuable(
+    const storage::TileGroupHeader *const tile_group_header,
+    const oid_t &tuple_id) {
+  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
+  // only if lower_bound_cid is smaller than tuple_begin_cid can we have 
+  // chance to read an older version.
+  // printf("%d, %d\n", (int)tuple_begin_cid, (int)lower_bound_cid_);
+  if (tuple_begin_cid < lower_bound_cid_) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 void TsOrderOptN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
@@ -543,8 +554,9 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
   auto &manager = catalog::Manager::GetInstance();
 
   // generate transaction id.
-  cid_t end_commit_id = current_txn->GetBeginCommitId();
-
+  // cid_t end_commit_id = current_txn->GetBeginCommitId();
+  cid_t end_commit_id = lower_bound_cid_;
+  
   auto &rw_set = current_txn->GetRWSet();
 
   // TODO: Add optimization for read only

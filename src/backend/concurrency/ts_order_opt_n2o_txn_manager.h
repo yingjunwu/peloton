@@ -85,7 +85,6 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
     lower_bound_cid_ = 0;
     upper_bound_cid_ = begin_cid;
-    is_first_access_ = true;
 
     return txn;
   }
@@ -101,17 +100,13 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
     const storage::TileGroupHeader *const tile_group_header,
     const oid_t tuple_id);
 
-  bool IsInRange(
-      const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
-
-  bool IsRescuable(
+  bool IsReadRescuable(
       const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
 
  private:
 
   cid_t lower_bound_cid_;
   cid_t upper_bound_cid_;
-  bool is_first_access_;
 
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);

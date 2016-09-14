@@ -54,12 +54,13 @@ class TransactionManager {
     rescue_not_in_range_ = 0;
     rescue_read_abort_ = 0;
     rescue_not_possible_ = 0;
+    rescue_successful_ = 0;
   }
 
   virtual ~TransactionManager() {
      printf("read_abort_ = %d, acquire_owner_abort_ = %d, no_space_abort_ = %d, cannot_own_abort_ = %d\n", read_abort_.load(), acquire_owner_abort_.load(), no_space_abort_.load(), cannot_own_abort_.load());
 
-     printf("rescue_not_visible_ = %d, rescue_not_in_range_ = %d, rescue_read_abort_ = %d, rescue_not_possible_ = %d\n", rescue_not_visible_.load(), rescue_not_in_range_.load(), rescue_read_abort_.load(), rescue_not_possible_.load());
+     printf("rescue_not_visible_ = %d, rescue_not_in_range_ = %d, rescue_read_abort_ = %d, rescue_not_possible_ = %d, rescue_successful_ = %d\n", rescue_not_visible_.load(), rescue_not_in_range_.load(), rescue_read_abort_.load(), rescue_not_possible_.load(), rescue_successful_.load());
   }
 
   txn_id_t GetNextTransactionId() { return next_txn_id_++; }
@@ -240,6 +241,10 @@ class TransactionManager {
      ++rescue_not_possible_;
   }
 
+  inline void AddRescueSuccessful() {
+    ++rescue_successful_;
+  }
+
  private:
   std::atomic<txn_id_t> next_txn_id_;
   std::atomic<cid_t> next_cid_;
@@ -253,7 +258,7 @@ class TransactionManager {
    std::atomic<int> rescue_not_in_range_;
    std::atomic<int> rescue_read_abort_;
    std::atomic<int> rescue_not_possible_;
-
+   std::atomic<int> rescue_successful_;
 };
 }  // End storage namespace
 }  // End peloton namespace

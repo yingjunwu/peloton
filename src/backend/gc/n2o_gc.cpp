@@ -80,8 +80,8 @@ void N2O_GCManager::AddToRecycleMap(const TupleMetadata &tuple_metadata) {
 void N2O_GCManager::Running(int thread_id) {
   // Check if we can move anything from the possibly free list to the free list.
 
-  std::this_thread::sleep_for(
-    std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
+  // std::this_thread::sleep_for(
+  //   std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
   while (true) {
 
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
