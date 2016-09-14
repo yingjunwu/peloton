@@ -225,14 +225,26 @@ bool TsOrderOptN2OTxnManager::AcquireOwnership(
 
   GetSpinlockField(tile_group_header, tuple_id)->Lock();
   // change timestamp
+  cid_t last_reader_cid = GetLastReaderCid(tile_group_header, tuple_id);
 
-  auto last_commit_read_cid = GetLastCommitReaderCid(tile_group_header, tuple_id);
-  if (last_commit_read_cid >= current_txn->upper_bound_cid_) {
+  if (last_reader_cid > current_txn->upper_bound_cid_) {
     GetSpinlockField(tile_group_header, tuple_id)->Unlock();
     
     SetTransactionResult(Result::RESULT_FAILURE);
     return false;
   }
+
+  auto last_commit_read_cid = GetLastCommitReaderCid(tile_group_header, tuple_id);
+
+  if (last_reader_cid < last_commit_read_cid) {
+    LOG_ERROR("impossible, last reader cid must be no less than last commit read cid");
+  }
+  // if (last_commit_read_cid >= current_txn->upper_bound_cid_) {
+  //   GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+    
+  //   SetTransactionResult(Result::RESULT_FAILURE);
+  //   return false;
+  // }
   if (last_commit_read_cid >= current_txn->lower_bound_cid_) {
     current_txn->lower_bound_cid_ = last_commit_read_cid + 1;  
   }
@@ -347,18 +359,18 @@ bool TsOrderOptN2OTxnManager::PerformInsert(const ItemPointer &location, ItemPoi
 // if the current version's begin_ts is even smaller than the lower bound,
 // then it's impossible to rescue the transaction even if we move back
 // to an older version.
-bool TsOrderOptN2OTxnManager::IsReadRescuable(
-    const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tuple_id) {
-  cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
-  // only if lower_bound_cid is smaller than tuple_begin_cid can we have 
-  // chance to read an older version.
-  if (tuple_begin_cid > current_txn->lower_bound_cid_) {
-    return true;
-  } else {
-    return false;
-  }
-}
+// bool TsOrderOptN2OTxnManager::IsReadRescuable(
+//     const storage::TileGroupHeader *const tile_group_header,
+//     const oid_t &tuple_id) {
+//   cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
+//   // only if lower_bound_cid is smaller than tuple_begin_cid can we have 
+//   // chance to read an older version.
+//   if (tuple_begin_cid > current_txn->lower_bound_cid_) {
+//     return true;
+//   } else {
+//     return false;
+//   }
+// }
 
 void TsOrderOptN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
                                       const ItemPointer &new_location, UNUSED_ATTRIBUTE const bool is_blind_write) {

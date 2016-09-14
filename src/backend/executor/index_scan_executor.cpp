@@ -320,8 +320,21 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
               // note that we rescue only when reading a version that is locked by certain concurrent transactions.
               /////////////////////////////////////////////////////////////////
               if (concurrency::TransactionManagerFactory::IsOptN2O() == true) {
-                bool is_rescuable = 
-                    ((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->IsReadRescuable(tile_group_header, tuple_location.offset);
+
+                ///////////////////////////////////////////////////////
+                // check whether the transaction is rescuable
+                bool is_rescuable = true;
+
+                cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_location.offset);
+                // only if lower_bound_cid is smaller than tuple_begin_cid can we have 
+                // chance to read an older version.
+                if (tuple_begin_cid > concurrency::current_txn->lower_bound_cid_) {
+                  is_rescuable = true;
+                } else {
+                  is_rescuable = false;
+                }
+                ///////////////////////////////////////////////////////
+
                 if (is_rescuable == true) {
                   // rescue the transaction...
                   
