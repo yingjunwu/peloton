@@ -340,7 +340,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
                   tile_group_header = tile_group.get()->GetHeader();
 
                   // check the visibility of next version.
-                  visibility = transaction_manager.IsVisible(tile_group_header, tuple_location.offset);
+                  visibility = ((concurrency::TsOrderOptN2OTxnManager*)(&transaction_manager))->IsVisible(tile_group_header, tuple_location.offset, true);
                   if (visibility != VISIBILITY_OK) {
                     // to rescue, the version must be visible.
                     transaction_manager.SetTransactionResult(RESULT_FAILURE);

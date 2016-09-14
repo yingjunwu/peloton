@@ -33,6 +33,10 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
   virtual VisibilityType IsVisible(
       const storage::TileGroupHeader *const tile_group_header,
       const oid_t &tuple_id);
+  
+  VisibilityType IsVisible(
+      const storage::TileGroupHeader *const tile_group_header,
+      const oid_t &tuple_id, const bool is_rescue);
 
   virtual bool IsOwner(const storage::TileGroupHeader *const tile_group_header,
                        const oid_t &tuple_id);
@@ -83,8 +87,8 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
     gc::GCManagerFactory::GetInstance().CreateGCContext();
 
-    lower_bound_cid_ = 0;
-    upper_bound_cid_ = begin_cid;
+    txn->lower_bound_cid_ = 0;
+    txn->upper_bound_cid_ = begin_cid;
 
     return txn;
   }
@@ -104,9 +108,6 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
       const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
 
  private:
-
-  cid_t lower_bound_cid_;
-  cid_t upper_bound_cid_;
 
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);

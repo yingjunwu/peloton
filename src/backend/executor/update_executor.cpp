@@ -104,7 +104,6 @@ bool UpdateExecutor::DExecuteSV() {
               visible_tuple_id, physical_tuple_id);
 
     if (transaction_manager.IsOwner(tile_group_header, physical_tuple_id) == true) {
-      
       // Make a copy of the original tuple and allocate a new tuple
       expression::ContainerTuple<storage::TileGroup> old_tuple(
           tile_group, physical_tuple_id);
@@ -197,7 +196,7 @@ bool UpdateExecutor::DExecuteMV() {
               visible_tuple_id, physical_tuple_id);
 
     if (transaction_manager.IsOwner(tile_group_header, physical_tuple_id) == true) {
-
+      
       // Check if we are using rollback segment
       if (concurrency::TransactionManagerFactory::IsRB()) {
 

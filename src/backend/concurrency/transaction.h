@@ -197,6 +197,10 @@ class Transaction : public Printable {
 
   bool is_written_;
   size_t insert_count_;
+
+public:
+  cid_t lower_bound_cid_;
+  cid_t upper_bound_cid_;
 };
 
 }  // End concurrency namespace
