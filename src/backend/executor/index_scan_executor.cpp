@@ -330,6 +330,7 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
                   tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
                   // there's no next version. return failure.
                   if (tuple_location.IsNull()) {
+                    LOG_ERROR("there must be an older version!");
                     transaction_manager.SetTransactionResult(RESULT_FAILURE);
                     transaction_manager.AddRescueNotPossible();
                     return res;

@@ -353,11 +353,10 @@ bool TsOrderOptN2OTxnManager::IsReadRescuable(
   cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
   // only if lower_bound_cid is smaller than tuple_begin_cid can we have 
   // chance to read an older version.
-  // printf("%d, %d\n", (int)tuple_begin_cid, (int)current_txn->lower_bound_cid_);
-  if (tuple_begin_cid < current_txn->lower_bound_cid_) {
-    return false;
-  } else {
+  if (tuple_begin_cid > current_txn->lower_bound_cid_) {
     return true;
+  } else {
+    return false;
   }
 }
 
