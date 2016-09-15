@@ -46,8 +46,6 @@ bool TsOrderOptN2OTxnManager::SetLastReaderCid(
 
   cid_t *ts_ptr = (cid_t*)(tile_group_header->GetReservedFieldRef(tuple_id) + LAST_READER_OFFSET);
   
-  // cid_t current_cid = current_txn->GetBeginCommitId();
-
   cid_t current_cid = current_txn->upper_bound_cid_;
 
   GetSpinlockField(tile_group_header, tuple_id)->Lock();
@@ -145,6 +143,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
       return VISIBILITY_DELETED;
     } else {
       // aborted tuple
+      // printf("line 146\n");
       return VISIBILITY_INVISIBLE;
     }
   }
@@ -161,6 +160,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
       return VISIBILITY_DELETED;
     } else {
       // old version of the tuple that is being updated by current txn
+      // printf("line 163\n");
       return VISIBILITY_INVISIBLE;
     }
   } else {
@@ -178,7 +178,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
           return VISIBILITY_OK;
         } else {
           // if (is_rescue == true)
-          // printf("line 180\n");
+      // printf("line 181\n");
           return VISIBILITY_INVISIBLE;
         }
       }
@@ -188,7 +188,7 @@ VisibilityType TsOrderOptN2OTxnManager::IsVisible(
         return VISIBILITY_OK;
       } else {
         // if (is_rescue == true)
-        // printf("line 189, (%lu, %lu), (%lu, %lu)\n", current_txn->lower_bound_cid_, current_txn->upper_bound_cid_, tuple_begin_cid, tuple_end_cid);
+        // printf("line 189, (%lu, %lu), (%lu, %lu), %lu\n", current_txn->lower_bound_cid_, current_txn->upper_bound_cid_, tuple_begin_cid, tuple_end_cid, current_txn->GetBeginCommitId());
         return VISIBILITY_INVISIBLE;
       }
     }

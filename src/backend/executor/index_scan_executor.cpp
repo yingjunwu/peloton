@@ -398,7 +398,21 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
       else {
 
         // Break for new to old
-        if (concurrency::TransactionManagerFactory::IsN2O() == true
+        if (concurrency::TransactionManagerFactory::IsOptN2O() == true) {
+          if (tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
+          && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->lower_bound_cid_) {
+            // See an invisible version that does not belong to any one in a new to old version chain.
+            // In such case, we assert that there should be either a deleted version or a newly updated version.
+            // So we just wire back using the index head ptr stored in the reserve field.
+            tuple_location = *(transaction_manager.GetHeadPtr(tile_group_header, tuple_location.offset));
+            tile_group = manager.GetTileGroup(tuple_location.block);
+            tile_group_header = tile_group.get()->GetHeader();
+            chain_length = 0;
+            continue;
+          }
+        } 
+        // Break for new to old
+        else if (concurrency::TransactionManagerFactory::IsN2O() == true
           && tile_group_header->GetTransactionId(tuple_location.offset) == INITIAL_TXN_ID
           && tile_group_header->GetEndCommitId(tuple_location.offset) <= concurrency::current_txn->GetBeginCommitId()) {
           // See an invisible version that does not belong to any one in a new to old version chain.

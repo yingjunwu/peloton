@@ -294,6 +294,8 @@ extern bool print_flag;
  * be set as the standard operator in C++ (i.e. the operator for primitive types
  * AND/OR overloaded operators for derived types)
  */
+
+constexpr static NodeID INVALID_NODE_ID = 0;
 template <typename KeyType,
           typename ValueType,
           typename KeyComparator = std::less<KeyType>,
@@ -370,7 +372,6 @@ class BwTree {
 
   // This constant represents INVALID_NODE_ID which is used as an indication
   // that the node is actually the last node on that level
-  constexpr static NodeID INVALID_NODE_ID = 0;
 
   // The NodeID for the first leaf is fixed, which is 2
   constexpr static NodeID FIRST_LEAF_NODE_ID = 2;
