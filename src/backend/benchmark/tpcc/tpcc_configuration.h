@@ -97,6 +97,7 @@ class configuration {
 
   double abort_rate;
 
+
   double payment_throughput;
 
   double payment_abort_rate;
@@ -104,6 +105,19 @@ class configuration {
   double new_order_throughput;
 
   double new_order_abort_rate;
+
+  double delivery_throughput;
+
+  double delivery_abort_rate;
+
+  double stock_level_throughput;
+
+  double stock_level_abort_rate;
+
+  double order_status_throughput;
+
+  double order_status_abort_rate;
+
 
   double stock_level_latency;
 

@@ -43,8 +43,9 @@ static void WriteOutput() {
     total_snapshot_memory);
   LOG_INFO("payment: %lf tps, %lf", state.payment_throughput, state.payment_abort_rate);
   LOG_INFO("new_order: %lf tps, %lf", state.new_order_throughput, state.new_order_abort_rate);
-  LOG_INFO("stock_level latency: %lf us", state.stock_level_latency);
-  LOG_INFO("order_status latency: %lf us", state.order_status_latency);
+  LOG_INFO("delivery: %lf tps, %lf", state.delivery_throughput, state.delivery_abort_rate);
+  LOG_INFO("stock_level: %lf tps, %lf, %lf us", state.stock_level_throughput, state.stock_level_abort_rate, state.stock_level_latency);
+  LOG_INFO("order_status: %lf tps, %lf, %lf us", state.order_status_throughput, state.order_status_abort_rate, state.order_status_latency);
   LOG_INFO("scan_stock latency: %lf us", state.scan_stock_latency);
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
