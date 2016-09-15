@@ -75,8 +75,8 @@ class TransactionManagerFactory {
        return OptimisticBestN2OTxnManager::GetInstance();
       case CONCURRENCY_TYPE_OCC_SV:
        return OptimisticSVTxnManager::GetInstance();
-      // case CONCURRENCY_TYPE_OCC_OPT_N2O:
-      //   return OptimisticOptN2OTxnManager::GetInstance();
+      case CONCURRENCY_TYPE_OCC_OPT_N2O:
+        return OptimisticOptN2OTxnManager::GetInstance();
       default:
         LOG_ERROR("please set a valid protocol!");
        return OptimisticTxnManager::GetInstance();
