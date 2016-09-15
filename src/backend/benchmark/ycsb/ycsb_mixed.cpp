@@ -208,18 +208,21 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
   std::unordered_set<uint64_t> lookup_map;
 
+  int update_count = operation_count * update_ratio;
+  
   for (int i = 0; i < operation_count; i++) {
 
-    auto rng_val = rng.next_uniform();
+    // auto rng_val = rng.next_uniform();
 
     auto lookup_key = zipf.GetNextNumber();
 
-    // if (lookup_map.find(lookup_key) != lookup_map.end()) {
-    //   continue;
-    // }
-    // lookup_map.insert(lookup_key);
+    if (lookup_map.find(lookup_key) != lookup_map.end()) {
+      continue;
+    }
+    lookup_map.insert(lookup_key);
 
-    if (rng_val < update_ratio) {
+    if (i < update_count) {
+    //if (rng_val < update_ratio) {
       /////////////////////////////////////////////////////////
       // PERFORM UPDATE
       /////////////////////////////////////////////////////////
