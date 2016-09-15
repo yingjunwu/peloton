@@ -375,6 +375,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
                   }
 
                 } else {
+                  // cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_location.offset);
+                  // printf("not rescuable: (%lu, %lu), (%lu, %lu)\n", tuple_begin_cid, tuple_end_cid, concurrency::current_txn->lower_bound_cid_, concurrency::current_txn->upper_bound_cid_);
                   transaction_manager.SetTransactionResult(RESULT_FAILURE);
                   transaction_manager.AddRescueNotPossible();
                   return res;                  

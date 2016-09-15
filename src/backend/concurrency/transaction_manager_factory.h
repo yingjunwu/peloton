@@ -31,6 +31,7 @@
 #include "backend/concurrency/optimistic_best_n2o_txn_manager.h"
 #include "backend/concurrency/optimistic_sv_txn_manager.h"
 #include "backend/concurrency/optimistic_sv_best_txn_manager.h"
+#include "backend/concurrency/optimistic_opt_n2o_txn_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -74,6 +75,8 @@ class TransactionManagerFactory {
        return OptimisticBestN2OTxnManager::GetInstance();
       case CONCURRENCY_TYPE_OCC_SV:
        return OptimisticSVTxnManager::GetInstance();
+      case CONCURRENCY_TYPE_OCC_OPT_N2O:
+        return OptimisticOptN2OTxnManager::GetInstance();
       default:
         LOG_ERROR("please set a valid protocol!");
        return OptimisticTxnManager::GetInstance();
@@ -113,7 +116,8 @@ class TransactionManagerFactory {
   }
 
   static bool IsOptN2O() {
-    return protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O;
+    return protocol_ == CONCURRENCY_TYPE_TO_OPT_N2O ||
+           protocol_ == CONCURRENCY_TYPE_OCC_OPT_N2O;
   }
 
  private:

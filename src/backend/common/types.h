@@ -390,7 +390,8 @@ enum ConcurrencyType {
   CONCURRENCY_TYPE_TO_SV = 16,              // single-version timestamp ordering
   CONCURRENCY_TYPE_OCC_BEST_N2O = 17,       // non-serializable optimistic with new to old version chain
   CONCURRENCY_TYPE_OCC_SV = 18,             // single-version optimistic
-  CONCURRENCY_TYPE_OCC_SV_BEST = 19         // non-serializable single-version optimistic
+  CONCURRENCY_TYPE_OCC_SV_BEST = 19,        // non-serializable single-version optimistic
+  CONCURRENCY_TYPE_OCC_OPT_N2O = 20         // optimized optimistic concurrency control with new to old version chain
 };
 
 enum IsolationLevelType {

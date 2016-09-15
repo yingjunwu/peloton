@@ -214,6 +214,8 @@ bool TsOrderOptN2OTxnManager::IsOwnable(
   auto tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
   auto tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
   return tuple_txn_id == INITIAL_TXN_ID && tuple_end_cid == MAX_CID;
+
+  // return tuple_txn_id == INITIAL_TXN_ID && tuple_end_cid > current_txn->upper_bound_cid_;
 }
 
 bool TsOrderOptN2OTxnManager::AcquireOwnership(

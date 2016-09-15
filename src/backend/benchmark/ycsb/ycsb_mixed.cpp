@@ -206,9 +206,18 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
     txn = txn_manager.BeginTransaction();
   }
 
+  std::unordered_set<uint64_t> lookup_map;
+
   for (int i = 0; i < operation_count; i++) {
 
     auto rng_val = rng.next_uniform();
+
+    auto lookup_key = zipf.GetNextNumber();
+
+    // if (lookup_map.find(lookup_key) != lookup_map.end()) {
+    //   continue;
+    // }
+    // lookup_map.insert(lookup_key);
 
     if (rng_val < update_ratio) {
       /////////////////////////////////////////////////////////
@@ -219,8 +228,6 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
       // set up parameter values
       std::vector<Value> values;
-
-      auto lookup_key = zipf.GetNextNumber();
 
       values.push_back(ValueFactory::GetIntegerValue(lookup_key));
 
@@ -268,8 +275,6 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
       // set up parameter values
       std::vector<Value> values;
-
-      auto lookup_key = zipf.GetNextNumber();
 
       values.push_back(ValueFactory::GetIntegerValue(lookup_key));
 
