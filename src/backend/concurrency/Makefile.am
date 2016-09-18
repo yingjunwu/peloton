@@ -5,32 +5,13 @@
 ######################################################################
 
 concurrency_FILES = \
-    backend/concurrency/optimistic_txn_manager.cpp \
-    backend/concurrency/pessimistic_txn_manager.cpp \
-    backend/concurrency/ssi_txn_manager.cpp \
-    backend/concurrency/eager_write_txn_manager.cpp \
-    backend/concurrency/speculative_read_txn_manager.cpp \
-    backend/concurrency/ts_order_txn_manager.cpp \
-    backend/concurrency/ts_order_rb_txn_manager.cpp \
     backend/concurrency/ts_order_n2o_txn_manager.cpp \
-    backend/concurrency/optimistic_rb_txn_manager.cpp \
-    backend/concurrency/optimistic_n2o_txn_manager.cpp \
-    backend/concurrency/optimistic_opt_n2o_txn_manager.cpp \
-    backend/concurrency/ts_order_full_rb_txn_manager.cpp \
     backend/concurrency/transaction_manager.cpp \
     backend/concurrency/transaction.cpp \
     backend/concurrency/transaction_manager_factory.cpp \
     backend/concurrency/epoch_manager.cpp \
     backend/concurrency/epoch_manager_factory.cpp \
-    backend/concurrency/optimistic_central_rb_txn_manager.cpp \
-    backend/concurrency/ts_order_central_rb_txn_manager.cpp \
-    backend/concurrency/ts_order_full_central_rb_txn_manager.cpp \
-    backend/concurrency/rb_txn_manager.cpp \
-    backend/concurrency/ts_order_opt_n2o_txn_manager.cpp \
-    backend/concurrency/ts_order_sv_txn_manager.cpp \
-    backend/concurrency/optimistic_best_n2o_txn_manager.cpp \
-    backend/concurrency/optimistic_sv_txn_manager.cpp \
-    backend/concurrency/optimistic_sv_best_txn_manager.cpp
+    backend/concurrency/ts_order_opt_n2o_txn_manager.cpp
 
 concurrency_INCLUDES = \
 					   -I$(srcdir)/concurrency

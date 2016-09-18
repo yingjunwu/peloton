@@ -113,10 +113,12 @@ bool InsertExecutor::DExecute() {
       if (concurrency::TransactionManagerFactory::IsN2O() == true) {
         // If we are using OCC N2O txn manager, use another form of perform insert
         res = transaction_manager.PerformInsert(location, itemptr_ptr);
-      } else if (concurrency::TransactionManagerFactory::IsRB()
-        && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
-        res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
-      }  else {
+      }
+//      else if (concurrency::TransactionManagerFactory::IsRB()
+//        && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+//        res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+//      }
+      else {
         res = transaction_manager.PerformInsert(location);
       }
 
@@ -184,13 +186,15 @@ bool InsertExecutor::DExecute() {
       if (concurrency::TransactionManagerFactory::IsN2O() == true) {      
         // If we are using OCC N2O txn manager, use another form of perform insert
         res = transaction_manager.PerformInsert(location, itemptr_ptr);
-      } else if (concurrency::TransactionManagerFactory::IsRB()) {
-        if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
-          res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
-        } else {
-          res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
-        }
-      } else {
+      }
+//      else if (concurrency::TransactionManagerFactory::IsRB()) {
+//        if (index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_VERSION) {
+//          res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+//        } else {
+//          res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, itemptr_ptr);
+//        }
+//      }
+      else {
         res = transaction_manager.PerformInsert(location);
       }
 

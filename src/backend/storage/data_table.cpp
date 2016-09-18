@@ -30,8 +30,6 @@
 #include "backend/concurrency/transaction_manager_factory.h"
 #include "backend/index/index_factory.h"
 
-#include "backend/concurrency/optimistic_rb_txn_manager.h"
-
 namespace peloton {
 namespace storage {
 

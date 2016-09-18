@@ -223,9 +223,11 @@ void ExecutorTestsUtil::PopulateTable(storage::DataTable *table, int num_rows,
     if (concurrency::TransactionManagerFactory::IsN2O() == true) {
       // If we are using OCC N2O txn manager, use another form of perform insert
       res = transaction_manager.PerformInsert(location, itemptr_ptr);
-    } else if (concurrency::TransactionManagerFactory::IsRB()) {
-      res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
-    } else {
+    }
+//    else if (concurrency::TransactionManagerFactory::IsRB()) {
+//      res = ((concurrency::RBTxnManager*)&transaction_manager)->PerformInsert(location, rb_itemptr_ptr);
+//    }
+    else {
       res = transaction_manager.PerformInsert(location);
     }
 

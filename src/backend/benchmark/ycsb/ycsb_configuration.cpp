@@ -266,7 +266,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.declared = false;
   state.run_backoff = false;
   state.blind_write = false;
-  state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
+  state.protocol = CONCURRENCY_TYPE_TO_N2O;
   state.gc_protocol = GC_TYPE_OFF;
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
