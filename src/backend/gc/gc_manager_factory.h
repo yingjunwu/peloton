@@ -12,12 +12,8 @@
 
 #pragma once
 
-#include "backend/gc/cooperative_gc.h"
-#include "backend/gc/vacuum_gc.h"
 #include "backend/gc/off_gc.h"
-#include "backend/gc/n2o_gc.h"
 #include "backend/gc/n2o_txn_gc.h"
-#include "backend/gc/sv_gc.h"
 
 namespace peloton {
 namespace gc {
@@ -26,24 +22,20 @@ class GCManagerFactory {
  public:
   static GCManager &GetInstance() {
     switch (gc_type_) {
-      case GC_TYPE_CO:
-        return Cooperative_GCManager::GetInstance(gc_thread_count_);
-      case GC_TYPE_VACUUM:
-        return Vacuum_GCManager::GetInstance(gc_thread_count_);
-      case GC_TYPE_N2O:
-        return N2O_GCManager::GetInstance(gc_thread_count_);
       case GC_TYPE_N2O_TXN:
         return N2OTxn_GCManager::GetInstance(gc_thread_count_);
-      case GC_TYPE_SV:
-        return SV_GCManager::GetInstance();
       case GC_TYPE_OFF:
         return Off_GCManager::GetInstance();
       default:
-        return Cooperative_GCManager::GetInstance(gc_thread_count_);
+        return N2OTxn_GCManager::GetInstance(gc_thread_count_);
     }
   }
 
   static void Configure(GCType gc_type, int thread_count = default_gc_thread_count_) {
+    if (gc_type != GC_TYPE_OFF || gc_type != GC_TYPE_N2O_TXN) {
+      // Enforce the default
+      gc_type = GC_TYPE_N2O_TXN;
+    }
     gc_type_ = gc_type;
     gc_thread_count_ = thread_count;
   }

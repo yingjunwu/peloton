@@ -344,6 +344,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'p': {
         char *protocol = optarg;
+        bool valid_proto = false;
         if (strcmp(protocol, "occ") == 0) {
           state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
         } else if (strcmp(protocol, "pcc") == 0) {
@@ -370,12 +371,14 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_TO_RB;
         } else if (strcmp(protocol, "ton2o") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_N2O;
+          valid_proto = true;
         } else if (strcmp(protocol, "tofullrb") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
         } else if (strcmp(protocol, "to_full_central_rb") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
         } else if (strcmp(protocol, "tooptn2o") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
+          valid_proto = true;
         } else if (strcmp(protocol, "tosv") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_SV;
         } else if (strcmp(protocol, "occbestn2o") == 0) {
@@ -388,12 +391,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
           exit(EXIT_FAILURE);
         }
+
+        if (valid_proto == false) {
+          fprintf(stdout, "We no longer support %s, turn to default ton2o\n", protocol);
+          state.protocol = CONCURRENCY_TYPE_TO_N2O;
+        }
         break;
       }
       case 'g': {
         char *gc_protocol = optarg;
+        bool valid_gc = false;
         if (strcmp(gc_protocol, "off") == 0) {
           state.gc_protocol = GC_TYPE_OFF;
+          valid_gc = true;
         } else if (strcmp(gc_protocol, "va") == 0) {
           state.gc_protocol = GC_TYPE_VACUUM;
         } else if (strcmp(gc_protocol, "co") == 0) {
@@ -402,11 +412,17 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.gc_protocol = GC_TYPE_N2O;
         } else if (strcmp(gc_protocol, "n2otxn") == 0) {
           state.gc_protocol = GC_TYPE_N2O_TXN;
+          valid_gc = true;
         } else if (strcmp(gc_protocol, "sv") == 0 ) {
           state.gc_protocol = GC_TYPE_SV;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);
+        }
+
+        if (valid_gc == false) {
+          fprintf(stdout, "We no longer support %s, turn to default gc-off\n", gc_protocol);
+          state.gc_protocol = GC_TYPE_OFF;
         }
         break;
       }

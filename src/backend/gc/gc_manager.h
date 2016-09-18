@@ -35,15 +35,6 @@ namespace gc {
 #define MAX_QUEUE_LENGTH 100000
 
 #define GC_PERIOD_MILLISECONDS 100
-class GCBuffer {
-public:
-  GCBuffer(oid_t tid):table_id(tid), garbage_tuples() {}
-  virtual ~GCBuffer();
-  inline void AddGarbage(const ItemPointer& itemptr) {garbage_tuples.push_back(itemptr);}
-private:
-  oid_t table_id;
-  std::vector<ItemPointer> garbage_tuples;
-};
 
 class GCManager {
  public:

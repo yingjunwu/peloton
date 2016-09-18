@@ -268,7 +268,6 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
 
   // The deconstructor of the GC buffer
   // will automatically register garbage to GC manager
-  gc::GCBuffer garbage_tuples(table_->GetOid());
 
   // for every tuple that is found in the index.
   for (auto tuple_location_ptr : tuple_location_ptrs) {
@@ -281,8 +280,6 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
 
     size_t chain_length = 0;
 
-    cid_t max_committed_cid =
-     (gc::GCManagerFactory::GetGCType() == GC_TYPE_CO) ? transaction_manager.GetMaxCommittedCid() : 0;
     while (true) {
       ++chain_length;
 
@@ -429,8 +426,6 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
 
         ItemPointer old_item = tuple_location;
         tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
-        cid_t old_end_cid = tile_group_header->GetEndCommitId(old_item.offset);
-
 
         // there must exist a visible version.
 
@@ -453,85 +448,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
           return false;
         }
 
-
-        if(gc::GCManagerFactory::GetGCType() != GC_TYPE_CO){
-          // if it is vacuum GC or no GC.
-          tile_group = manager.GetTileGroup(tuple_location.block);
-          tile_group_header = tile_group.get()->GetHeader();
-          continue;
-        }
-
-        /////////////////////////////////////////////////////////
-        // COOPERATIVE GC
-        /////////////////////////////////////////////////////////
-
-        // it must be cooperative GC.
-        assert(gc::GCManagerFactory::GetGCType() == GC_TYPE_CO);
-        assert(concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_N2O && 
-          concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_OCC_N2O &&
-          concurrency::TransactionManagerFactory::GetProtocol() != CONCURRENCY_TYPE_TO_OPT_N2O);
-
-        if (old_end_cid <= max_committed_cid) {
-          // if the older version is a garbage.
-          assert(tile_group_header->GetTransactionId(old_item.offset) == INITIAL_TXN_ID
-                 || tile_group_header->GetTransactionId(old_item.offset) == INVALID_TXN_ID);
-
-          if (tile_group_header->SetAtomicTransactionId(old_item.offset, INVALID_TXN_ID) == true) {
-
-            // atomically swap item pointer held in the index bucket.
-            AtomicUpdateItemPointer(tuple_location_ptr, tuple_location);
-
-            ////////////// delete from secondary indexes ///////////
-            // its ok to use any tile group, as it will not change the table pointed to.
-            storage::DataTable *table = 
-              dynamic_cast<storage::DataTable *>(tile_group->GetAbstractTable());
-            assert(table != nullptr);
-
-            size_t index_count = table->GetIndexCount();
-            if (index_count != 1) {
-              // if index count is larger than 1, then it means that 
-              // there exists secondary indexes.
-              assert(index_count != 0);
-
-              auto old_tile_group = manager.GetTileGroup(old_item.block);
-              
-              // construct the expired version.
-              std::unique_ptr<storage::Tuple> expired_tuple(
-                new storage::Tuple(table->GetSchema(), true));
-              tile_group->CopyTuple(old_item.offset, expired_tuple.get());
-
-              for (size_t idx = 0; idx < table->GetIndexCount(); ++idx) {
-                auto index = table->GetIndex(idx);
-                if (index->GetIndexType() != INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
-                  // if it's not primary key, then it must be a secondary index.
-                  auto index_schema = index->GetKeySchema();
-                  auto indexed_columns = index_schema->GetIndexedColumns();
-
-                  // build key.
-                  std::unique_ptr<storage::Tuple> key(
-                    new storage::Tuple(index_schema, true));
-                  key->SetFromTuple(expired_tuple.get(), indexed_columns, index->GetPool());
-
-                  LOG_TRACE("Deleting from secondary index");
-                  index->DeleteEntry(key.get(), old_item);
-                }
-              }
-            }
-
-            /////////////////////////////////////////////////////////
-
-
-            garbage_tuples.AddGarbage(old_item);
-
-            // reset the prev item pointer for the current version.
-            tile_group = manager.GetTileGroup(tuple_location.block);
-            tile_group_header = tile_group.get()->GetHeader();
-            tile_group_header->SetPrevItemPointer(tuple_location.offset, INVALID_ITEMPOINTER);
-
-            // Continue the while loop with the new header we get the index head ptr
-            continue;
-          }
-        }
+        PL_ASSERT(gc::GCManagerFactory::GetGCType() != GC_TYPE_CO);
+        // if it is vacuum GC or no GC.
         tile_group = manager.GetTileGroup(tuple_location.block);
         tile_group_header = tile_group.get()->GetHeader();
       }
