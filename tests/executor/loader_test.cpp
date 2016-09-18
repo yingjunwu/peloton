@@ -79,7 +79,7 @@ MakeProjectInfoFromTuple(const storage::Tuple *tuple) {
 
 void InsertTuple(storage::DataTable *table, VarlenPool *pool,
                  oid_t tilegroup_count_per_loader) {
-  auto &txn_manager = concurrency::OptimisticTxnManager::GetInstance();
+  auto &txn_manager = concurrency::TsOrderN2OTxnManager::GetInstance();
 
   oid_t tuple_count = tilegroup_count_per_loader * DEFAULT_TUPLES_PER_TILEGROUP;
 

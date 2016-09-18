@@ -12,26 +12,8 @@
 
 #pragma once
 
-#include "backend/concurrency/optimistic_txn_manager.h"
-#include "backend/concurrency/pessimistic_txn_manager.h"
-#include "backend/concurrency/speculative_read_txn_manager.h"
-#include "backend/concurrency/eager_write_txn_manager.h"
-#include "backend/concurrency/ts_order_txn_manager.h"
-#include "backend/concurrency/ssi_txn_manager.h"
-#include "backend/concurrency/optimistic_rb_txn_manager.h"
-#include "backend/concurrency/optimistic_central_rb_txn_manager.h"
-#include "backend/concurrency/ts_order_central_rb_txn_manager.h"
-#include "backend/concurrency/optimistic_n2o_txn_manager.h"
-#include "backend/concurrency/ts_order_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_n2o_txn_manager.h"
-#include "backend/concurrency/ts_order_full_rb_txn_manager.h"
-#include "backend/concurrency/ts_order_full_central_rb_txn_manager.h"
 #include "backend/concurrency/ts_order_opt_n2o_txn_manager.h"
-#include "backend/concurrency/ts_order_sv_txn_manager.h"
-#include "backend/concurrency/optimistic_best_n2o_txn_manager.h"
-#include "backend/concurrency/optimistic_sv_txn_manager.h"
-#include "backend/concurrency/optimistic_sv_best_txn_manager.h"
-#include "backend/concurrency/optimistic_opt_n2o_txn_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -39,47 +21,13 @@ class TransactionManagerFactory {
  public:
   static TransactionManager &GetInstance() {
     switch (protocol_) {
-      case CONCURRENCY_TYPE_OPTIMISTIC:
-       return OptimisticTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_PESSIMISTIC:
-       return PessimisticTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_SPECULATIVE_READ:
-       return SpeculativeReadTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_EAGER_WRITE:
-       return EagerWriteTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_SSI:
-       return SsiTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_TO:
-       return TsOrderTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_OCC_RB:
-       return OptimisticRbTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_OCC_CENTRAL_RB:
-       return OptimisticCentralRbTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_TO_CENTRAL_RB:
-       return TsOrderCentralRbTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_OCC_N2O:
-       return OptimisticN2OTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_TO_RB:
-       return TsOrderRbTxnManager::GetInstance();
       case CONCURRENCY_TYPE_TO_N2O:
        return TsOrderN2OTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_TO_FULL_RB:
-       return TsOrderFullRbTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB:
-       return TsOrderFullCentralRbTxnManager::GetInstance();
       case CONCURRENCY_TYPE_TO_OPT_N2O:
        return TsOrderOptN2OTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_TO_SV:
-       return TsOrderSVTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_OCC_BEST_N2O:
-       return OptimisticBestN2OTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_OCC_SV:
-       return OptimisticSVTxnManager::GetInstance();
-      case CONCURRENCY_TYPE_OCC_OPT_N2O:
-        return OptimisticOptN2OTxnManager::GetInstance();
       default:
         LOG_ERROR("please set a valid protocol!");
-       return OptimisticTxnManager::GetInstance();
+       return TsOrderN2OTxnManager::GetInstance();
     }
   }
 
