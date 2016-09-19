@@ -26,13 +26,13 @@ static oid_t next_table_id = 0;
 class IsolationLevelTest : public PelotonTest {};
 
 static std::vector<ConcurrencyType> TEST_TYPES = {
-  CONCURRENCY_TYPE_OPTIMISTIC,
+  // CONCURRENCY_TYPE_OPTIMISTIC,
   // CONCURRENCY_TYPE_PESSIMISTIC,
   // CONCURRENCY_TYPE_SSI,
   // CONCURRENCY_TYPE_EAGER_WRITE,
   // CONCURRENCY_TYPE_TO,
   // CONCURRENCY_TYPE_OCC_N2O,
-  // CONCURRENCY_TYPE_TO_N2O,
+  CONCURRENCY_TYPE_TO_N2O,
   // CONCURRENCY_TYPE_TO_OPT_N2O,
   // CONCURRENCY_TYPE_OCC_RB,
   // CONCURRENCY_TYPE_TO_RB,
@@ -447,16 +447,44 @@ void SIAnomalyTest1() {
 //   }
 // }
 
-TEST_F(IsolationLevelTest, SerializableTest) {
+TEST_F(IsolationLevelTest, DirtyWriteTest) {
   for (auto test_type : TEST_TYPES) {
-    concurrency::TransactionManagerFactory::Configure(
-        test_type, ISOLATION_LEVEL_TYPE_FULL);
+    concurrency::TransactionManagerFactory::Configure(test_type, ISOLATION_LEVEL_TYPE_FULL);
     DirtyWriteTest();
+  }
+}
+
+TEST_F(IsolationLevelTest, DirtyReadTest) {
+  for (auto test_type : TEST_TYPES) {
+    concurrency::TransactionManagerFactory::Configure(test_type, ISOLATION_LEVEL_TYPE_FULL);
     DirtyReadTest();
+  }
+}
+
+TEST_F(IsolationLevelTest, FuzzyReadTest) {
+  for (auto test_type : TEST_TYPES) {
+    concurrency::TransactionManagerFactory::Configure(test_type, ISOLATION_LEVEL_TYPE_FULL);
     FuzzyReadTest();
-    // WriteSkewTest();
+  }
+}
+
+TEST_F(IsolationLevelTest, ReadSkewTest) {
+  for (auto test_type : TEST_TYPES) {
+    concurrency::TransactionManagerFactory::Configure(test_type, ISOLATION_LEVEL_TYPE_FULL);
     ReadSkewTest();
+  }
+}
+
+TEST_F(IsolationLevelTest, PahtomTest) {
+  for (auto test_type : TEST_TYPES) {
+    concurrency::TransactionManagerFactory::Configure(test_type, ISOLATION_LEVEL_TYPE_FULL);
     PhantomTest();
+  }
+}
+
+TEST_F(IsolationLevelTest, SIAnomalyTest1) {
+  for (auto test_type : TEST_TYPES) {
+    concurrency::TransactionManagerFactory::Configure(test_type, ISOLATION_LEVEL_TYPE_FULL);
     SIAnomalyTest1();
   }
 }

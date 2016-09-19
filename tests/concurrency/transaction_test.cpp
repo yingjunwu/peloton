@@ -33,8 +33,8 @@ static std::vector<ConcurrencyType> TEST_TYPES = {
   // CONCURRENCY_TYPE_EAGER_WRITE,
   // CONCURRENCY_TYPE_TO,
   // CONCURRENCY_TYPE_OCC_N2O,
-  // CONCURRENCY_TYPE_TO_N2O,
-  CONCURRENCY_TYPE_TO_OPT_N2O,
+  CONCURRENCY_TYPE_TO_N2O,
+  // CONCURRENCY_TYPE_TO_OPT_N2O,
   // CONCURRENCY_TYPE_OCC_RB,
   // CONCURRENCY_TYPE_TO_RB,
   // CONCURRENCY_TYPE_TO_FULL_RB,
@@ -68,7 +68,6 @@ TEST_F(TransactionTests, TransactionTest) {
 
     LaunchParallelTest(8, TransactionTest, &txn_manager);
 
-    LOG_INFO("next Commit Id :: %lu", txn_manager.GetNextCommitId());
   }
 }
 

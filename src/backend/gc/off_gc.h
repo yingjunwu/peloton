@@ -43,7 +43,7 @@ public:
   virtual void RecycleOldTupleSlot(const oid_t __attribute__((unused))&table_id,
                                    const oid_t __attribute__((unused))&tile_group_id,
                                    const oid_t __attribute__((unused))&tuple_id,
-                                   const cid_t __attribute__((unused))&tuple_end_cid) {}
+                                   const size_t __attribute__((unused)) epoch_id) {}
 
   // recycle invalid version
   virtual void RecycleInvalidTupleSlot(const oid_t __attribute__((unused))&table_id,

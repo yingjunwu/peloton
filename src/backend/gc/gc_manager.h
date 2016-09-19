@@ -50,7 +50,7 @@ class GCManager {
   virtual void CreateGCContext() {};
 
   // WARNING: This function must be called before the current_txn is distructed
-  virtual void EndGCContext(cid_t ts __attribute__((unused))) {};
+  virtual void EndGCContext(size_t eid __attribute__((unused))) {};
 
   // Get status of whether GC thread is running or not
   virtual bool GetStatus() = 0;
@@ -61,7 +61,7 @@ class GCManager {
 
   // recycle old version
   virtual void RecycleOldTupleSlot(const oid_t &table_id, const oid_t &tile_group_id,
-                        const oid_t &tuple_id, const cid_t &tuple_end_cid) = 0;
+                        const oid_t &tuple_id, const size_t epoch_id) = 0;
 
   // recycle invalid version
   virtual void RecycleInvalidTupleSlot(const oid_t &table_id, const oid_t &tile_group_id, const oid_t &tuple_id) = 0;

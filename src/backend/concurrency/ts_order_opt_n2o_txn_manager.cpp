@@ -846,14 +846,14 @@ Result TsOrderOptN2OTxnManager::AbortTransaction() {
     }
   }
 
-  cid_t next_commit_id = GetNextCommitId();
+  size_t next_eid = EpochManagerFactory::GetInstance().GetCurrentEpoch();
 
   for (auto &item_pointer : aborted_versions) {
-     RecycleOldTupleSlot(item_pointer.block, item_pointer.offset, next_commit_id);
+    RecycleOldTupleSlot(item_pointer.block, item_pointer.offset, next_eid);
   }
 
   // Need to change next_commit_id to INVALID_CID if disable the recycle of aborted version
-  gc::GCManagerFactory::GetInstance().EndGCContext(next_commit_id);
+  gc::GCManagerFactory::GetInstance().EndGCContext(next_eid);
   EndTransaction();
   return Result::RESULT_ABORTED;
 }

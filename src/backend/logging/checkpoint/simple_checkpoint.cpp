@@ -72,8 +72,8 @@ void SimpleCheckpoint::DoCheckpoint() {
 
   start_commit_id_ = log_manager.GetGlobalMaxFlushedCommitId();
   if (start_commit_id_ == INVALID_CID) {
-    auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-    start_commit_id_ = txn_manager.GetMaxCommittedCid();
+    // TODO: THIS IS INCORRECT! Checkpoint should be a txn
+    start_commit_id_ = ((concurrency::EpochManagerFactory::GetInstance().GetReadonlyEid()) << 32) | 0xffffffff;
   }
 
   LOG_TRACE("DoCheckpoint cid = %lu", start_commit_id_);

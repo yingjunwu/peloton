@@ -804,6 +804,13 @@ static const cid_t START_CID = 2;
 
 static const cid_t MAX_CID = std::numeric_limits<cid_t>::max();
 
+// For epoch id
+static const size_t INVALID_EPOCH_ID = 0;
+
+static const size_t START_EPOCH_ID = 1;
+
+static const size_t MAX_EPOCH_ID = std::numeric_limits<unsigned int>::max();
+
 //===--------------------------------------------------------------------===//
 // TupleMetadata
 //===--------------------------------------------------------------------===//
@@ -811,9 +818,9 @@ struct TupleMetadata {
   oid_t table_id;
   oid_t tile_group_id;
   oid_t tuple_slot_id;
-  cid_t tuple_end_cid;
+  size_t tuple_end_epoch_id;
 
-  TupleMetadata():table_id(0), tile_group_id(0), tuple_slot_id(0), tuple_end_cid(0){}
+  TupleMetadata():table_id(0), tile_group_id(0), tuple_slot_id(0), tuple_end_epoch_id(INVALID_EPOCH_ID){}
 };
 
 //===--------------------------------------------------------------------===//

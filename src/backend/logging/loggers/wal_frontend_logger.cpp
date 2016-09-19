@@ -382,9 +382,8 @@ void WriteAheadFrontendLogger::DoRecovery() {
 }
 
 void WriteAheadFrontendLogger::RecoverIndex() {
-  auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   LOG_TRACE("Recovering the indexes");
-  cid_t cid = txn_manager.GetNextCommitId();
+  cid_t cid = concurrency::EpochManagerFactory::GetInstance().GetSafeMaxCid();
   LOG_TRACE("Index Recovery got Next commit id as %d", (int)cid);
 
   auto &catalog_manager = catalog::Manager::GetInstance();
