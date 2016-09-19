@@ -809,7 +809,7 @@ static const size_t INVALID_EPOCH_ID = 0;
 
 static const size_t START_EPOCH_ID = 1;
 
-static const size_t MAX_EPOCH_ID = std::numeric_limits<unsigned int>::max();
+static const size_t MAX_EPOCH_ID = std::numeric_limits<size_t >::max();
 
 //===--------------------------------------------------------------------===//
 // TupleMetadata

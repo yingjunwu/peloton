@@ -125,7 +125,7 @@ class TransactionManager {
   }
 
   void RecycleOldTupleSlot(const oid_t &tile_group_id, const oid_t &tuple_id,
-                           const cid_t &tuple_end_cid) {
+                           const size_t tuple_eid) {
     if(gc::GCManagerFactory::GetGCType() == GC_TYPE_VACUUM
     || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O
     || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_TXN) {
@@ -138,7 +138,7 @@ class TransactionManager {
         catalog::Manager::GetInstance().GetTileGroup(tile_group_id);
 
       gc_instance.RecycleOldTupleSlot(
-        tile_group->GetTableId(), tile_group_id, tuple_id, tuple_end_cid);
+        tile_group->GetTableId(), tile_group_id, tuple_id, tuple_eid);
     }
   }
 
