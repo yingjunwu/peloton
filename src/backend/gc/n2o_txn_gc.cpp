@@ -240,11 +240,11 @@ namespace peloton {
 
     void N2OTxn_GCManager::ClearGarbage(int thread_id) {
       while(!unlink_queues_[thread_id]->IsEmpty() || !local_unlink_queues_[thread_id].empty()) {
-        Unlink(thread_id, MAX_CID);
+        Unlink(thread_id, MAX_EPOCH_ID);
       }
 
       while(reclaim_maps_[thread_id].size() != 0) {
-        Reclaim(thread_id, MAX_CID);
+        Reclaim(thread_id, MAX_EPOCH_ID);
       }
 
       return;

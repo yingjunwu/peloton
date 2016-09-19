@@ -27,14 +27,14 @@ class GCManagerFactory {
       case GC_TYPE_OFF:
         return Off_GCManager::GetInstance();
       default:
-        return N2OTxn_GCManager::GetInstance(gc_thread_count_);
+        return Off_GCManager::GetInstance();
     }
   }
 
   static void Configure(GCType gc_type, int thread_count = default_gc_thread_count_) {
-    if (gc_type != GC_TYPE_OFF || gc_type != GC_TYPE_N2O_TXN) {
+    if (gc_type != GC_TYPE_OFF && gc_type != GC_TYPE_N2O_TXN) {
       // Enforce the default
-      gc_type = GC_TYPE_N2O_TXN;
+      gc_type = GC_TYPE_OFF;
     }
     gc_type_ = gc_type;
     gc_thread_count_ = thread_count;

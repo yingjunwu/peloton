@@ -616,7 +616,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
                                                 INITIAL_TXN_ID);
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
         // GC recycle.
-        RecycleOldTupleSlot(tile_group_id, tuple_slot, end_commit_id);
+        RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
@@ -641,7 +641,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
         // GC recycle.
-        RecycleOldTupleSlot(tile_group_id, tuple_slot, end_commit_id);
+        RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==
