@@ -27,9 +27,9 @@ namespace peloton {
   namespace gc {
     struct GarbageContext {
       std::vector<TupleMetadata> garbages;
-      cid_t timestamp;
+      size_t epoch_id;
 
-      GarbageContext() : garbages(), timestamp(INVALID_CID) {}
+      GarbageContext() : garbages(), epoch_id(0) {}
     };
 
     extern thread_local GarbageContext *current_garbage_context;
@@ -78,7 +78,7 @@ namespace peloton {
       }
 
       virtual void RecycleOldTupleSlot(const oid_t &table_id, const oid_t &tile_group_id,
-                                       const oid_t &tuple_id, const cid_t &tuple_end_cid);
+                                       const oid_t &tuple_id, const size_t epoch_id);
 
       virtual void RecycleInvalidTupleSlot(const oid_t &table_id __attribute__((unused)),
                                            const oid_t &tile_group_id __attribute__((unused)),
@@ -99,24 +99,24 @@ namespace peloton {
 
       virtual void CreateGCContext();
 
-      virtual void EndGCContext(cid_t ts);
+      virtual void EndGCContext(size_t eid);
 
     private:
       void StartGC(int thread_id);
 
       void StopGC(int thread_id);
 
-      inline unsigned int HashToThread(const cid_t &ts) {
-        return (unsigned int)ts % gc_thread_count_;
+      inline unsigned int HashToThread(const size_t eid) {
+        return (unsigned int)eid % gc_thread_count_;
       }
 
       void ClearGarbage(int thread_id);
 
       void Running(int thread_id);
 
-      void Reclaim(int thread_id, const cid_t &max_cid);
+      void Reclaim(int thread_id, const size_t max_eid);
 
-      void Unlink(int thread_id, const cid_t &max_cid);
+      void Unlink(int thread_id, const size_t max_eid);
 
       void AddToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx);
 
@@ -141,7 +141,7 @@ namespace peloton {
       // The key is the timestamp when the garbage is identified, value is the
       // metadata of the garbage.
       // TODO: use shared pointer to reduce memory copy
-      std::vector<std::multimap<cid_t, std::shared_ptr<GarbageContext>>> reclaim_maps_;
+      std::vector<std::multimap<size_t, std::shared_ptr<GarbageContext>>> reclaim_maps_;
 
       // TODO: use shared pointer to reduce memory copy
       // table_id -> queue

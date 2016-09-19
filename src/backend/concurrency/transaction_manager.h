@@ -65,7 +65,7 @@ class TransactionManager {
 
   txn_id_t GetNextTransactionId() { return next_txn_id_++; }
 
-  cid_t GetNextCommitId() { return next_cid_++; }
+  // cid_t GetNextCommitId() { return next_cid_++; }
 
   bool IsOccupied(const void *position_ptr);
 
@@ -160,12 +160,12 @@ class TransactionManager {
   Transaction *BeginReadonlyTransaction() {
     txn_id_t txn_id = READONLY_TXN_ID;
     auto &epoch_manager = EpochManagerFactory::GetInstance();
-    cid_t begin_cid = epoch_manager.GetReadOnlyTxnCid();
+    cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
+    size_t eid = EpochManager::GetEidFromCid(begin_cid);
+
     Transaction *txn = new Transaction(txn_id, true, begin_cid);
 
     latest_read_ts = begin_cid;
-
-    auto eid = epoch_manager.EnterReadOnlyEpoch(begin_cid);
     txn->SetEpochId(eid);
 
     current_txn = txn;
@@ -201,13 +201,6 @@ class TransactionManager {
     return nullptr;
   }
 
-
-  // this function generates the maximum commit id of committed transactions.
-  // please note that this function only returns a "safe" value instead of a
-  // precise value.
-  cid_t GetMaxCommittedCid() {
-    return EpochManagerFactory::GetInstance().GetMaxDeadTxnCid();
-  }
 
   inline void AddOneReadAbort() {
      ++read_abort_;

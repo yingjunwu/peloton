@@ -21,15 +21,15 @@ namespace peloton {
     }
 
     // WARNING: This function must be called before the current_txn is distructed
-    void N2OTxn_GCManager::EndGCContext(cid_t ts) {
-      if (ts == INVALID_CID) {
+    void N2OTxn_GCManager::EndGCContext(size_t eid) {
+      if (eid == INVALID_EPOCH_ID) {
         // Directly delete the context
         delete current_garbage_context;
       } else {
-        current_garbage_context->timestamp = ts;
+        current_garbage_context->epoch_id = eid;
         // Add the garbage context to the lockfree queue
         std::shared_ptr<GarbageContext> gc_context(current_garbage_context);
-        unlink_queues_[HashToThread(gc_context->timestamp)]->Enqueue(gc_context);
+        unlink_queues_[HashToThread(gc_context->epoch_id)]->Enqueue(gc_context);
       }
       // Reset the GC context (not necessary...)
       current_garbage_context = nullptr;
@@ -101,14 +101,13 @@ namespace peloton {
         std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
       while (true) {
 
-        auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-        auto max_cid = txn_manager.GetMaxCommittedCid();
+        size_t max_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
 
-        assert(max_cid != MAX_CID);
+        assert(max_eid != MAX_EPOCH_ID);
 
-        Reclaim(thread_id, max_cid);
+        Reclaim(thread_id, max_eid);
 
-        Unlink(thread_id, max_cid);
+        Unlink(thread_id, max_eid);
 
         if (is_running_ == false) {
           return;
@@ -117,18 +116,18 @@ namespace peloton {
     }
 
 // executed by a single thread. so no synchronization is required.
-    void N2OTxn_GCManager::Reclaim(int thread_id, const cid_t &max_cid) {
+    void N2OTxn_GCManager::Reclaim(int thread_id, const size_t max_eid) {
       int gc_counter = 0;
 
       // we delete garbage in the free list
       auto garbage_ctx = reclaim_maps_[thread_id].begin();
       while (garbage_ctx != reclaim_maps_[thread_id].end()) {
-        const cid_t garbage_ts = garbage_ctx->first;
+        const size_t garbage_eid = garbage_ctx->first;
         auto garbage_context = garbage_ctx->second;
 
         // if the timestamp of the garbage is older than the current max_cid,
         // recycle it
-        if (garbage_ts < max_cid) {
+        if (garbage_eid < max_eid) {
           AddToRecycleMap(garbage_context);
 
           // Remove from the original map
@@ -142,7 +141,7 @@ namespace peloton {
       LOG_TRACE("Marked %d txn contexts as recycled", gc_counter);
     }
 
-    void N2OTxn_GCManager::Unlink(int thread_id, const cid_t &max_cid) {
+    void N2OTxn_GCManager::Unlink(int thread_id, const size_t max_eid) {
       int tuple_counter = 0;
 
       // we check if any possible garbage is actually garbage
@@ -152,8 +151,8 @@ namespace peloton {
 
       // First iterate the local unlink queue
       local_unlink_queues_[thread_id].remove_if(
-        [this, &garbages, &tuple_counter, max_cid](const std::shared_ptr<GarbageContext>& g) -> bool {
-          bool res = g->timestamp  < max_cid;
+        [this, &garbages, &tuple_counter, max_eid](const std::shared_ptr<GarbageContext>& g) -> bool {
+          bool res = g->epoch_id  < max_eid;
           if (res) {
             for (auto t : g->garbages) {
               DeleteTupleFromIndexes(t);
@@ -173,7 +172,7 @@ namespace peloton {
           break;
         }
 
-        if (garbage_ctx->timestamp < max_cid) {
+        if (garbage_ctx->epoch_id < max_eid) {
           // Now that we know we need to recycle tuple, we need to delete all
           // tuples from the indexes to which it belongs as well.
           for (auto t : garbage_ctx->garbages) {
@@ -190,9 +189,9 @@ namespace peloton {
         }
       }  // end for
 
-      auto safe_max_cid = concurrency::TransactionManagerFactory::GetInstance().GetNextCommitId();
+      size_t current_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpoch();
       for(auto& item : garbages){
-          reclaim_maps_[thread_id].insert(std::make_pair(safe_max_cid, item));
+          reclaim_maps_[thread_id].insert(std::make_pair(current_eid, item));
       }
       LOG_TRACE("Marked %d tuples as garbage", tuple_counter);
     }
@@ -201,13 +200,13 @@ namespace peloton {
     void N2OTxn_GCManager::RecycleOldTupleSlot(const oid_t &table_id,
                                             const oid_t &tile_group_id,
                                             const oid_t &tuple_id,
-                                            const cid_t &tuple_end_cid) {
+                                            const size_t epoch_id) {
 
       TupleMetadata tuple_metadata;
       tuple_metadata.table_id = table_id;
       tuple_metadata.tile_group_id = tile_group_id;
       tuple_metadata.tuple_slot_id = tuple_id;
-      tuple_metadata.tuple_end_cid = tuple_end_cid;
+      tuple_metadata.tuple_end_epoch_id = epoch_id;
 
       current_garbage_context->garbages.push_back(tuple_metadata);
       LOG_TRACE("Marked tuple(%u, %u) in table %u as possible garbage",
