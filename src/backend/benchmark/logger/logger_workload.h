@@ -1,58 +1,61 @@
-// //===----------------------------------------------------------------------===//
-// //
-// //                         Peloton
-// //
-// // logger_workload.h
-// //
-// // Identification: src/backend/benchmark/logger/logger_workload.h
-// //
-// // Copyright (c) 2015-16, Carnegie Mellon University Database Group
-// //
-// //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+//
+//                         Peloton
+//
+// logger_workload.h
+//
+// Identification: src/include/benchmark/logger/logger_workload.h
+//
+// Copyright (c) 2015-16, Carnegie Mellon University Database Group
+//
+//===----------------------------------------------------------------------===//
 
-// #pragma once
 
-// #include <memory>
+#pragma once
 
-// #include "backend/benchmark/logger/logger_configuration.h"
+#include <memory>
 
-// namespace peloton {
+#include "benchmark/logger/logger_configuration.h"
 
-// namespace catalog {
-// class Column;
-// class Schema;
-// }
+namespace peloton {
 
-// namespace storage {
-// class Tuple;
-// class DataTable;
-// }
+namespace catalog {
+class Column;
+class Schema;
+}
 
-// namespace benchmark {
-// namespace logger {
+namespace storage {
+class Tuple;
+class DataTable;
+}
 
-// extern configuration state;
+namespace benchmark {
+namespace logger {
 
-// //===--------------------------------------------------------------------===//
-// // PREPARE LOG FILE
-// //===--------------------------------------------------------------------===//
+extern configuration state;
 
-// bool PrepareLogFile();
+//===--------------------------------------------------------------------===//
+// PREPARE LOG FILE
+//===--------------------------------------------------------------------===//
 
-// //===--------------------------------------------------------------------===//
-// // CHECK RECOVERY
-// //===--------------------------------------------------------------------===//
+bool SetupLoggingOnFollower();
 
-// void ResetSystem(void);
+bool PrepareLogFile();
 
-// void DoRecovery();
+//===--------------------------------------------------------------------===//
+// CHECK RECOVERY
+//===--------------------------------------------------------------------===//
 
-// //===--------------------------------------------------------------------===//
-// // WRITING LOG RECORD
-// //===--------------------------------------------------------------------===//
+void ResetSystem(void);
 
-// void BuildLog();
+void DoRecovery();
 
-// }  // namespace logger
-// }  // namespace benchmark
-// }  // namespace peloton
+//===--------------------------------------------------------------------===//
+// WRITING LOG RECORD
+//===--------------------------------------------------------------------===//
+
+void BuildLog();
+
+}  // namespace logger
+}  // namespace benchmark
+}  // namespace peloton

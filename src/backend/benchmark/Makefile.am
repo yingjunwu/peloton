@@ -16,19 +16,19 @@ benchmark_common_ldadd = libpelotonpg.la libpeloton.la -lpthread
 # LOGGER
 ######################################################################
 
-#logger_SOURCES =  
-#					backend/benchmark/logger/logger.cpp \
-#                    backend/benchmark/logger/logger_configuration.cpp \
-#                    backend/benchmark/logger/logger_workload.cpp \
-#                    backend/benchmark/logger/logger_loader.cpp \
-#                    backend/benchmark/ycsb/ycsb_configuration.cpp \
-#                    backend/benchmark/ycsb/ycsb_workload.cpp \
-#                    backend/benchmark/ycsb/ycsb_loader.cpp \
-#                    backend/benchmark/ycsb/ycsb_mixed.cpp
+logger_SOURCES =  
+					backend/benchmark/logger/logger.cpp \
+                    backend/benchmark/logger/logger_configuration.cpp \
+                    backend/benchmark/logger/logger_workload.cpp \
+                    backend/benchmark/ycsb/ycsb_configuration.cpp \
+                    backend/benchmark/ycsb/ycsb_workload.cpp \
+                    backend/benchmark/ycsb/ycsb_loader.cpp \
+                    backend/benchmark/ycsb/ycsb_mixed.cpp \
+                    backend/benchmark/ycsb/ycsb_scan.cpp
 
-#logger_LDFLAGS =
-#logger_CPPFLAGS = $(benchmark_common_cppflags)
-#logger_LDADD = $(benchmark_common_ldadd) -lboost_system -lboost_filesystem
+logger_LDFLAGS =
+logger_CPPFLAGS = $(benchmark_common_cppflags)
+logger_LDADD = $(benchmark_common_ldadd) -lboost_system -lboost_filesystem
 
 ######################################################################
 # YCSB

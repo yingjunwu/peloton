@@ -1,89 +1,101 @@
-// //===----------------------------------------------------------------------===//
-// //
-// //                         Peloton
-// //
-// // logger.cpp
-// //
-// // Identification: src/backend/benchmark/logger/logger.cpp
-// //
-// // Copyright (c) 2015-16, Carnegie Mellon University Database Group
-// //
-// //===----------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
+//
+//                         Peloton
+//
+// logger.cpp
+//
+// Identification: src/main/logger/logger.cpp
+//
+// Copyright (c) 2015-16, Carnegie Mellon University Database Group
+//
+//===----------------------------------------------------------------------===//
 
-// #include <iostream>
-// #include <fstream>
 
-// #include "backend/benchmark/logger/logger_configuration.h"
-// #include "backend/benchmark/logger/logger_workload.h"
-// #include "backend/benchmark/ycsb/ycsb_configuration.h"
-// #include "backend/benchmark/tpcc/tpcc_configuration.h"
+#include <iostream>
+#include <fstream>
+#include <thread>
 
-// // Logging mode
-// extern LoggingType peloton_logging_mode;
+#include "backend/benchmark/logger/logger_configuration.h"
+#include "backend/benchmark/logger/logger_workload.h"
+#include "backend/benchmark/ycsb/ycsb_configuration.h"
+#include "backend/benchmark/tpcc/tpcc_configuration.h"
 
-// extern size_t peloton_data_file_size;
+// Logging mode
+extern LoggingType peloton_logging_mode;
 
-// extern int64_t peloton_wait_timeout;
+extern CheckpointType peloton_checkpoint_mode;
 
-// namespace peloton {
-// namespace benchmark {
+extern size_t peloton_data_file_size;
 
-// namespace ycsb {
-// configuration state;
-// }
-// namespace tpcc {
-// configuration state;
-// }
+extern int64_t peloton_wait_timeout;
 
-// namespace logger {
+// Flush mode (for NVM WBL)
+extern int peloton_flush_mode;
 
-// // Configuration
-// configuration state;
+// PCOMMIT latency (for NVM WBL)
+extern int peloton_pcommit_latency;
 
-// // Main Entry Point
-// void RunBenchmark() {
+namespace peloton {
+namespace benchmark {
 
-//   // First, set the global peloton logging mode and pmem file size
-//   peloton_logging_mode = state.logging_type;
-//   peloton_data_file_size = state.data_file_size;
-//   peloton_wait_timeout = state.wait_timeout;
+namespace ycsb {
+configuration state;
+void CreateYCSBDatabase();
+}
+namespace tpcc {
+configuration state;
+}
 
-//   //===--------------------------------------------------------------------===//
-//   // WAL
-//   //===--------------------------------------------------------------------===//
-//   if (IsBasedOnWriteAheadLogging(peloton_logging_mode)) {
-//     // Prepare a simple log file
-//     PrepareLogFile();
+namespace logger {
 
-//     // Reset data
-//     ResetSystem();
+void StartLogging(std::thread &thread);
 
-//     // Do recovery
-//     DoRecovery();
+// Configuration
+configuration state;
 
-//   }
-//   //===--------------------------------------------------------------------===//
-//   // WBL
-//   //===--------------------------------------------------------------------===//
-//   else if (IsBasedOnWriteBehindLogging(peloton_logging_mode)) {
-//     // Test a simple log process
-//     PrepareLogFile();
+// Main Entry Point
+void RunBenchmark() {
+  // First, set the global peloton logging mode and pmem file size
+  peloton_logging_mode = state.logging_type;
+  peloton_data_file_size = state.data_file_size;
+  peloton_wait_timeout = state.wait_timeout;
+  peloton_flush_mode = state.flush_mode;
+  peloton_pcommit_latency = state.pcommit_latency;
 
-//     // Do recovery
-//     DoRecovery();
-//   }
+  //===--------------------------------------------------------------------===//
+  // WAL
+  //===--------------------------------------------------------------------===//
+  if (IsBasedOnWriteAheadLogging(peloton_logging_mode)) {
+    // Prepare a simple log file
+    PrepareLogFile();
 
-// }
+    // Reset data
+    ResetSystem();
 
-// }  // namespace logger
-// }  // namespace benchmark
-// }  // namespace peloton
+    // Do recovery
+    DoRecovery();
+  }
+  //===--------------------------------------------------------------------===//
+  // WBL
+  //===--------------------------------------------------------------------===//
+  else if (IsBasedOnWriteBehindLogging(peloton_logging_mode)) {
+    // Test a simple log process
+    PrepareLogFile();
 
-// int main(int argc, char **argv) {
-//   peloton::benchmark::logger::ParseArguments(argc, argv,
-//                                              peloton::benchmark::logger::state);
+    // Do recovery
+    DoRecovery();
+  }
+}
 
-//   peloton::benchmark::logger::RunBenchmark();
+}  // namespace logger
+}  // namespace benchmark
+}  // namespace peloton
 
-//   return 0;
-// }
+int main(int argc, char **argv) {
+  peloton::benchmark::logger::ParseArguments(argc, argv,
+                                             peloton::benchmark::logger::state);
+
+  peloton::benchmark::logger::RunBenchmark();
+
+  return 0;
+}
