@@ -221,9 +221,6 @@ void CleanUpLogDirectory() {
   if (chdir(state.log_file_dir.c_str())) {
     LOG_ERROR("Could not change directory");
   }
-  // remove wbl log file if it exists
-  std::string wbl_directory_path =
-      state.log_file_dir + logging::WriteBehindFrontendLogger::wbl_log_path;
 
   // remove wal log directory (for wal if it exists)
   // for now hardcode for 1 logger
@@ -232,8 +229,6 @@ void CleanUpLogDirectory() {
       logging::WriteAheadFrontendLogger::wal_directory_path;
 
   std::string checkpoint_dir_path = state.log_file_dir + "pl_checkpoint";
-
-  RemoveDirectory(wbl_directory_path.c_str());
 
   RemoveDirectory(wal_directory_path.c_str());
 }

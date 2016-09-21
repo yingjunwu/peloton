@@ -489,18 +489,14 @@ void TsOrderN2OTxnManager::PerformDelete(const ItemPointer &location) {
 Result TsOrderN2OTxnManager::CommitTransaction() {
   LOG_TRACE("Committing peloton txn : %lu ", current_txn->GetTransactionId());
 
-  // if (current_txn->IsReadOnly() == true) {
-  //   Result ret = current_txn->GetResult();
-
-  //   EndTransaction();
-
-  //   return ret;
-  // }
-
   auto &manager = catalog::Manager::GetInstance();
 
   // generate transaction id.
   cid_t end_commit_id = current_txn->GetBeginCommitId();
+
+  auto &log_manager = logging::LogManager::GetInstance();
+  log_manager.PrepareLogging();
+  log_manager.LogBeginTransaction(end_commit_id);
 
   auto &rw_set = current_txn->GetRWSet();
 
@@ -543,6 +539,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         // GC recycle.
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
+        // add to log manager
+        log_manager.LogUpdate(end_commit_id, ItemPointer(tile_group_id, tuple_slot), new_version);
+
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
             tile_group_header->GetPrevItemPointer(tuple_slot);
@@ -568,6 +567,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         // GC recycle.
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
+        // add to log manager
+        log_manager.LogDelete(end_commit_id, ItemPointer(tile_group_id, tuple_slot));
+
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==
                current_txn->GetTransactionId());
@@ -578,6 +580,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         COMPILER_MEMORY_FENCE;
 
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
+        
+        // add to log manager
+        log_manager.LogInsert(end_commit_id, ItemPointer(tile_group_id, tuple_slot));
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -597,6 +602,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   Result ret = current_txn->GetResult();
 
   gc::GCManagerFactory::GetInstance().EndGCContext(current_txn->GetEpochId());
+
+  log_manager.LogCommitTransaction(current_txn->GetBeginCommitId());
+
   EndTransaction();
 
   return ret;
@@ -605,6 +613,15 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 Result TsOrderN2OTxnManager::AbortTransaction() {
   LOG_TRACE("Aborting peloton txn : %lu ", current_txn->GetTransactionId());
   auto &manager = catalog::Manager::GetInstance();
+
+  // generate transaction id.
+  cid_t end_commit_id = current_txn->GetBeginCommitId();
+
+  auto &log_manager = logging::LogManager::GetInstance();
+  log_manager.PrepareLogging();
+  log_manager.LogBeginTransaction(end_commit_id);
+
+  log_manager.DoneLogging();
 
   auto &rw_set = current_txn->GetRWSet();
 
@@ -779,6 +796,7 @@ Result TsOrderN2OTxnManager::AbortTransaction() {
 
   // Need to change next_commit_id to INVALID_CID if disable the recycle of aborted version
   gc::GCManagerFactory::GetInstance().EndGCContext(next_eid);
+
   EndTransaction();
   return Result::RESULT_ABORTED;
 }

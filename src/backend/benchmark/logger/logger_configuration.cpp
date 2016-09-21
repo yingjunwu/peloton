@@ -31,9 +31,9 @@ void Usage(FILE* out) {
   fprintf(out,
           "Command line options :  logger <options> \n"
           "   -h --help              :  Print help message \n"
-          "   -f --data-file-size    :  Data file size (MB) \n"
-          "   -l --logging-type      :  Logging type \n"
-          "   -y --benchmark-type    :  Benchmark type \n");
+          "   -F --data-file-size    :  Data file size (MB) \n"
+          "   -L --logging-type      :  Logging type \n"
+          "   -Y --benchmark-type    :  Benchmark type \n");
 }
 
 static struct option opts[] = {
