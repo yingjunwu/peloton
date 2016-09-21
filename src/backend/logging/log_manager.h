@@ -144,10 +144,6 @@ class LogManager {
 
   std::string GetLogDirectoryName(void);
 
-  bool HasPelotonFrontendLogger() const {
-    return (peloton_logging_mode == LOGGING_TYPE_NVM_WBL);
-  }
-
   // Drop all default tiles for tables before recovery
   void PrepareRecovery();
 

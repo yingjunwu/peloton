@@ -64,7 +64,6 @@ WriteAheadFrontendLogger::WriteAheadFrontendLogger()
  */
 WriteAheadFrontendLogger::WriteAheadFrontendLogger(bool for_testing) {
   test_mode_ = for_testing;
-  logging_type = LOGGING_TYPE_NVM_WAL;
 
   // allocate pool
   recovery_pool = new VarlenPool(BACKEND_TYPE_MM);
@@ -78,7 +77,6 @@ WriteAheadFrontendLogger::WriteAheadFrontendLogger(bool for_testing) {
 WriteAheadFrontendLogger::WriteAheadFrontendLogger(std::string log_dir)
     : peloton_log_directory(log_dir) {
   LOG_TRACE("Instantiating wal_fel with log directory: %s", log_dir.c_str());
-  logging_type = LOGGING_TYPE_NVM_WAL;
 
   // allocate pool
   recovery_pool = new VarlenPool(BACKEND_TYPE_MM);

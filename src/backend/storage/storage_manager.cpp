@@ -311,41 +311,6 @@ StorageManager::StorageManager()
   // Check for relevant file system
   bool found_file_system = false;
 
-  switch (peloton_logging_mode) {
-    // Check for NVM FS for data
-    case LOGGING_TYPE_NVM_WBL: {
-      int status = stat(NVM_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        data_file_name = std::string(NVM_DIR) + std::string(DATA_FILE_NAME);
-        found_file_system = true;
-      }
-
-    } break;
-
-    // Check for SSD FS for data
-    case LOGGING_TYPE_SSD_WBL: {
-      int status = stat(SSD_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        data_file_name = std::string(SSD_DIR) + std::string(DATA_FILE_NAME);
-        found_file_system = true;
-      }
-
-    } break;
-
-    // Check for HDD FS
-    case LOGGING_TYPE_HDD_WBL: {
-      int status = stat(HDD_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        data_file_name = std::string(HDD_DIR) + std::string(DATA_FILE_NAME);
-        found_file_system = true;
-      }
-
-    } break;
-
-    default:
-      break;
-  }
-
   // Fallback to tmp directory if needed
   if (found_file_system == false) {
     int status = stat(TMP_DIR, &data_stat);
@@ -387,25 +352,6 @@ StorageManager::StorageManager()
 StorageManager::~StorageManager() {
 
   LOG_TRACE("Allocation count : %ld \n", allocation_count);
-
-  // Check if we need a PMEM pool
-  if (peloton_logging_mode != LOGGING_TYPE_NVM_WBL) return;
-
-  // sync and unmap the data file
-  if (data_file_address != nullptr) {
-    // sync the mmap'ed file to SSD or HDD
-    int status = msync(data_file_address, data_file_len, MS_SYNC);
-    if (status != 0) {
-      perror("msync");
-      exit(EXIT_FAILURE);
-    }
-
-    if (munmap(data_file_address, data_file_len) == MAP_FAILED) {
-      perror("munmap");
-      exit(EXIT_FAILURE);
-    }
-  }
-
 }
 
 void *StorageManager::Allocate(BackendType type, size_t size) {

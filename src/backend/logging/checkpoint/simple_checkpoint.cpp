@@ -67,7 +67,7 @@ void SimpleCheckpoint::DoCheckpoint() {
 
   auto &log_manager = LogManager::GetInstance();
   if (logger_ == nullptr) {
-    logger_.reset(BackendLogger::GetBackendLogger(LOGGING_TYPE_NVM_WAL));
+    logger_.reset(BackendLogger::GetBackendLogger(LOGGING_TYPE_ON));
   }
 
   start_commit_id_ = log_manager.GetGlobalMaxFlushedCommitId();

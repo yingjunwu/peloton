@@ -24,7 +24,6 @@ namespace logging {
 
 // constructor
 WriteAheadBackendLogger::WriteAheadBackendLogger() : BackendLogger() {
-  logging_type = LOGGING_TYPE_NVM_WAL;
   frontend_logger_id = -1;  // invalid
   LOG_TRACE("INSIDE CONSTRUCTOR");
 }

@@ -33,14 +33,7 @@ enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
 
   // Based on write ahead logging
-  LOGGING_TYPE_NVM_WAL = 1,
-  LOGGING_TYPE_SSD_WAL = 2,
-  LOGGING_TYPE_HDD_WAL = 3,
-
-  // Based on write behind logging
-  LOGGING_TYPE_NVM_WBL = 4,
-  LOGGING_TYPE_SSD_WBL = 5,
-  LOGGING_TYPE_HDD_WBL = 6
+  LOGGING_TYPE_ON = 1
 
 };
 
@@ -894,8 +887,6 @@ int64_t GetMaxTypeValue(ValueType type);
 bool HexDecodeToBinary(unsigned char *bufferdst, const char *hexString);
 
 bool IsBasedOnWriteAheadLogging(const LoggingType &logging_type);
-
-bool IsBasedOnWriteBehindLogging(const LoggingType &logging_type);
 
 BackendType GetBackendType(const LoggingType &logging_type);
 
