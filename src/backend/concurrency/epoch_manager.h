@@ -56,7 +56,7 @@ struct Epoch {
 
 class EpochManager {
   EpochManager(const EpochManager&) = delete;
-  static const int safety_interval_ = 2;
+  static const int safety_interval_ = 0;
   static const size_t low_32_bit_mask_ = 0xffffffff;
 
  public:
@@ -105,6 +105,16 @@ class EpochManager {
     size_t epoch_idx = epoch % epoch_queue_size_;
     epoch_queue_[epoch_idx].ro_txn_ref_count_++;
 
+    // Validation
+    auto epoch_validate = queue_tail_.load();
+    while (epoch != epoch_validate) {
+      epoch_queue_[epoch_idx].ro_txn_ref_count_--;
+      epoch = epoch_validate;
+      epoch_idx = epoch % epoch_queue_size_;
+      epoch_queue_[epoch_idx].ro_txn_ref_count_++;
+      epoch_validate = queue_tail_.load();
+    }
+
     return (epoch << 32) | low_32_bit_mask_;
   }
 
@@ -114,6 +124,17 @@ class EpochManager {
 
     size_t epoch_idx = epoch % epoch_queue_size_;
     epoch_queue_[epoch_idx].rw_txn_ref_count_++;
+
+    // Validation
+    auto epoch_validate = current_epoch_.load();
+    while (epoch_validate != epoch) {
+      epoch_queue_[epoch_idx].rw_txn_ref_count_--;
+      epoch = epoch_validate;
+      epoch_idx = epoch % epoch_queue_size_;
+      epoch_queue_[epoch_idx].rw_txn_ref_count_++;
+      epoch_validate = current_epoch_.load();
+    }
+
     auto id = epoch_queue_[epoch_idx].id_generator_++;
 
     return (epoch << 32) | (id & low_32_bit_mask_);
