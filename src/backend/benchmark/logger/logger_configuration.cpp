@@ -32,18 +32,21 @@ void Usage(FILE* out) {
           "Command line options :  logger <options> \n"
           "   -h --help              :  Print help message \n"
           "   -F --data-file-size    :  Data file size (MB) \n"
+          "   -D --log-file-dir      :  Log file directory \n"
           "   -L --logging-type      :  Logging type \n"
           "   -Y --benchmark-type    :  Benchmark type \n");
 }
 
 static struct option opts[] = {
     {"data-file-size", optional_argument, NULL, 'F'},
+    {"log-file-dir", optional_argument, NULL, 'D'},
     {"logging-type", optional_argument, NULL, 'L'},
     {"benchmark-type", optional_argument, NULL, 'Y'},
     {NULL, 0, NULL, 0}};
 
 static void ValidateLoggingType(const configuration& state) {
-  if (state.logging_type != LOGGING_TYPE_INVALID && state.logging_type != LOGGING_TYPE_ON) {
+  if (state.logging_type != LOGGING_TYPE_INVALID && 
+      state.logging_type != LOGGING_TYPE_ON) {
     LOG_ERROR("Invalid logging_type :: %d", state.logging_type);
     exit(EXIT_FAILURE);
   }
@@ -157,7 +160,7 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
     // logger - hW:F:L:
     // ycsb   - hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:
     // tpcc   - hae:r:k:w:d:s:b:p:g:i:t:q:y:f:
-    int c = getopt_long(argc, argv, "F:L:Y:hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:",
+    int c = getopt_long(argc, argv, "F:D:L:Y:hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:",
                         opts, &idx);
 
     if (c == -1) break;
@@ -166,6 +169,11 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
       case 'F':
         state.data_file_size = atoi(optarg);
         break;
+      case 'D': {
+        char *file_dir = optarg;
+        state.log_file_dir = std::string(file_dir);
+        break;
+      }
       case 'L':
         state.logging_type = (LoggingType)atoi(optarg);
         break;

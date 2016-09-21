@@ -246,9 +246,6 @@ bool PrepareLogFile() {
   if (IsBasedOnWriteAheadLogging(peloton_logging_mode)) {
     log_manager.SetLogFileName(state.log_file_dir + "/" +
                                logging::WriteAheadFrontendLogger::wal_directory_path);
-  } else {
-    LOG_ERROR("currently, we do not support write behind logging.");
-    PL_ASSERT(false);
   }
 
   UNUSED_ATTRIBUTE auto& checkpoint_manager = logging::CheckpointManager::GetInstance();
