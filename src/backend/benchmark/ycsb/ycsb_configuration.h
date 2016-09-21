@@ -156,7 +156,15 @@ void ValidateIndex(const configuration &state);
 
 void ValidateEpoch(const configuration &state);
 
+void ValidateZipfTheta(const configuration &state);
+
+void ValidateSecondaryIndex(const configuration &state);
+
+void ValidateSecondaryIndexScan(const configuration &state);
+
 void ParseArguments(int argc, char *argv[], configuration &state);
+
+void WriteOutput();
 
 }  // namespace ycsb
 }  // namespace benchmark

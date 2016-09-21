@@ -175,6 +175,8 @@ void ValidateOrderRange(const configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 
+void WriteOutput();
+
 }  // namespace tpcc
 }  // namespace benchmark
 }  // namespace peloton

@@ -69,20 +69,12 @@ std::ofstream out("outputfile.summary");
 
 static void WriteOutput() {
   LOG_INFO("----------------------------------------------------------");
-  LOG_INFO("%d %d %d %d %d %d", 
+  LOG_INFO("%d %d", 
            state.benchmark_type,
-           state.logging_type,
-           state.nvm_latency, 
-           state.pcommit_latency,
-           state.flush_mode, 
-           state.asynchronous_mode);
+           state.logging_type);
 
   out << state.benchmark_type << " ";
   out << state.logging_type << " ";
-  out << state.nvm_latency << " ";
-  out << state.pcommit_latency << " ";
-  out << state.flush_mode << " ";
-  out << state.asynchronous_mode << "\n";
   out.flush();
 }
 
@@ -279,27 +271,27 @@ bool PrepareLogFile() {
   storage_manager.Release(BACKEND_TYPE_MM, tmp);
 
   // Pick sync commit mode
-  switch (state.asynchronous_mode) {
-    case ASYNCHRONOUS_TYPE_SYNC:
+  // switch (state.asynchronous_mode) {
+    // case ASYNCHRONOUS_TYPE_SYNC:
       log_manager.SetSyncCommit(true);
-      break;
+  //     break;
 
-    case ASYNCHRONOUS_TYPE_ASYNC:
-      log_manager.SetSyncCommit(false);
-      break;
+  //   case ASYNCHRONOUS_TYPE_ASYNC:
+  //     log_manager.SetSyncCommit(false);
+  //     break;
 
-    case ASYNCHRONOUS_TYPE_DISABLED:
-      // No logging
-      peloton_logging_mode = LOGGING_TYPE_INVALID;
-      break;
-    case ASYNCHRONOUS_TYPE_NO_WRITE:
-      log_manager.SetNoWrite(true);
-      break;
+  //   case ASYNCHRONOUS_TYPE_DISABLED:
+  //     // No logging
+  //     peloton_logging_mode = LOGGING_TYPE_INVALID;
+  //     break;
+  //   case ASYNCHRONOUS_TYPE_NO_WRITE:
+  //     log_manager.SetNoWrite(true);
+  //     break;
 
-    case ASYNCHRONOUS_TYPE_INVALID:
-      throw Exception("Invalid asynchronous mode : " +
-                      std::to_string(state.asynchronous_mode));
-  }
+  //   case ASYNCHRONOUS_TYPE_INVALID:
+  //     throw Exception("Invalid asynchronous mode : " +
+  //                     std::to_string(state.asynchronous_mode));
+  // }
 
   std::thread logging_thread;
   std::thread checkpoint_thread;

@@ -31,26 +31,14 @@ void Usage(FILE* out) {
   fprintf(out,
           "Command line options :  logger <options> \n"
           "   -h --help              :  Print help message \n"
-          "   -s --asynchronous-mode :  Asynchronous mode \n"
-          "   -x --experiment-type   :  Experiment Type \n"
           "   -f --data-file-size    :  Data file size (MB) \n"
           "   -l --logging-type      :  Logging type \n"
-          "   -t --nvm-latency       :  NVM latency \n"
-          "   -q --pcommit-latency   :  pcommit latency \n"
-          "   -v --flush-mode        :  Flush mode \n"
-          "   -r --commit-interval   :  Group commit interval \n"
           "   -y --benchmark-type    :  Benchmark type \n");
 }
 
 static struct option opts[] = {
-    {"asynchronous_mode", optional_argument, NULL, 's'},
-    {"experiment-type", optional_argument, NULL, 'x'},
     {"data-file-size", optional_argument, NULL, 'f'},
     {"logging-type", optional_argument, NULL, 'l'},
-    {"nvm-latency", optional_argument, NULL, 't'},
-    {"pcommit-latency", optional_argument, NULL, 'q'},
-    {"flush-mode", optional_argument, NULL, 'v'},
-    {"commit-interval", optional_argument, NULL, 'r'},
     {"benchmark-type", optional_argument, NULL, 'y'},
     {NULL, 0, NULL, 0}};
 
@@ -64,77 +52,6 @@ static void ValidateLoggingType(const configuration& state) {
            LoggingTypeToString(state.logging_type).c_str());
 }
 
-std::string BenchmarkTypeToString(BenchmarkType type) {
-  switch (type) {
-    case BENCHMARK_TYPE_INVALID:
-      return "INVALID";
-
-    case BENCHMARK_TYPE_YCSB:
-      return "YCSB";
-    case BENCHMARK_TYPE_TPCC:
-      return "TPCC";
-
-    default:
-      LOG_ERROR("Invalid benchmark_type :: %d", type);
-      exit(EXIT_FAILURE);
-  }
-  return "INVALID";
-}
-
-std::string ExperimentTypeToString(ExperimentType type) {
-  switch (type) {
-    case EXPERIMENT_TYPE_INVALID:
-      return "INVALID";
-
-    case EXPERIMENT_TYPE_THROUGHPUT:
-      return "THROUGHPUT";
-    case EXPERIMENT_TYPE_RECOVERY:
-      return "RECOVERY";
-    case EXPERIMENT_TYPE_STORAGE:
-      return "STORAGE";
-    case EXPERIMENT_TYPE_LATENCY:
-      return "LATENCY";
-
-    default:
-      LOG_ERROR("Invalid experiment_type :: %d", type);
-      exit(EXIT_FAILURE);
-  }
-
-  return "INVALID";
-}
-
-std::string AsynchronousTypeToString(AsynchronousType type) {
-  switch (type) {
-    case ASYNCHRONOUS_TYPE_INVALID:
-      return "INVALID";
-
-    case ASYNCHRONOUS_TYPE_SYNC:
-      return "SYNC";
-    case ASYNCHRONOUS_TYPE_ASYNC:
-      return "ASYNC";
-    case ASYNCHRONOUS_TYPE_DISABLED:
-      return "DISABLED";
-    case ASYNCHRONOUS_TYPE_NO_WRITE:
-      return "NO_WRITE";
-
-    default:
-      LOG_ERROR("Invalid asynchronous_mode :: %d", type);
-      exit(EXIT_FAILURE);
-  }
-
-  return "INVALID";
-}
-
-static void ValidateBenchmarkType(const configuration& state) {
-  if (state.benchmark_type <= 0 || state.benchmark_type > 3) {
-    LOG_ERROR("Invalid benchmark_type :: %d", state.benchmark_type);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("%s : %s", "benchmark_type",
-           BenchmarkTypeToString(state.benchmark_type).c_str());
-}
-
 static void ValidateDataFileSize(const configuration& state) {
   if (state.data_file_size <= 0) {
     LOG_ERROR("Invalid data_file_size :: %lu", state.data_file_size);
@@ -142,63 +59,6 @@ static void ValidateDataFileSize(const configuration& state) {
   }
 
   LOG_INFO("data_file_size :: %lu", state.data_file_size);
-}
-
-static void ValidateExperimentType(const configuration& state) {
-  if (state.experiment_type < 0 || state.experiment_type > 4) {
-    LOG_ERROR("Invalid experiment_type :: %d", state.experiment_type);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("%s : %s", "experiment_type",
-           ExperimentTypeToString(state.experiment_type).c_str());
-}
-
-static void ValidateWaitTimeout(const configuration& state) {
-  if (state.wait_timeout < 0) {
-    LOG_ERROR("Invalid wait_timeout :: %d", state.wait_timeout);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("wait_timeout :: %d", state.wait_timeout);
-}
-
-static void ValidateFlushMode(const configuration& state) {
-  if (state.flush_mode <= 0 || state.flush_mode >= 3) {
-    LOG_ERROR("Invalid flush_mode :: %d", state.flush_mode);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("flush_mode :: %d", state.flush_mode);
-}
-
-static void ValidateAsynchronousMode(const configuration& state) {
-  if (state.asynchronous_mode <= ASYNCHRONOUS_TYPE_INVALID ||
-      state.asynchronous_mode > ASYNCHRONOUS_TYPE_NO_WRITE) {
-    LOG_ERROR("Invalid asynchronous_mode :: %d", state.asynchronous_mode);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("%s : %s", "asynchronous_mode",
-           AsynchronousTypeToString(state.asynchronous_mode).c_str());
-}
-
-static void ValidateNVMLatency(const configuration& state) {
-  if (state.nvm_latency < 0) {
-    LOG_ERROR("Invalid nvm_latency :: %d", state.nvm_latency);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("nvm_latency :: %d", state.nvm_latency);
-}
-
-static void ValidatePCOMMITLatency(const configuration& state) {
-  if (state.pcommit_latency < 0) {
-    LOG_ERROR("Invalid pcommit_latency :: %d", state.pcommit_latency);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_INFO("pcommit_latency :: %d", state.pcommit_latency);
 }
 
 static void ValidateLogFileDir(configuration& state) {
@@ -254,146 +114,216 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
   state.log_file_dir = TMP_DIR;
   state.data_file_size = 512;
 
-  state.experiment_type = EXPERIMENT_TYPE_THROUGHPUT;
-  state.wait_timeout = 200;
   state.benchmark_type = BENCHMARK_TYPE_YCSB;
-  state.flush_mode = 2;
-  state.nvm_latency = 0;
-  state.pcommit_latency = 0;
-  state.asynchronous_mode = ASYNCHRONOUS_TYPE_SYNC;
   state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
 
   // YCSB Default Values
-  ycsb::state.index = INDEX_TYPE_BWTREE;
   ycsb::state.scale_factor = 1;
   ycsb::state.duration = 10;
-  ycsb::state.profile_duration = 1;
-  ycsb::state.backend_count = 2;
+  ycsb::state.snapshot_duration = 1;
   ycsb::state.column_count = 10;
+  ycsb::state.update_column_count = 1;
+  ycsb::state.read_column_count = 1;
   ycsb::state.operation_count = 10;
+  ycsb::state.scan_backend_count = 0;
+  ycsb::state.scan_mock_duration = 0;
+  ycsb::state.ro_backend_count = 0;
   ycsb::state.update_ratio = 0.5;
+  ycsb::state.backend_count = 2;
   ycsb::state.zipf_theta = 0.0;
-  ycsb::state.exp_backoff = false;
-  ycsb::state.string_mode = false;
-  ycsb::state.gc_mode = false;
-  ycsb::state.gc_backend_count = 1;
+  ycsb::state.declared = false;
+  ycsb::state.run_backoff = false;
+  ycsb::state.blind_write = false;
+  ycsb::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+  ycsb::state.gc_protocol = GC_TYPE_OFF;
+  ycsb::state.index = INDEX_TYPE_HASH;
+  ycsb::state.gc_thread_count = 1;
+  ycsb::state.sindex_count = 0;
+  ycsb::state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+  ycsb::state.sindex_scan = false;
+  ycsb::state.epoch_length = 40;
 
   // TPC-C Default Values
-  tpcc::state.index = INDEX_TYPE_BWTREE;
   tpcc::state.scale_factor = 1;
   tpcc::state.duration = 10;
-  tpcc::state.profile_duration = 1;
-  tpcc::state.backend_count = 2;
-  tpcc::state.warehouse_count = 2;
-  tpcc::state.exp_backoff = false;
-  tpcc::state.affinity = false;
-  tpcc::state.gc_mode = false;
-  tpcc::state.gc_backend_count = 1;
+  tpcc::state.snapshot_duration = 1;
+  tpcc::state.backend_count = 1;
+  tpcc::state.scan_backend_count = 0;
+  tpcc::state.warehouse_count = 1;
+  tpcc::state.order_range = 20;
+  tpcc::state.run_affinity = false;
+  tpcc::state.run_backoff = false;
+  tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+  tpcc::state.gc_protocol = GC_TYPE_OFF;
+  tpcc::state.index = INDEX_TYPE_HASH;
+  tpcc::state.gc_thread_count = 1;
+  tpcc::state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+  tpcc::state.epoch_length = 40;
 
 
   // Parse args
   while (1) {
     int idx = 0;
-    // logger - hs:x:f:l:t:q:v:r:y:
-    // ycsb   - hemgi:k:d:p:b:c:o:u:z:n:
-    // tpcc   - heagi:k:d:p:b:w:n:
-    int c = getopt_long(argc, argv, "hs:x:f:l:t:q:v:r:y:emgi:k:d:p:b:c:o:u:z:n:aw:",
+    // logger - hW:F:L:
+    // ycsb   - hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:
+    // tpcc   - hae:r:k:w:d:s:b:p:g:i:t:q:y:f:
+    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:",
                         opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
-      case 's':
-        state.asynchronous_mode = (AsynchronousType)atoi(optarg);
-        break;
-      case 'x':
-        state.experiment_type = (ExperimentType)atoi(optarg);
-        break;
-      case 'f':
+      case 'F':
         state.data_file_size = atoi(optarg);
         break;
-      case 'l':
+      case 'L':
         state.logging_type = (LoggingType)atoi(optarg);
         break;
+      
       case 't':
-        state.nvm_latency = atoi(optarg);
+        tpcc::state.gc_thread_count = atoi(optarg);
         break;
-      case 'q':
-        state.pcommit_latency = atoi(optarg);
-        break;
-      case 'v':
-        state.flush_mode = atoi(optarg);
-        break;
-      case 'r':
-        state.wait_timeout = atoi(optarg);
-        break;
-      case 'y':
-        state.benchmark_type = (BenchmarkType)atoi(optarg);
-        break;
-
-      case 'i': {
-        char *index = optarg;
-        if (strcmp(index, "btree") == 0) {
-          ycsb::state.index = INDEX_TYPE_BTREE;
-          tpcc::state.index = INDEX_TYPE_BTREE;
-        } else if (strcmp(index, "bwtree") == 0) {
-          ycsb::state.index = INDEX_TYPE_BWTREE;
-          tpcc::state.index = INDEX_TYPE_BWTREE;
-        } else {
-          LOG_ERROR("Unknown index: %s", index);
-          exit(EXIT_FAILURE);
-        }
-        break;
-      }
       case 'k':
-        ycsb::state.scale_factor = atoi(optarg);
         tpcc::state.scale_factor = atof(optarg);
-        break;
-      case 'd':
-        ycsb::state.duration = atof(optarg);
-        tpcc::state.duration = atof(optarg);
-        break;
-      case 'p':
-        ycsb::state.profile_duration = atof(optarg);
-        tpcc::state.profile_duration = atof(optarg);
-        break;
-      case 'b':
-        ycsb::state.backend_count = atoi(optarg);
-        tpcc::state.backend_count = atoi(optarg);
-        break;
-      case 'c':
-        ycsb::state.column_count = atoi(optarg);
-        break;
-      case 'o':
-        ycsb::state.operation_count = atoi(optarg);
-        break;
-      case 'u':
-        ycsb::state.update_ratio = atof(optarg);
-        break;
-      case 'z':
-        ycsb::state.zipf_theta = atof(optarg);
-        break;
-      case 'e':
-        ycsb::state.exp_backoff = true;
-        tpcc::state.exp_backoff = true;
-        break;
-      case 'm':
-        ycsb::state.string_mode = true;
-        break;
-      case 'g':
-        ycsb::state.gc_mode = true;
-        tpcc::state.gc_mode = true;
-        break;
-      case 'n':
-        ycsb::state.gc_backend_count = atof(optarg);
-        tpcc::state.gc_backend_count = atof(optarg);
         break;
       case 'w':
         tpcc::state.warehouse_count = atoi(optarg);
         break;
-      case 'a':
-        tpcc::state.affinity = true;
+      case 'r':
+        tpcc::state.order_range = atoi(optarg);
         break;
+      case 'd':
+        tpcc::state.duration = atof(optarg);
+        break;
+      case 's':
+        tpcc::state.snapshot_duration = atof(optarg);
+        break;
+      case 'b':
+        tpcc::state.backend_count = atoi(optarg);
+        break;
+      case 'y':
+        tpcc::state.scan_backend_count = atoi(optarg);
+        break;
+      case 'a':
+        tpcc::state.run_affinity = true;
+        break;
+      case 'e':
+        tpcc::state.run_backoff = true;
+        break;
+      case 'f':
+        tpcc::state.epoch_length = atoi(optarg);
+        break;
+      case 'p': {
+        char *protocol = optarg;
+        bool valid_proto = false;
+        if (strcmp(protocol, "occ") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
+        } else if (strcmp(protocol, "pcc") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC;
+        } else if (strcmp(protocol, "ssi") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_SSI;
+        } else if (strcmp(protocol, "to") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO;
+        } else if (strcmp(protocol, "ewrite") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_EAGER_WRITE;
+        } else if (strcmp(protocol, "occrb") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_RB;
+        } else if (strcmp(protocol, "sread") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_SPECULATIVE_READ;
+        } else if (strcmp(protocol, "occn2o") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_N2O;
+        } else if (strcmp(protocol, "pccopt") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC_OPT;
+        } else if (strcmp(protocol, "torb") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_RB;
+        } else if (strcmp(protocol, "tofullrb") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
+        } else if (strcmp(protocol, "ton2o") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+          valid_proto = true;
+        } else if (strcmp(protocol, "occ_central_rb") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
+        } else if (strcmp(protocol, "to_central_rb") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
+        } else if (strcmp(protocol, "to_full_central_rb") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
+        } else if (strcmp(protocol, "tooptn2o") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
+          valid_proto = true;
+        } else if (strcmp(protocol, "tosv") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_SV;
+        } else if (strcmp(protocol, "occbestn2o") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_BEST_N2O;
+        } else if (strcmp(protocol, "occsv") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_SV;
+        } else if (strcmp(protocol, "occsvbest") == 0) {
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_SV_BEST;
+        } else {
+          fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
+          exit(EXIT_FAILURE);
+        }
+
+        if (valid_proto == false) {
+          fprintf(stdout, "We no longer support %s, turn to default ton2o\n", protocol);
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+        }
+        break;
+      }
+      case 'g': {
+        char *gc_protocol = optarg;
+        bool valid_gc = false;
+        if (strcmp(gc_protocol, "off") == 0) {
+          tpcc::state.gc_protocol = GC_TYPE_OFF;
+          valid_gc = true;
+        } else if (strcmp(gc_protocol, "va") == 0) {
+          tpcc::state.gc_protocol = GC_TYPE_VACUUM;
+        } else if (strcmp(gc_protocol, "co") == 0) {
+          tpcc::state.gc_protocol = GC_TYPE_CO;
+        } else if (strcmp(gc_protocol, "n2o") == 0) {
+          tpcc::state.gc_protocol = GC_TYPE_N2O;
+        } else if (strcmp(gc_protocol, "n2otxn") == 0) {
+          tpcc::state.gc_protocol = GC_TYPE_N2O_TXN;
+          valid_gc = true;
+        } else if (strcmp(gc_protocol, "sv") == 0 ) {
+          tpcc::state.gc_protocol = GC_TYPE_SV;
+        } else {
+          fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
+          exit(EXIT_FAILURE);
+        }
+
+        if (valid_gc == false) {
+          fprintf(stdout, "We no longer support %s, turn to default gc-off\n", gc_protocol);
+          tpcc::state.gc_protocol = GC_TYPE_OFF;
+        }
+        break;
+      }
+      case 'i': {
+        char *index = optarg;
+        // if (strcmp(index, "btree") == 0) {
+        //   state.index = INDEX_TYPE_BTREE;
+        // } else 
+        if (strcmp(index, "bwtree") == 0) {
+          tpcc::state.index = INDEX_TYPE_BWTREE;
+        } else if (strcmp(index, "hash") == 0) {
+          tpcc::state.index = INDEX_TYPE_HASH;
+        } else {
+          fprintf(stderr, "\nUnknown index: %s\n", index);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'q': {
+        char *sindex = optarg;
+        if (strcmp(sindex, "version") == 0) {
+          tpcc::state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+        } else if (strcmp(sindex, "tuple") == 0) {
+          tpcc::state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
+        } else {
+          fprintf(stderr, "\n Unknown sindex: %s\n", sindex);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
 
       case 'h':
         Usage(stderr);
@@ -421,38 +351,39 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
 
   // Print Logger configuration
   ValidateLoggingType(state);
-  ValidateExperimentType(state);
-  ValidateAsynchronousMode(state);
-  ValidateBenchmarkType(state);
   ValidateDataFileSize(state);
   ValidateLogFileDir(state);
-  ValidateWaitTimeout(state);
-  ValidateFlushMode(state);
-  ValidateNVMLatency(state);
-  ValidatePCOMMITLatency(state);
 
   // Print YCSB configuration
   if (state.benchmark_type == BENCHMARK_TYPE_YCSB) {
-    ycsb::ValidateIndex(ycsb::state);
     ycsb::ValidateScaleFactor(ycsb::state);
-    ycsb::ValidateDuration(ycsb::state);
-    ycsb::ValidateProfileDuration(ycsb::state);
-    ycsb::ValidateBackendCount(ycsb::state);
     ycsb::ValidateColumnCount(ycsb::state);
+    ycsb::ValidateUpdateColumnCount(ycsb::state);
+    ycsb::ValidateReadColumnCount(ycsb::state);
     ycsb::ValidateOperationCount(ycsb::state);
     ycsb::ValidateUpdateRatio(ycsb::state);
+    ycsb::ValidateBackendCount(ycsb::state);
+    ycsb::ValidateScanMockDuration(ycsb::state);
+    ycsb::ValidateDuration(ycsb::state);
+    ycsb::ValidateSnapshotDuration(ycsb::state);
     ycsb::ValidateZipfTheta(ycsb::state);
-    ycsb::ValidateGCBackendCount(ycsb::state);
+    ycsb::ValidateProtocol(ycsb::state);
+    ycsb::ValidateIndex(ycsb::state);
+    ycsb::ValidateSecondaryIndex(ycsb::state);
+    ycsb::ValidateEpoch(ycsb::state);
+    ycsb::ValidateSecondaryIndexScan(ycsb::state);
   }
   // Print TPCC configuration
   else if (state.benchmark_type == BENCHMARK_TYPE_TPCC) {
-    tpcc::ValidateIndex(tpcc::state);
     tpcc::ValidateScaleFactor(tpcc::state);
     tpcc::ValidateDuration(tpcc::state);
-    tpcc::ValidateProfileDuration(tpcc::state);
-    tpcc::ValidateBackendCount(tpcc::state);
+    tpcc::ValidateSnapshotDuration(tpcc::state);
     tpcc::ValidateWarehouseCount(tpcc::state);
-    tpcc::ValidateGCBackendCount(tpcc::state);
+    tpcc::ValidateBackendCount(tpcc::state);
+    tpcc::ValidateProtocol(tpcc::state);
+    tpcc::ValidateIndex(tpcc::state);
+    tpcc::ValidateOrderRange(tpcc::state);
+    tpcc::ValidateEpoch(tpcc::state);
 
     // Static TPCC parameters
     tpcc::state.item_count = 100000 * tpcc::state.scale_factor;

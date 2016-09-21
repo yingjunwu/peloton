@@ -12,6 +12,7 @@
 
 #undef NDEBUG
 
+#include <fstream>
 #include <iomanip>
 #include <algorithm>
 #include <string.h>
@@ -484,6 +485,111 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
   LOG_TRACE("%s : %d", "Run blind write", state.blind_write);
   LOG_TRACE("%s : %d", "Run declared read-only", state.declared);
+}
+
+
+void WriteOutput() {
+
+  std::ofstream out("outputfile.summary", std::ofstream::out);
+
+  oid_t total_snapshot_memory = 0;
+  for (auto &entry : state.snapshot_memory) {
+    total_snapshot_memory += entry;
+  }
+
+  LOG_INFO("%lf tps, %lf; %lf tps, %lf; %lf ms; %d",
+             state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, total_snapshot_memory);
+
+  for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
+       ++round_id) {
+    out << "[" << std::setw(3) << std::left
+        << state.snapshot_duration * round_id << " - " << std::setw(3)
+        << std::left << state.snapshot_duration * (round_id + 1)
+        << " s]: " << state.snapshot_throughput[round_id] << " "
+        << state.snapshot_abort_rate[round_id] << " " 
+        << state.snapshot_memory[round_id] << "\n";
+  }
+
+  out << "scalefactor=" << state.scale_factor << " ";
+  out << "skew=" << state.zipf_theta << " ";
+  out << "update=" << state.update_ratio << " ";
+  out << "opt=" << state.operation_count << " ";
+  if (state.protocol == CONCURRENCY_TYPE_OPTIMISTIC) {
+    out << "proto=occ ";
+  } else if (state.protocol == CONCURRENCY_TYPE_PESSIMISTIC) {
+    out << "proto=pcc ";
+  } else if (state.protocol == CONCURRENCY_TYPE_SSI) {
+    out << "proto=ssi ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO) {
+    out << "proto=to ";
+  } else if (state.protocol == CONCURRENCY_TYPE_EAGER_WRITE) {
+    out << "proto=ewrite ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_RB) {
+    out << "proto=occrb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+    out << "proto=occ_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+    out << "proto=to_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_SPECULATIVE_READ) {
+    out << "proto=sread ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_N2O) {
+    out << "proto=occn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_RB) {
+    out << "proto=torb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_N2O) {
+    out << "proto=ton2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+    out << "proto=tofullrb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB) {
+    out << "proto=to_full_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_OPT_N2O) {
+    out << "proto=tooptn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
+    out << "proto=tosv ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_SV) {
+    out << "proto=occsv ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_SV_BEST) {
+    out << "proto=occsvbest ";
+  } 
+  if (state.gc_protocol == GC_TYPE_OFF) {
+    out << "gc=off ";
+  }else if (state.gc_protocol == GC_TYPE_VACUUM) {
+    out << "gc=va ";
+  }else if (state.gc_protocol == GC_TYPE_CO) {
+    out << "gc=co ";
+  }else if (state.gc_protocol == GC_TYPE_N2O) {
+    out << "gc=n2o ";
+  } else if (state.gc_protocol == GC_TYPE_N2O_TXN) {
+    out << "gc=n2otxn ";
+  } else if (state.gc_protocol == GC_TYPE_SV) {
+    out << "gc=sv ";
+  }
+  out << "column=" << state.column_count << " ";
+  out << "read_column=" << state.read_column_count << " ";
+  out << "update_column=" << state.update_column_count << " ";
+  out << "core_cnt=" << state.backend_count << " ";
+  out << "ro_core_cnt=" << state.ro_backend_count << " ";
+  out << "scan_core_cnt=" << state.scan_backend_count << " ";
+  out << "scan_mock_duration=" << state.scan_mock_duration << " ";
+  out << "sindex_count=" << state.sindex_count << " ";
+  if (state.sindex == SECONDARY_INDEX_TYPE_VERSION) {
+    out << "sindex=version ";
+  } else {
+    out << "sindex=tuple ";
+  }
+  out << "\n";
+
+  out << state.throughput << " ";
+  out << state.abort_rate << " ";
+
+  out << state.ro_throughput << " ";
+  out << state.ro_abort_rate << " ";
+
+  out << state.scan_latency << " ";
+
+  out << total_snapshot_memory <<"\n";
+  out.flush();
+  out.close();
 }
 
 }  // namespace ycsb
