@@ -13,7 +13,6 @@
 #include "backend/common/logger.h"
 #include "backend/logging/backend_logger.h"
 #include "backend/logging/loggers/wal_backend_logger.h"
-#include "backend/logging/loggers/wbl_backend_logger.h"
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_manager.h"
 
@@ -51,8 +50,6 @@ BackendLogger *BackendLogger::GetBackendLogger(LoggingType logging_type) {
 
   if (IsBasedOnWriteAheadLogging(logging_type) == true) {
     backend_logger = new WriteAheadBackendLogger();
-  } else if (IsBasedOnWriteBehindLogging(logging_type) == true) {
-    backend_logger = new WriteBehindBackendLogger();
   } else {
     LOG_ERROR("Unsupported logging type");
   }

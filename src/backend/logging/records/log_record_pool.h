@@ -24,7 +24,6 @@ namespace logging {
 //===--------------------------------------------------------------------===//
 
 class LogRecordPool {
-  friend class WriteBehindFrontendLogger;
 
  public:
   //===--------------------------------------------------------------------===//
