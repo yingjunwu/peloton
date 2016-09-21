@@ -300,7 +300,7 @@ bool PrepareLogFile() {
   StartLogging(logging_thread, checkpoint_thread);
 
   // Build the log
-  // BuildLog();
+  BuildLog();
 
   // Stop frontend logger if in a valid logging mode
   if (peloton_checkpoint_mode != CHECKPOINT_TYPE_INVALID) {

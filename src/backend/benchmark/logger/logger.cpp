@@ -61,7 +61,7 @@ void RunBenchmark() {
   ResetSystem();
 
   // Do recovery
-  DoRecovery();
+  // DoRecovery();
 }
 
 }  // namespace logger

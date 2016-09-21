@@ -37,9 +37,9 @@ void Usage(FILE* out) {
 }
 
 static struct option opts[] = {
-    {"data-file-size", optional_argument, NULL, 'f'},
-    {"logging-type", optional_argument, NULL, 'l'},
-    {"benchmark-type", optional_argument, NULL, 'y'},
+    {"data-file-size", optional_argument, NULL, 'F'},
+    {"logging-type", optional_argument, NULL, 'L'},
+    {"benchmark-type", optional_argument, NULL, 'Y'},
     {NULL, 0, NULL, 0}};
 
 static void ValidateLoggingType(const configuration& state) {
@@ -61,56 +61,46 @@ static void ValidateDataFileSize(const configuration& state) {
   LOG_INFO("data_file_size :: %lu", state.data_file_size);
 }
 
-static void ValidateLogFileDir(configuration& state) {
-  struct stat data_stat;
+// static void ValidateLogFileDir(configuration& state) {
+//   struct stat data_stat;
 
-  // Assign log file dir based on logging type
-  switch (state.logging_type) {
-    // Log file on NVM
-    case LOGGING_TYPE_NVM_WAL:
-    case LOGGING_TYPE_NVM_WBL: {
-      int status = stat(NVM_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        state.log_file_dir = NVM_DIR;
-      }
-    } break;
+//   // Assign log file dir based on logging type
+//   switch (state.logging_type) {
 
-    // Log file on SSD
-    case LOGGING_TYPE_SSD_WAL:
-    case LOGGING_TYPE_SSD_WBL: {
-      int status = stat(SSD_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        state.log_file_dir = SSD_DIR;
-      }
-    } break;
+//     // Log file on SSD
+//     case LOGGING_TYPE_SSD_WAL: {
+//       int status = stat(SSD_DIR, &data_stat);
+//       if (status == 0 && S_ISDIR(data_stat.st_mode)) {
+//         state.log_file_dir = SSD_DIR;
+//       }
+//     } break;
 
-    // Log file on HDD
-    case LOGGING_TYPE_HDD_WAL:
-    case LOGGING_TYPE_HDD_WBL: {
-      int status = stat(HDD_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        state.log_file_dir = HDD_DIR;
-      }
-    } break;
+//     // Log file on HDD
+//     case LOGGING_TYPE_HDD_WAL: {
+//       int status = stat(HDD_DIR, &data_stat);
+//       if (status == 0 && S_ISDIR(data_stat.st_mode)) {
+//         state.log_file_dir = HDD_DIR;
+//       }
+//     } break;
 
-    case LOGGING_TYPE_INVALID:
-    default: {
-      int status = stat(TMP_DIR, &data_stat);
-      if (status == 0 && S_ISDIR(data_stat.st_mode)) {
-        state.log_file_dir = TMP_DIR;
-      } else {
-        throw Exception("Could not find temp directory : " +
-                        std::string(TMP_DIR));
-      }
-    } break;
-  }
+//     case LOGGING_TYPE_INVALID:
+//     default: {
+//       int status = stat(TMP_DIR, &data_stat);
+//       if (status == 0 && S_ISDIR(data_stat.st_mode)) {
+//         state.log_file_dir = TMP_DIR;
+//       } else {
+//         throw Exception("Could not find temp directory : " +
+//                         std::string(TMP_DIR));
+//       }
+//     } break;
+//   }
 
-  LOG_INFO("log_file_dir :: %s", state.log_file_dir.c_str());
-}
+//   LOG_INFO("log_file_dir :: %s", state.log_file_dir.c_str());
+// }
 
 void ParseArguments(int argc, char* argv[], configuration& state) {
   // Default Logger Values
-  state.logging_type = LOGGING_TYPE_NVM_WAL;
+  state.logging_type = LOGGING_TYPE_SSD_WAL;
   state.log_file_dir = TMP_DIR;
   state.data_file_size = 512;
 
@@ -167,7 +157,7 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
     // logger - hW:F:L:
     // ycsb   - hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:
     // tpcc   - hae:r:k:w:d:s:b:p:g:i:t:q:y:f:
-    int c = getopt_long(argc, argv, "hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:",
+    int c = getopt_long(argc, argv, "F:L:Y:hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:",
                         opts, &idx);
 
     if (c == -1) break;
@@ -179,112 +169,64 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
       case 'L':
         state.logging_type = (LoggingType)atoi(optarg);
         break;
-      
-      case 't':
-        tpcc::state.gc_thread_count = atoi(optarg);
-        break;
-      case 'k':
-        tpcc::state.scale_factor = atof(optarg);
-        break;
-      case 'w':
-        tpcc::state.warehouse_count = atoi(optarg);
-        break;
-      case 'r':
-        tpcc::state.order_range = atoi(optarg);
-        break;
-      case 'd':
-        tpcc::state.duration = atof(optarg);
-        break;
-      case 's':
-        tpcc::state.snapshot_duration = atof(optarg);
-        break;
-      case 'b':
-        tpcc::state.backend_count = atoi(optarg);
-        break;
-      case 'y':
-        tpcc::state.scan_backend_count = atoi(optarg);
-        break;
-      case 'a':
-        tpcc::state.run_affinity = true;
-        break;
-      case 'e':
-        tpcc::state.run_backoff = true;
-        break;
-      case 'f':
-        tpcc::state.epoch_length = atoi(optarg);
-        break;
-      case 'p': {
-        char *protocol = optarg;
-        bool valid_proto = false;
-        if (strcmp(protocol, "occ") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
-        } else if (strcmp(protocol, "pcc") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC;
-        } else if (strcmp(protocol, "ssi") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_SSI;
-        } else if (strcmp(protocol, "to") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO;
-        } else if (strcmp(protocol, "ewrite") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_EAGER_WRITE;
-        } else if (strcmp(protocol, "occrb") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_RB;
-        } else if (strcmp(protocol, "sread") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_SPECULATIVE_READ;
-        } else if (strcmp(protocol, "occn2o") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_N2O;
-        } else if (strcmp(protocol, "pccopt") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC_OPT;
-        } else if (strcmp(protocol, "torb") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_RB;
-        } else if (strcmp(protocol, "tofullrb") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
-        } else if (strcmp(protocol, "ton2o") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
-          valid_proto = true;
-        } else if (strcmp(protocol, "occ_central_rb") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
-        } else if (strcmp(protocol, "to_central_rb") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
-        } else if (strcmp(protocol, "to_full_central_rb") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
-        } else if (strcmp(protocol, "tooptn2o") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
-          valid_proto = true;
-        } else if (strcmp(protocol, "tosv") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_SV;
-        } else if (strcmp(protocol, "occbestn2o") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_BEST_N2O;
-        } else if (strcmp(protocol, "occsv") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_SV;
-        } else if (strcmp(protocol, "occsvbest") == 0) {
-          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_SV_BEST;
+      case 'Y': {
+        char *benchmark_str = optarg;
+        if (strcmp(optarg, "ycsb") == 0) {
+          state.benchmark_type = BENCHMARK_TYPE_YCSB;
+        } else if (strcmp(optarg, "tpcc") == 0) {
+          state.benchmark_type = BENCHMARK_TYPE_TPCC;
         } else {
-          fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
+          fprintf(stderr, "\nUnknown benchmark: %s\n", benchmark_str);
           exit(EXIT_FAILURE);
-        }
-
-        if (valid_proto == false) {
-          fprintf(stdout, "We no longer support %s, turn to default ton2o\n", protocol);
-          tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
         }
         break;
       }
+      
+      case 'a':
+        ycsb::state.declared = true;
+        tpcc::state.run_affinity = true;
+        break;
+      case 'b':
+        ycsb::state.backend_count = atoi(optarg);
+        tpcc::state.backend_count = atoi(optarg);
+        break;
+      case 'c':
+        ycsb::state.column_count = atoi(optarg);
+        break;
+      case 'd':
+        ycsb::state.duration = atof(optarg);
+        tpcc::state.duration = atof(optarg);
+        break;
+      case 'e':
+        ycsb::state.run_backoff = true;
+        tpcc::state.run_backoff = true;
+        break;
+      case 'f':
+        ycsb::state.epoch_length = atoi(optarg);
+        tpcc::state.epoch_length = atoi(optarg);
+        break; 
       case 'g': {
         char *gc_protocol = optarg;
         bool valid_gc = false;
         if (strcmp(gc_protocol, "off") == 0) {
+          ycsb::state.gc_protocol = GC_TYPE_OFF;
           tpcc::state.gc_protocol = GC_TYPE_OFF;
           valid_gc = true;
         } else if (strcmp(gc_protocol, "va") == 0) {
+          ycsb::state.gc_protocol = GC_TYPE_VACUUM;
           tpcc::state.gc_protocol = GC_TYPE_VACUUM;
         } else if (strcmp(gc_protocol, "co") == 0) {
+          ycsb::state.gc_protocol = GC_TYPE_CO;
           tpcc::state.gc_protocol = GC_TYPE_CO;
         } else if (strcmp(gc_protocol, "n2o") == 0) {
+          ycsb::state.gc_protocol = GC_TYPE_N2O;
           tpcc::state.gc_protocol = GC_TYPE_N2O;
         } else if (strcmp(gc_protocol, "n2otxn") == 0) {
+          ycsb::state.gc_protocol = GC_TYPE_N2O_TXN;
           tpcc::state.gc_protocol = GC_TYPE_N2O_TXN;
           valid_gc = true;
         } else if (strcmp(gc_protocol, "sv") == 0 ) {
+          ycsb::state.gc_protocol = GC_TYPE_SV;
           tpcc::state.gc_protocol = GC_TYPE_SV;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
@@ -293,18 +235,18 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
 
         if (valid_gc == false) {
           fprintf(stdout, "We no longer support %s, turn to default gc-off\n", gc_protocol);
+          ycsb::state.gc_protocol = GC_TYPE_OFF;
           tpcc::state.gc_protocol = GC_TYPE_OFF;
         }
         break;
       }
       case 'i': {
         char *index = optarg;
-        // if (strcmp(index, "btree") == 0) {
-        //   state.index = INDEX_TYPE_BTREE;
-        // } else 
         if (strcmp(index, "bwtree") == 0) {
+          ycsb::state.index = INDEX_TYPE_BWTREE;
           tpcc::state.index = INDEX_TYPE_BWTREE;
         } else if (strcmp(index, "hash") == 0) {
+          ycsb::state.index = INDEX_TYPE_HASH;
           tpcc::state.index = INDEX_TYPE_HASH;
         } else {
           fprintf(stderr, "\nUnknown index: %s\n", index);
@@ -312,11 +254,106 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
         }
         break;
       }
+      case 'j':
+        ycsb::state.sindex_scan = true;
+        break;
+      case 'k':
+        ycsb::state.scale_factor = atoi(optarg);
+        tpcc::state.scale_factor = atof(optarg);
+        break;
+      case 'l':
+        ycsb::state.update_column_count = atoi(optarg);
+        break;
+      case 'n':
+        ycsb::state.sindex_count = atoi(optarg);
+        break;
+      case 'o':
+        ycsb::state.operation_count = atoi(optarg);
+        break;
+      case 'p': {
+        char *protocol = optarg;
+        bool valid_proto = false;
+        if (strcmp(protocol, "occ") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
+        } else if (strcmp(protocol, "pcc") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC;
+          tpcc::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC;
+        } else if (strcmp(protocol, "ssi") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_SSI;
+          tpcc::state.protocol = CONCURRENCY_TYPE_SSI;
+        } else if (strcmp(protocol, "to") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO;
+        } else if (strcmp(protocol, "ewrite") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_EAGER_WRITE;
+          tpcc::state.protocol = CONCURRENCY_TYPE_EAGER_WRITE;
+        } else if (strcmp(protocol, "occrb") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OCC_RB;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_RB;
+        } else if (strcmp(protocol, "sread") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_SPECULATIVE_READ;
+          tpcc::state.protocol = CONCURRENCY_TYPE_SPECULATIVE_READ;
+        } else if (strcmp(protocol, "occn2o") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OCC_N2O;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_N2O;
+        } else if (strcmp(protocol, "pccopt") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC_OPT;
+          tpcc::state.protocol = CONCURRENCY_TYPE_PESSIMISTIC_OPT;
+        } else if (strcmp(protocol, "torb") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_RB;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_RB;
+        } else if (strcmp(protocol, "tofullrb") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
+        } else if (strcmp(protocol, "ton2o") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+          valid_proto = true;
+        } else if (strcmp(protocol, "occ_central_rb") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
+        } else if (strcmp(protocol, "to_central_rb") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
+        } else if (strcmp(protocol, "to_full_central_rb") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
+        } else if (strcmp(protocol, "tooptn2o") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
+          valid_proto = true;
+        } else if (strcmp(protocol, "tosv") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_SV;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_SV;
+        } else if (strcmp(protocol, "occbestn2o") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OCC_BEST_N2O;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_BEST_N2O;
+        } else if (strcmp(protocol, "occsv") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OCC_SV;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_SV;
+        } else if (strcmp(protocol, "occsvbest") == 0) {
+          ycsb::state.protocol = CONCURRENCY_TYPE_OCC_SV_BEST;
+          tpcc::state.protocol = CONCURRENCY_TYPE_OCC_SV_BEST;
+        } else {
+          fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
+          exit(EXIT_FAILURE);
+        }
+
+        if (valid_proto == false) {
+          fprintf(stdout, "We no longer support %s, turn to default ton2o\n", protocol);
+          ycsb::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+          tpcc::state.protocol = CONCURRENCY_TYPE_TO_N2O;
+        }
+        break;
+      }
       case 'q': {
         char *sindex = optarg;
         if (strcmp(sindex, "version") == 0) {
+          ycsb::state.sindex = SECONDARY_INDEX_TYPE_VERSION;
           tpcc::state.sindex = SECONDARY_INDEX_TYPE_VERSION;
         } else if (strcmp(sindex, "tuple") == 0) {
+          ycsb::state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
           tpcc::state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
         } else {
           fprintf(stderr, "\n Unknown sindex: %s\n", sindex);
@@ -324,6 +361,36 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
         }
         break;
       }
+      case 'r':
+        ycsb::state.read_column_count = atoi(optarg);
+        tpcc::state.order_range = atoi(optarg);
+        break;
+      case 's':
+        ycsb::state.snapshot_duration = atof(optarg);
+        tpcc::state.snapshot_duration = atof(optarg);
+        break;
+      case 't':
+        ycsb::state.gc_thread_count = atoi(optarg);
+        tpcc::state.gc_thread_count = atoi(optarg);
+        break;
+      case 'u':
+        ycsb::state.update_ratio = atof(optarg);
+        break;
+      case 'v':
+        ycsb::state.ro_backend_count = atoi(optarg);
+        break;
+      case 'w':
+        tpcc::state.warehouse_count = atoi(optarg);
+        break;
+      case 'x':
+        ycsb::state.blind_write = true;
+        break;
+      case 'y':
+        tpcc::state.scan_backend_count = atoi(optarg);
+        break;
+      case 'z':
+        ycsb::state.zipf_theta = atof(optarg);
+        break;
 
       case 'h':
         Usage(stderr);
@@ -352,7 +419,7 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
   // Print Logger configuration
   ValidateLoggingType(state);
   ValidateDataFileSize(state);
-  ValidateLogFileDir(state);
+  // ValidateLogFileDir(state);
 
   // Print YCSB configuration
   if (state.benchmark_type == BENCHMARK_TYPE_YCSB) {
