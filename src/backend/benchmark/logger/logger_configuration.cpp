@@ -43,7 +43,6 @@ static struct option opts[] = {
     {NULL, 0, NULL, 0}};
 
 static void ValidateLoggingType(const configuration& state) {
-  std::cout<<"logging type="<<state.logging_type<<std::endl;
   if (state.logging_type != LOGGING_TYPE_INVALID && state.logging_type != LOGGING_TYPE_ON) {
     LOG_ERROR("Invalid logging_type :: %d", state.logging_type);
     exit(EXIT_FAILURE);
