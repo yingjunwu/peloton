@@ -207,7 +207,8 @@ void ValidateProtocol(const configuration &state) {
   } else {
     if (state.gc_protocol != GC_TYPE_OFF
     && state.gc_protocol != GC_TYPE_N2O
-    && state.gc_protocol != GC_TYPE_N2O_TXN) {
+    && state.gc_protocol != GC_TYPE_N2O_TXN
+    && state.gc_protocol != GC_TYPE_N2O_EPOCH) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
     }
@@ -416,6 +417,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           valid_gc = true;
         } else if (strcmp(gc_protocol, "sv") == 0 ) {
           state.gc_protocol = GC_TYPE_SV;
+        } else if (strcmp(gc_protocol, "n2oepoch") == 0) {
+          state.gc_protocol = GC_TYPE_N2O_EPOCH;
+          valid_gc = true;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);

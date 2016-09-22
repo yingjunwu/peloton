@@ -80,7 +80,7 @@ class TsOrderN2OTxnManager : public TransactionManager {
 
     current_txn = txn;
 
-    gc::GCManagerFactory::GetInstance().CreateGCContext();
+    gc::GCManagerFactory::GetInstance().CreateGCContext(current_txn->GetEpochId());
 
     return txn;
   }

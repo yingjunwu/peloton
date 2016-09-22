@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// n2o_gc.h
+// n2o_epoch_gc.h
 //
-// Identification: src/backend/gc/n2o_gc.h
+// Identification: src/backend/gc/n2o_epoch_gc.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -25,18 +25,18 @@
 
 namespace peloton {
   namespace gc {
-    struct GarbageContext {
+    struct EpochGarbageContext {
       std::vector<TupleMetadata> garbages;
       size_t epoch_id;
 
-      GarbageContext() : garbages(), epoch_id(0) {}
+      EpochGarbageContext() : garbages(), epoch_id(0) {}
     };
 
-    extern thread_local GarbageContext *current_garbage_context;
+    extern thread_local EpochGarbageContext *current_epoch_garbage_context;
 
-    class N2OTxn_GCManager : public GCManager {
+    class N2OEpochGCManager : public GCManager {
     public:
-      N2OTxn_GCManager(int thread_count)
+      N2OEpochGCManager(int thread_count)
         : is_running_(true),
           gc_thread_count_(thread_count),
           gc_threads_(thread_count),
@@ -46,8 +46,8 @@ namespace peloton {
 
         unlink_queues_.reserve(thread_count);
         for (int i = 0; i < gc_thread_count_; ++i) {
-          std::shared_ptr<LockfreeQueue<std::shared_ptr<GarbageContext>>> unlink_queue(
-            new LockfreeQueue<std::shared_ptr<GarbageContext>>(MAX_QUEUE_LENGTH)
+          std::shared_ptr<LockfreeQueue<std::shared_ptr<EpochGarbageContext>>> unlink_queue(
+            new LockfreeQueue<std::shared_ptr<EpochGarbageContext>>(MAX_QUEUE_LENGTH)
           );
           unlink_queues_.push_back(unlink_queue);
           local_unlink_queues_.emplace_back();
@@ -55,10 +55,10 @@ namespace peloton {
         StartGC();
       }
 
-      ~N2OTxn_GCManager() { StopGC(); }
+      ~N2OEpochGCManager() { StopGC(); }
 
-      static N2OTxn_GCManager& GetInstance(int thread_count = 1) {
-        static N2OTxn_GCManager gcManager(thread_count);
+      static N2OEpochGCManager& GetInstance(int thread_count = 1) {
+        static N2OEpochGCManager gcManager(thread_count);
         return gcManager;
       }
 
@@ -98,8 +98,8 @@ namespace peloton {
       }
 
       virtual void CreateGCContext(size_t eid);
-
-      virtual void EndGCContext(size_t eid);
+      
+      virtual void EndGCContext(size_t eid UNUSED_ATTRIBUTE) {}
 
     private:
       void StartGC(int thread_id);
@@ -118,7 +118,7 @@ namespace peloton {
 
       void Unlink(int thread_id, const size_t max_eid);
 
-      void AddToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx);
+      void AddToRecycleMap(std::shared_ptr<EpochGarbageContext> gc_ctx);
 
       bool ResetTuple(const TupleMetadata &);
 
@@ -134,14 +134,14 @@ namespace peloton {
 
       std::vector<std::unique_ptr<std::thread>> gc_threads_;
 
-      std::vector<std::shared_ptr<peloton::LockfreeQueue<std::shared_ptr<GarbageContext>>>> unlink_queues_;
-      std::vector<std::list<std::shared_ptr<GarbageContext>>> local_unlink_queues_;
+      std::vector<std::shared_ptr<peloton::LockfreeQueue<std::shared_ptr<EpochGarbageContext>>>> unlink_queues_;
+      std::vector<std::list<std::shared_ptr<EpochGarbageContext>>> local_unlink_queues_;
 
       // Map of actual grabage.
       // The key is the timestamp when the garbage is identified, value is the
       // metadata of the garbage.
       // TODO: use shared pointer to reduce memory copy
-      std::vector<std::multimap<size_t, std::shared_ptr<GarbageContext>>> reclaim_maps_;
+      std::vector<std::multimap<size_t, std::shared_ptr<EpochGarbageContext>>> reclaim_maps_;
 
       // TODO: use shared pointer to reduce memory copy
       // table_id -> queue

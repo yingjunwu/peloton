@@ -128,7 +128,8 @@ class TransactionManager {
                            const size_t tuple_eid) {
     if(gc::GCManagerFactory::GetGCType() == GC_TYPE_VACUUM
     || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O
-    || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_TXN) {
+    || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_TXN
+    || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_EPOCH) {
   
       LOG_TRACE("recycle old tuple slot: %u, %u", tile_group_id, tuple_id);
 

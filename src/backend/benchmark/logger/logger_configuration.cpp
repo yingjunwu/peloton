@@ -157,7 +157,7 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
   // Parse args
   while (1) {
     int idx = 0;
-    // logger - hW:F:L:
+    // logger - hW:F:L:Y:
     // ycsb   - hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:
     // tpcc   - hae:r:k:w:d:s:b:p:g:i:t:q:y:f:
     int c = getopt_long(argc, argv, "F:D:L:Y:hamexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:",
@@ -236,6 +236,10 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
         } else if (strcmp(gc_protocol, "sv") == 0 ) {
           ycsb::state.gc_protocol = GC_TYPE_SV;
           tpcc::state.gc_protocol = GC_TYPE_SV;
+        } else if (strcmp(gc_protocol, "n2oepoch") == 0) {
+          ycsb::state.gc_protocol = GC_TYPE_N2O_EPOCH;
+          tpcc::state.gc_protocol = GC_TYPE_N2O_EPOCH;
+          valid_gc = true;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);

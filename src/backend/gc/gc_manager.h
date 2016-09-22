@@ -47,7 +47,7 @@ class GCManager {
 
   virtual ~GCManager() {};
 
-  virtual void CreateGCContext() {};
+  virtual void CreateGCContext(size_t eid __attribute__((unused))) {};
 
   // WARNING: This function must be called before the current_txn is distructed
   virtual void EndGCContext(size_t eid __attribute__((unused))) {};

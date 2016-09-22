@@ -2,53 +2,53 @@
 //
 //                         Peloton
 //
-// vacuum_gc.cpp
+// n2o_epoch_gc.cpp
 //
-// Identification: src/backend/gc/vacuum_gc.cpp
+// Identification: src/backend/gc/n2o_epoch_gc.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
-#include "backend/gc/n2o_txn_gc.h"
+#include "backend/gc/n2o_epoch_gc.h"
 #include "backend/concurrency/transaction_manager_factory.h"
 namespace peloton {
   namespace gc {
-    thread_local GarbageContext *current_garbage_context = nullptr;
+    thread_local EpochGarbageContext *current_epoch_garbage_context = nullptr;
 
-    void N2OTxn_GCManager::CreateGCContext(size_t eid UNUSED_ATTRIBUTE) {
-      current_garbage_context = new GarbageContext();
-    }
-
-    // WARNING: This function must be called before the current_txn is distructed
-    void N2OTxn_GCManager::EndGCContext(size_t eid) {
-      if (eid == INVALID_EPOCH_ID) {
-        // Directly delete the context
-        delete current_garbage_context;
-      } else {
-        current_garbage_context->epoch_id = eid;
-        // Add the garbage context to the lockfree queue
-        std::shared_ptr<GarbageContext> gc_context(current_garbage_context);
-        unlink_queues_[HashToThread(gc_context->epoch_id)]->Enqueue(gc_context);
+    void N2OEpochGCManager::CreateGCContext(size_t eid) {
+      if (current_epoch_garbage_context == nullptr) {
+        current_epoch_garbage_context = new EpochGarbageContext();
+        current_epoch_garbage_context->epoch_id = eid;
+        return;
+      } 
+      if (eid == current_epoch_garbage_context->epoch_id) {
+        return;
       }
+      // Add the garbage context to the lockfree queue
+      std::shared_ptr<EpochGarbageContext> gc_context(current_epoch_garbage_context);
+      unlink_queues_[HashToThread(gc_context->epoch_id)]->Enqueue(gc_context);
       // Reset the GC context (not necessary...)
-      current_garbage_context = nullptr;
+      current_epoch_garbage_context = nullptr;
+
+      current_epoch_garbage_context = new EpochGarbageContext();
+      current_epoch_garbage_context->epoch_id = eid;
     }
 
-    void N2OTxn_GCManager::StartGC(int thread_id) {
+    void N2OEpochGCManager::StartGC(int thread_id) {
       LOG_TRACE("Starting GC");
       this->is_running_ = true;
-      gc_threads_[thread_id].reset(new std::thread(&N2OTxn_GCManager::Running, this, thread_id));
+      gc_threads_[thread_id].reset(new std::thread(&N2OEpochGCManager::Running, this, thread_id));
     }
 
-    void N2OTxn_GCManager::StopGC(int thread_id) {
+    void N2OEpochGCManager::StopGC(int thread_id) {
       LOG_TRACE("Stopping GC");
       this->is_running_ = false;
       this->gc_threads_[thread_id]->join();
       ClearGarbage(thread_id);
     }
 
-    bool N2OTxn_GCManager::ResetTuple(const TupleMetadata &tuple_metadata) {
+    bool N2OEpochGCManager::ResetTuple(const TupleMetadata &tuple_metadata) {
       auto &manager = catalog::Manager::GetInstance();
       auto tile_group =
         manager.GetTileGroup(tuple_metadata.tile_group_id);
@@ -82,7 +82,7 @@ namespace peloton {
     }
 
 // Multiple GC thread share the same recycle map
-    void N2OTxn_GCManager::AddToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx) {
+    void N2OEpochGCManager::AddToRecycleMap(std::shared_ptr<EpochGarbageContext> gc_ctx) {
       // If the tuple being reset no longer exists, just skip it
       for (auto tuple_metadata : gc_ctx->garbages) {
         if (ResetTuple(tuple_metadata) == false) {
@@ -94,7 +94,7 @@ namespace peloton {
       }
     }
 
-    void N2OTxn_GCManager::Running(int thread_id) {
+    void N2OEpochGCManager::Running(int thread_id) {
       // Check if we can move anything from the possibly free list to the free list.
 
       std::this_thread::sleep_for(
@@ -116,7 +116,7 @@ namespace peloton {
     }
 
 // executed by a single thread. so no synchronization is required.
-    void N2OTxn_GCManager::Reclaim(int thread_id, const size_t max_eid) {
+    void N2OEpochGCManager::Reclaim(int thread_id, const size_t max_eid) {
       int gc_counter = 0;
 
       // we delete garbage in the free list
@@ -141,17 +141,17 @@ namespace peloton {
       LOG_TRACE("Marked %d txn contexts as recycled", gc_counter);
     }
 
-    void N2OTxn_GCManager::Unlink(int thread_id, const size_t max_eid) {
+    void N2OEpochGCManager::Unlink(int thread_id, const size_t max_eid) {
       int tuple_counter = 0;
 
       // we check if any possible garbage is actually garbage
       // every time we garbage collect at most MAX_ATTEMPT_COUNT tuples.
 
-      std::vector<std::shared_ptr<GarbageContext>> garbages;
+      std::vector<std::shared_ptr<EpochGarbageContext>> garbages;
 
       // First iterate the local unlink queue
       local_unlink_queues_[thread_id].remove_if(
-        [this, &garbages, &tuple_counter, max_eid](const std::shared_ptr<GarbageContext>& g) -> bool {
+        [this, &garbages, &tuple_counter, max_eid](const std::shared_ptr<EpochGarbageContext>& g) -> bool {
           bool res = g->epoch_id  < max_eid;
           if (res) {
             for (auto t : g->garbages) {
@@ -166,7 +166,7 @@ namespace peloton {
 
       for (size_t i = 0; i < MAX_ATTEMPT_COUNT; ++i) {
 
-        std::shared_ptr<GarbageContext> garbage_ctx;
+        std::shared_ptr<EpochGarbageContext> garbage_ctx;
         // if there's no more tuples in the queue, then break.
         if (unlink_queues_[thread_id]->Dequeue(garbage_ctx) == false) {
           break;
@@ -197,7 +197,7 @@ namespace peloton {
     }
 
 // called by transaction manager.
-    void N2OTxn_GCManager::RecycleOldTupleSlot(const oid_t &table_id,
+    void N2OEpochGCManager::RecycleOldTupleSlot(const oid_t &table_id,
                                             const oid_t &tile_group_id,
                                             const oid_t &tuple_id,
                                             const size_t epoch_id UNUSED_ATTRIBUTE) {
@@ -207,7 +207,7 @@ namespace peloton {
       tuple_metadata.tile_group_id = tile_group_id;
       tuple_metadata.tuple_slot_id = tuple_id;
 
-      current_garbage_context->garbages.push_back(tuple_metadata);
+      current_epoch_garbage_context->garbages.push_back(tuple_metadata);
       LOG_TRACE("Marked tuple(%u, %u) in table %u as possible garbage",
                 tuple_metadata.tile_group_id, tuple_metadata.tuple_slot_id,
                 tuple_metadata.table_id);
@@ -215,7 +215,7 @@ namespace peloton {
 
 // this function returns a free tuple slot, if one exists
 // called by data_table.
-    ItemPointer N2OTxn_GCManager::ReturnFreeSlot(const oid_t &table_id) {
+    ItemPointer N2OEpochGCManager::ReturnFreeSlot(const oid_t &table_id) {
       // return INVALID_ITEMPOINTER;
       assert(recycle_queue_map_.count(table_id) != 0);
       TupleMetadata tuple_metadata;
@@ -237,7 +237,7 @@ namespace peloton {
     }
 
 
-    void N2OTxn_GCManager::ClearGarbage(int thread_id) {
+    void N2OEpochGCManager::ClearGarbage(int thread_id) {
       while(!unlink_queues_[thread_id]->IsEmpty() || !local_unlink_queues_[thread_id].empty()) {
         Unlink(thread_id, MAX_EPOCH_ID);
       }
@@ -250,7 +250,7 @@ namespace peloton {
     }
 
 // delete a tuple from all its indexes it belongs to.
-void N2OTxn_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadata) {
+void N2OEpochGCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadata) {
   LOG_TRACE("Deleting index for tuple(%u, %u)", tuple_metadata.tile_group_id,
             tuple_metadata.tuple_slot_id);
   auto &manager = catalog::Manager::GetInstance();
@@ -329,6 +329,5 @@ void N2OTxn_GCManager::DeleteTupleFromIndexes(const TupleMetadata &tuple_metadat
   }
 }
 
-
-  }  // namespace gc
+}  // namespace gc
 }  // namespace peloton

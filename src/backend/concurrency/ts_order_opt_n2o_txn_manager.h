@@ -83,7 +83,7 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
     current_txn = txn;
 
-    gc::GCManagerFactory::GetInstance().CreateGCContext();
+    gc::GCManagerFactory::GetInstance().CreateGCContext(current_txn->GetEpochId());
 
     txn->lower_bound_cid_ = 0;
     txn->upper_bound_cid_ = begin_cid;
