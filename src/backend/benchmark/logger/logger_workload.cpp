@@ -37,8 +37,6 @@
 #include "backend/benchmark/tpcc/tpcc_configuration.h"
 #include "backend/benchmark/tpcc/tpcc_loader.h"
 
-#include "backend/logging/checkpoint_manager.h"
-
 //===--------------------------------------------------------------------===//
 // GUC Variables
 //===--------------------------------------------------------------------===//
