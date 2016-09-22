@@ -13,8 +13,6 @@
 #include "ts_order_n2o_txn_manager.h"
 
 #include "backend/common/platform.h"
-#include "backend/logging/log_manager.h"
-#include "backend/logging/records/transaction_record.h"
 #include "backend/concurrency/transaction.h"
 #include "backend/catalog/manager.h"
 #include "backend/common/exception.h"
@@ -229,7 +227,7 @@ bool TsOrderN2OTxnManager::PerformRead(const ItemPointer &location) {
     return true;
   }
 
-  // txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
+  // txn_id_t tuple_txn_id = tile_group_header->GetTransactionCid(tuple_id);
 
   // if(tuple_txn_id != INITIAL_TXN_ID && last_reader_cid < current_txn->GetBeginCommitId()) {
   //   return false;

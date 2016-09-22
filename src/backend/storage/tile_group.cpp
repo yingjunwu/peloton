@@ -169,6 +169,11 @@ void TileGroup::CopyTuple(const oid_t &tuple_slot_id, Tuple *tuple) {
   }
 }
 
+oid_t TileGroup::GetColumnCount() {
+  auto schema = table->GetSchema();
+  return schema->GetColumnCount();
+}
+
 /**
  * Grab next slot (thread-safe) and fill in the tuple
  *

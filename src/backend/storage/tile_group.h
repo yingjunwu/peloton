@@ -158,6 +158,8 @@ class TileGroup : public Printable {
   void LocateTileAndColumn(oid_t column_offset, oid_t &tile_offset,
                            oid_t &tile_column_offset);
 
+  oid_t GetColumnCount();
+
   oid_t GetTileIdFromColumnId(oid_t column_id);
 
   oid_t GetTileColumnId(oid_t column_id);

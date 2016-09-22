@@ -134,7 +134,7 @@ static void ValidateMVCC_OldToNew(storage::DataTable *table) {
             ItemPointer last_location = prev_location;
             auto last_tile_group = catalog_manager.GetTileGroup(last_location.block);
             auto last_tile_group_header = last_tile_group->GetHeader();
-            // txn_id_t last_txn_id = last_tile_group_header->GetTransactionId(last_location.offset);
+            // txn_id_t last_txn_id = last_tile_group_header->GetTransactionCid(last_location.offset);
             cid_t last_end_cid = last_tile_group_header->GetEndCommitId(last_location.offset);
             EXPECT_TRUE(last_tile_group_header->GetNextItemPointer(last_location.offset).IsNull()) << "Last version has a next pointer";
 

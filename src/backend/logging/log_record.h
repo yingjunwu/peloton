@@ -10,29 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-/* The following entry types are distinguished:
- *
- * Possible Log Entries:
- *
- *     Transaction Record :
- *       - LogRecordType         : enum
- *     - HEADER
- *       - Header length         : int
- *       - Transaction Id        : txn_id_t
- *
- *     Tuple Record :
- *       - LogRecordType         : enum
- *     -HEADER
- *       - Header length         : int
- *       - Database Oid          : oid_t
- *       - Table Oid             : oid_t
- *       - Transaction Id        : txn_id_t
- *       - Inserted Location     : ItemPointer
- *       - Deleted Location      : ItemPointer
- *     -BODY
- *       - Body length           : int
- *       - Data                  : void*
-*/
 
 #pragma once
 
@@ -48,34 +25,41 @@ namespace logging {
 //===--------------------------------------------------------------------===//
 
 class LogRecord {
- public:
-  LogRecord(LogRecordType log_record_type, cid_t cid)
-      : log_record_type(log_record_type), cid(cid) {
+public:
+  LogRecord(LogRecordType log_record_type)
+      : log_record_type_(log_record_type), tuple_pos_(INVALID_ITEMPOINTER),
+        eid_(INVALID_EPOCH_ID), cid_(INVALID_CID) {
     PL_ASSERT(log_record_type != LOGRECORD_TYPE_INVALID);
   }
 
   virtual ~LogRecord() {}
 
-  LogRecordType GetType() const { return log_record_type; }
+  inline LogRecordType GetType() const { return log_record_type_; }
 
-  cid_t GetTransactionId() const { return cid; }
+  inline void SetItemPointer(const ItemPointer &pos) { tuple_pos_ = pos; }
 
-  virtual bool Serialize(CopySerializeOutput &output) = 0;
+  inline void SetEpochId(const size_t epoch_id) { eid_ = epoch_id; }
 
-  char *GetMessage(void) const { return message; }
+  inline void SetCommitId(const cid_t commit_id) { cid_ = commit_id; }
 
-  size_t GetMessageLength(void) const { return message_length; }
+  inline ItemPointer GetItemPointer() { return tuple_pos_; }
 
- protected:
-  LogRecordType log_record_type = LOGRECORD_TYPE_INVALID;
+  inline size_t GetEpochId() { return eid_; }
 
-  cid_t cid;
+  inline cid_t GetCommitId() { return cid_; }
 
-  // serialized message
-  char *message = nullptr;
+  void Serialize(CopySerializeOutput &output);
 
-  // length of the message
-  size_t message_length = 0;
+  void Deserialize(CopySerializeInput &input);
+
+private:
+  LogRecordType log_record_type_ = LOGRECORD_TYPE_INVALID;
+
+  ItemPointer tuple_pos_;
+
+  size_t eid_;
+
+  cid_t cid_;
 };
 
 }  // namespace logging
