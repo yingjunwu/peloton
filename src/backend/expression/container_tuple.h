@@ -65,6 +65,18 @@ class ContainerTuple : public AbstractTuple {
     container_->SetValue(value, tuple_id_, column_id);
   }
 
+  /** @brief Serialize to an output buffer. */
+  void SerializeTo(SerializeOutput &output) {
+    PL_ASSERT(container_ != nullptr);
+
+    size_t start = output.ReserveBytes(4);
+    auto column_count = container_->GetColumnCount();
+    for (size_t col_id = 0; col_id < column_count; ++col_id) {
+      auto value = GetValue(col_id);
+      value.SerializeTo(output);
+    }
+  }
+
   /** @brief Get the raw location of the tuple's contents. */
   inline char *GetData() const override {
     // NOTE: We can't.Get a table tuple from a tilegroup or logical tile

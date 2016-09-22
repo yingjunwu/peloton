@@ -13,8 +13,6 @@
 #include "ts_order_opt_n2o_txn_manager.h"
 
 #include "backend/common/platform.h"
-#include "backend/logging/log_manager.h"
-#include "backend/logging/records/transaction_record.h"
 #include "backend/concurrency/transaction.h"
 #include "backend/catalog/manager.h"
 #include "backend/common/exception.h"

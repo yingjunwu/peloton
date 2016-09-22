@@ -41,7 +41,7 @@ public:
 
   bool Empty() { return size_ == 0; }
 
-  bool WriteData(char *data, size_t len);
+  bool WriteData(const char *data, size_t len);
 
 private:
   size_t size_;

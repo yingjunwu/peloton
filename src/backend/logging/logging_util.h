@@ -14,7 +14,6 @@
 
 #include "backend/common/types.h"
 #include "backend/common/logger.h"
-#include "backend/logging/records/transaction_record.h"
 #include "backend/logging/records/tuple_record.h"
 #include "backend/storage/data_table.h"
 
