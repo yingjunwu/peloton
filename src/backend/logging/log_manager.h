@@ -17,10 +17,7 @@
 #include <vector>
 
 #include "backend/logging/logger.h"
-#include "backend_logger.h"
-#include "frontend_logger.h"
 #include "backend/concurrency/transaction.h"
-#include "loggers/wal_frontend_logger.h"
 
 #define DEFAULT_NUM_FRONTEND_LOGGERS 1
 

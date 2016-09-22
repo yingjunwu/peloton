@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "backend/common/macros.h"
-#include "backend/logging/checkpoint/simple_checkpoint.h"
 #include "backend/logging/checkpoint_manager.h"
 
 namespace peloton {
