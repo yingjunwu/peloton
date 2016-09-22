@@ -16,6 +16,7 @@
 
 #include "backend/common/macros.h"
 #include "backend/common/types.h"
+#include "backend/logging/log_buffer.h"
 #include "backend/common/platform.h"
 
 

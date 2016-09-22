@@ -33,8 +33,6 @@
 #include "backend/bridge/ddl/tests/bridge_test.h"
 #include "backend/bridge/dml/executor/plan_executor.h"
 #include "backend/bridge/dml/mapper/mapper.h"
-#include "backend/logging/log_manager.h"
-#include "backend/logging/checkpoint_manager.h"
 #include "backend/planner/seq_scan_plan.h"
 #include "backend/gc/gc_manager_factory.h"
 
@@ -52,7 +50,6 @@
 
 #include "nodes/params.h"
 #include "utils/guc.h"
-#include "utils/errcodes.h"
 #include "utils/ps_status.h"
 #include "utils/timeout.h"
 #include "utils/memutils.h"

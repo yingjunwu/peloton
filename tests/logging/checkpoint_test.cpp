@@ -11,20 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "harness.h"
-#include "backend/logging/checkpoint.h"
-#include "backend/logging/logging_util.h"
-#include "backend/logging/checkpoint_manager.h"
-#include "backend/bridge/dml/mapper/mapper.h"
-#include "backend/storage/database.h"
-
-#include "backend/concurrency/transaction_manager_factory.h"
-#include "backend/executor/logical_tile_factory.h"
-#include "backend/index/index.h"
-
-#include "executor/mock_executor.h"
-#include "logging/logging_tests_util.h"
-
-#define DEFAULT_RECOVERY_CID 15
 
 using ::testing::NotNull;
 using ::testing::Return;
