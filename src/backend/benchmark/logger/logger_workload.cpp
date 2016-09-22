@@ -235,6 +235,7 @@ void CleanUpLogDirectory() {
  */
 bool PrepareLogFile() {
   // Clean up log directory
+  // I don't really understand what happened here. --Yingjun
   CleanUpLogDirectory();
 
   // start a thread for logging
@@ -246,7 +247,7 @@ bool PrepareLogFile() {
                                logging::WriteAheadFrontendLogger::wal_directory_path);
   }
 
-  UNUSED_ATTRIBUTE auto& checkpoint_manager = logging::CheckpointManager::GetInstance();
+  auto& checkpoint_manager = logging::CheckpointManager::GetInstance();
 
   if (log_manager.ContainsFrontendLogger() == true) {
     LOG_ERROR("another logging thread is running now");
@@ -259,28 +260,6 @@ bool PrepareLogFile() {
   auto tmp = storage_manager.Allocate(BACKEND_TYPE_MM, 1024);
   storage_manager.Release(BACKEND_TYPE_MM, tmp);
 
-  // Pick sync commit mode
-  // switch (state.asynchronous_mode) {
-    // case ASYNCHRONOUS_TYPE_SYNC:
-      log_manager.SetSyncCommit(true);
-  //     break;
-
-  //   case ASYNCHRONOUS_TYPE_ASYNC:
-  //     log_manager.SetSyncCommit(false);
-  //     break;
-
-  //   case ASYNCHRONOUS_TYPE_DISABLED:
-  //     // No logging
-  //     peloton_logging_mode = LOGGING_TYPE_INVALID;
-  //     break;
-  //   case ASYNCHRONOUS_TYPE_NO_WRITE:
-  //     log_manager.SetNoWrite(true);
-  //     break;
-
-  //   case ASYNCHRONOUS_TYPE_INVALID:
-  //     throw Exception("Invalid asynchronous mode : " +
-  //                     std::to_string(state.asynchronous_mode));
-  // }
 
   std::thread logging_thread;
   std::thread checkpoint_thread;

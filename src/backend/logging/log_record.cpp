@@ -27,7 +27,6 @@ void LogRecord::Serialize(CopySerializeOutput &output){
     case LOGRECORD_TYPE_TUPLE_INSERT:
     case LOGRECORD_TYPE_TUPLE_DELETE:
     case LOGRECORD_TYPE_TUPLE_UPDATE:
-      output.WriteLong(*(reinterpret_cast<uint64_t*>(&tuple_pos_)));
       auto &manager = catalog::Manager::GetInstance();
       expression::ContainerTuple<storage::TileGroup> container_tuple(
         manager.GetTileGroup(tuple_pos_.block).get(), tuple_pos_.offset

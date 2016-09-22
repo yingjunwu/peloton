@@ -149,49 +149,6 @@ int LoggingUtil::ExtractNumberFromFileName(const char *name) {
   return 0;
 }
 
-bool LoggingUtil::ReadTransactionRecordHeader(TransactionRecord &txn_record,
-                                              FileHandle &file_handle) {
-  // Check if frame is broken
-  auto header_size = GetNextFrameSize(file_handle);
-  if (header_size == 0) {
-    return false;
-  }
-
-  // Read header
-  char header[header_size];
-  size_t ret = fread(header, 1, sizeof(header), file_handle.file);
-  if (ret <= 0) {
-    LOG_ERROR("Error occured in fread ");
-  }
-
-  CopySerializeInputBE txn_header(header, header_size);
-  txn_record.Deserialize(txn_header);
-
-  return true;
-}
-
-bool LoggingUtil::ReadTupleRecordHeader(TupleRecord &tuple_record,
-                                        FileHandle &file_handle) {
-  // Check if frame is broken
-  auto header_size = GetNextFrameSize(file_handle);
-  if (header_size == 0) {
-    LOG_ERROR("Header size is zero ");
-    return false;
-  }
-
-  // Read header
-  char header[header_size];
-  size_t ret = fread(header, 1, sizeof(header), file_handle.file);
-  if (ret <= 0) {
-    LOG_ERROR("Error occured in fread");
-  }
-
-  CopySerializeInputBE tuple_header(header, header_size);
-  tuple_record.DeserializeHeader(tuple_header);
-
-  return true;
-}
-
 storage::Tuple *LoggingUtil::ReadTupleRecordBody(catalog::Schema *schema,
                                                  VarlenPool *pool,
                                                  FileHandle &file_handle) {
