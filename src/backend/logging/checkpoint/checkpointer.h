@@ -39,6 +39,8 @@ public:
 
   void RegisterTable(oid_t table_id);
 
+
+private:
   void Running();
 
   void DoCheckpoint();
@@ -115,9 +117,6 @@ public:
 
   }
 
-
-
-private:
   // Private Functions
   void CreateFile() {
     // open checkpoint file and file descriptor
