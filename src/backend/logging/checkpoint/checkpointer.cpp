@@ -48,7 +48,7 @@ class Checkpointer {
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       ++count;
-      if (count == 30) {
+      if (count == CHECKPOINT_INTERVAL) {
         PerformCheckpoint();
         count = 0;
       }
@@ -56,24 +56,36 @@ class Checkpointer {
   }
 
   void Checkpointer::PerformCheckpoint() {
-    // first of all, we should get a snapshot txn id.
-    auto &epoch_manager = EpochManagerFactory::GetInstance();
-    cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
 
+    // prepare files
     auto &catalog_manager = catalog::Manager::GetInstance();
     auto database_count = catalog_manager.GetDatabaseCount();
     
     // creating files
+    FileHandle **file_handles = new FileHandle*[database_count];
     for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
       auto database = catalog_manager.GetDatabase(database_idx);
       auto table_count = database->GetTableCount();
       
+      file_handles[database_idx] = new FileHandle[table_count];
       for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
         std::string filename = GetCheckpointFileFullPath(database_idx, table_idx, begin_cid);
-        Filehandle file_handle;
-        CreateFile
+       
+        bool success =
+            LoggingUtil::CreateFile(file_name.c_str(), "ab", file_handles[database_idx][table_idx]);
+        
+        PL_ASSERT(success == true);
+        if (success != true) {
+          LOG_ERROR("create file failed!");
+          exit(-1);
+        }
+
       }
     }
+
+    // first of all, we should get a snapshot txn id.
+    auto &epoch_manager = EpochManagerFactory::GetInstance();
+    cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
 
     // loop all databases
     for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
@@ -95,32 +107,44 @@ class Checkpointer {
     // exit epoch.
     epoch_manager.ExitReadOnlyEpoch(current_txn->GetEpochId());
 
+
+    // close files
+    for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
+      auto database = catalog_manager.GetDatabase(database_idx);
+      auto table_count = database->GetTableCount();
+      
+      file_handles[database_idx] = new FileHandle[table_count];
+      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+        
+        fclose(file_handles[database_idx][table_idx].file);
+
+      }
+      delete[] file_handles[table_count];
+    }
+    delete[] file_handles;
   }
 
   void Checkpointer::CheckpointTable(cid_t begin_cid, storage::DataTable *target_table) {
-    
-    // TODO split checkpoint file into multiple files in the future
-    // Create a new file for checkpoint
-    
 
+    LOG_TRACE("perform checkpoint cid = %lu", begin_cid);
 
-    LOG_TRACE("DoCheckpoint cid = %lu", start_commit_id_);
+    oid_t tile_group_count = target_table->GetTileGroupCount();
+
+    for (oid_t tile_group_itr = 0; tile_group_itr < tile_group_count; tile_group_itr++) {
+      // Retrieve a tile group
+      auto tile_group = target_table->GetTileGroup(current_tile_group_offset);
+      
+    }
 
     // Add txn begin record
     std::shared_ptr<LogRecord> begin_record(new TransactionRecord(
         LOGRECORD_TYPE_TRANSACTION_BEGIN, start_commit_id_));
 
-
-
-
     CopySerializeOutput begin_output_buffer;
     begin_record->Serialize(begin_output_buffer);
     records_.push_back(begin_record);
 
-    auto catalog = catalog::Catalog::GetInstance();
-    auto database_count = catalog->GetDatabaseCount();
-
-      
+    
     // loop all tables
     for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
       // Get the target table
@@ -212,6 +236,37 @@ class Checkpointer {
       current_tile_group_offset++;
     }
   }
+
+  std::unique_ptr<executor::LogicalTile> Scan(
+      std::shared_ptr<storage::TileGroup> tile_group,
+      const std::vector<oid_t> &column_ids, cid_t start_cid) {
+    // Retrieve next tile group.
+    auto tile_group_header = tile_group->GetHeader();
+
+    oid_t active_tuple_count = tile_group->GetNextTupleSlot();
+
+    LOG_TRACE("Active tuple count in tile group: %d", active_tuple_count);
+
+    // Construct position list by looping through tile group
+    // and applying the predicate.
+    std::vector<oid_t> position_list;
+    for (oid_t tuple_id = 0; tuple_id < active_tuple_count; tuple_id++) {
+      // check transaction visibility
+      if (IsVisible(tile_group_header, tuple_id, start_cid)) {
+        position_list.push_back(tuple_id);
+      }
+    }
+
+    // Construct logical tile.
+    std::unique_ptr<executor::LogicalTile> logical_tile(
+        executor::LogicalTileFactory::GetTile());
+    logical_tile->AddColumns(tile_group, column_ids);
+    logical_tile->AddPositionList(std::move(position_list));
+
+    return std::move(logical_tile);
+  }
+
+
 
 
   // Visibility check

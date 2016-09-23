@@ -65,36 +65,6 @@ private:
     return checkpoint_dir_ + "/" + checkpoint_filename_prefix_ + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
   }
 
-  std::unique_ptr<executor::LogicalTile> Scan(
-      std::shared_ptr<storage::TileGroup> tile_group,
-      const std::vector<oid_t> &column_ids, cid_t start_cid) {
-    // Retrieve next tile group.
-    auto tile_group_header = tile_group->GetHeader();
-
-    oid_t active_tuple_count = tile_group->GetNextTupleSlot();
-
-    LOG_TRACE("Active tuple count in tile group: %d", active_tuple_count);
-
-    // Construct position list by looping through tile group
-    // and applying the predicate.
-    std::vector<oid_t> position_list;
-    for (oid_t tuple_id = 0; tuple_id < active_tuple_count; tuple_id++) {
-      // check transaction visibility
-      if (IsVisible(tile_group_header, tuple_id, start_cid)) {
-        position_list.push_back(tuple_id);
-      }
-    }
-
-    // Construct logical tile.
-    std::unique_ptr<executor::LogicalTile> logical_tile(
-        executor::LogicalTileFactory::GetTile());
-    logical_tile->AddColumns(tile_group, column_ids);
-    logical_tile->AddPositionList(std::move(position_list));
-
-    return std::move(logical_tile);
-  }
-
-
   // Visibility check
   bool IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
 
