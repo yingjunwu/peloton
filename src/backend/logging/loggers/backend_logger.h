@@ -30,10 +30,7 @@ class BackendLogger {
 public:
 
   BackendLogger()
-    : buffer_pool_(), current_buffer_ptr_(), output_buffer_() {
-    // Get the inital buffer
-    current_buffer_ptr_ = buffer_pool_.GetBuffer();
-  }
+    : backend_logger_id_(backend_logger_id_generator++), buffer_pool_(), output_buffer_() {}
 
   ~BackendLogger() {}
 
@@ -49,17 +46,26 @@ public:
 
   virtual void CommitCurrentTxn() = 0;
 
+
+
   // Send the current log buffer to some place
-  virtual void PublishCurrentLogBuffer() = 0;
+  size_t GetBackendLoggerId() { return backend_logger_id_; }
+
+  static size_t GetBackendLoggerCount() { return backend_logger_id_generator.load(); }
+
+  void GrantLogBuffer();
 
 protected:
-  BackendBufferPool buffer_pool_;
+  size_t backend_logger_id_;
 
-  std::unique_ptr<LogBuffer> current_buffer_ptr_;
+  BackendBufferPool buffer_pool_;
 
   // TODO: We have an extra copy in this buffer
   // Change the CopySerializeOutput API to reduce this extra copy.
   CopySerializeOutput output_buffer_;
+
+private:
+  static std::atomic<size_t> backend_logger_id_generator;
 };
 
 }

@@ -33,7 +33,7 @@ enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
 
   // Based on write ahead logging
-  LOGGING_TYPE_ON = 1
+  LOGGING_TYPE_SILOR = 1,
 
 };
 
