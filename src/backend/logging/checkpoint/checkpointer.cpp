@@ -92,7 +92,6 @@ class Checkpointer {
       auto database = catalog_manager.GetDatabase(database_idx);
       auto table_count = database->GetTableCount();
       
-
       // loop all tables
       for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
         // Get the target table
@@ -143,8 +142,8 @@ class Checkpointer {
         // check tuple version visibility
         if (IsVisible(tile_group_header, tuple_id) == true) {
           // persist this version.
+          PersistTuple(tile_group_header, tuple_id);
 
-          
         } // end if isvisible
       }   // end for
     }     // end while

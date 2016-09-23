@@ -54,6 +54,25 @@ public:
   void StopCheckpointing();
 
 
+  /**
+   * checkpoint file name layout :
+   * 
+   * dir_name + "/" + prefix + "_" + database_id + "_" + table_id + "_" + epoch_id
+   *
+   *
+   * checkpoint file layout :
+   *
+   *  -----------------------------------------------------------------------------
+   *  | tuple_1 | tuple_2 | tuple_3 | ...
+   *  -----------------------------------------------------------------------------
+   *
+   * NOTE: tuple length can be obtained from the table schema.
+   *
+   */
+
+  static GetCheckpointFileFullPath();
+
+
 private:
   void Running();
 
@@ -62,7 +81,7 @@ private:
   void CheckpointTable(cid_t begin_cid, storage::Database *);
 
   std::string GetCheckpointFileFullPath(oid_t database_idx, oid_t table_idx, cid_t begin_cid) {
-    return checkpoint_dir_ + "/" + checkpoint_filename_prefix_ + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
+    return checkpoint_dir_ + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
   }
 
   // Visibility check
@@ -75,7 +94,7 @@ private:
   int checkpoint_interval_;
 
   std::string checkpoint_dir_ = CHECKPOINT_DIR;
-  const std::string checkpoint_filename_prefix_ = "checkpoint_";
+  const std::string checkpoint_filename_prefix_ = "checkpoint";
 
   std::unique_ptr<std::thread> checkpoint_thread_;
 };

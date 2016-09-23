@@ -24,21 +24,6 @@ namespace logging {
 //===--------------------------------------------------------------------===//
 // LoggingUtil
 //===--------------------------------------------------------------------===//
-void LoggingUtil::FFlushFsync(FileHandle &file_handle) {
-  // First, flush
-  PL_ASSERT(file_handle.fd != -1);
-  if (file_handle.fd == -1) return;
-  int ret = fflush(file_handle.file);
-  if (ret != 0) {
-    LOG_ERROR("Error occured in fflush(%d)", ret);
-  }
-  // Finally, sync
-  ret = fsync(file_handle.fd);
-  if (ret != 0) {
-    LOG_ERROR("Error occured in fsync(%d)", ret);
-  }
-}
-
 
 bool LoggingUtil::CreateDirectory(const char *dir_name, int mode) {
   int return_val = mkdir(dir_name, mode);
@@ -91,6 +76,20 @@ bool LoggingUtil::RemoveDirectory(const char *dir_name, bool only_remove_file) {
   return true;
 }
 
+void LoggingUtil::FFlushFsync(FileHandle &file_handle) {
+  // First, flush
+  PL_ASSERT(file_handle.fd != -1);
+  if (file_handle.fd == -1) return;
+  int ret = fflush(file_handle.file);
+  if (ret != 0) {
+    LOG_ERROR("Error occured in fflush(%d)", ret);
+  }
+  // Finally, sync
+  ret = fsync(file_handle.fd);
+  if (ret != 0) {
+    LOG_ERROR("Error occured in fsync(%d)", ret);
+  }
+}
 
 bool LoggingUtil::CreateFile(const char *name, const char *mode, FileHandle &file_handle) {
   auto file = fopen(name, mode);
@@ -128,10 +127,10 @@ bool LoggingUtil::IsFileTruncated(FileHandle &file_handle,
   }
 }
 
-size_t LoggingUtil::GetLogFileSize(FileHandle &file_handle) {
-  struct stat log_stats;
-  fstat(file_handle.fd, &log_stats);
-  return log_stats.st_size;
+size_t LoggingUtil::GetFileSize(FileHandle &file_handle) {
+  struct stat file_stats;
+  fstat(file_handle.fd, &file_stats);
+  return file_stats.st_size;
 }
 
 size_t LoggingUtil::GetNextFrameSize(FileHandle &file_handle) {
@@ -245,26 +244,6 @@ void LoggingUtil::SkipTupleRecordBody(FileHandle &file_handle) {
   CopySerializeInputBE tuple_body(body, body_size);
 }
 
-// Wrappers
-storage::DataTable *LoggingUtil::GetTable(TupleRecord &tuple_record) {
-  // Get db, table, schema to insert tuple
-  auto &manager = catalog::Manager::GetInstance();
-  storage::Database *db =
-      manager.GetDatabaseWithOid(tuple_record.GetDatabaseOid());
-  if (!db) {
-    return nullptr;
-  }
-  PL_ASSERT(db);
-
-  LOG_TRACE("Table ID for this tuple: %d", (int)tuple_record.GetTableId());
-  auto table = db->GetTableWithOid(tuple_record.GetTableId());
-  if (!table) {
-    return nullptr;
-  }
-  PL_ASSERT(table);
-
-  return table;
-}
 
 int LoggingUtil::GetFileSizeFromFileName(const char *file_name) {
   struct stat st;
