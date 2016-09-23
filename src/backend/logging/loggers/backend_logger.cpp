@@ -16,5 +16,6 @@
 namespace peloton {
 namespace logging {
 
+  std::atomic<size_t> BackendLogger::backend_logger_id_generator = 0;
 }
 }
