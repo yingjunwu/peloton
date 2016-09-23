@@ -24,14 +24,28 @@ namespace logging {
 // LogRecord
 //===--------------------------------------------------------------------===//
 
-class LogRecord {
+class LogRecordFactory {
 public:
-  LogRecord(LogRecordType log_record_type)
-      : log_record_type_(log_record_type), tuple_pos_(INVALID_ITEMPOINTER),
-        eid_(INVALID_EPOCH_ID), cid_(INVALID_CID) {
-    PL_ASSERT(log_record_type != LOGRECORD_TYPE_INVALID);
+  static LogRecord CreateTupleRecord(LogRecordType log_type, const ItemPointer &pos) {
+    return LogRecord(log_type, pos, INVALID_EPOCH_ID, INVALID_CID);
   }
 
+  static LogRecord CreateTxnRecord(LogRecordType log_type, cid_t commit_id) {
+    return LogRecord(log_type, INVALID_ITEMPOINTER, INVALID_EPOCH_ID, commit_id);
+  }
+
+  static LogRecord CreateEpochRecord(LogRecordType log_type, size_t epoch_id) {
+    return LogRecord(log_type, INVALID_ITEMPOINTER, epoch_id, INVALID_CID);
+  }
+};
+
+class LogRecord {
+  friend class LogRecordFactory;
+private:
+  LogRecord(LogRecordType log_type, const ItemPointer &pos, size_t epoch_id, cid_t commit_id)
+    : log_record_type_(log_type), tuple_pos_(pos), eid_(epoch_id), cid_(commit_id) {}
+
+public:
   virtual ~LogRecord() {}
 
   inline LogRecordType GetType() const { return log_record_type_; }

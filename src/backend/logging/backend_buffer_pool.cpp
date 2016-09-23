@@ -34,7 +34,7 @@ namespace logging {
     }
 
     head_++;
-    return local_buffer_queue_[head_idx].release();
+    return std::move(local_buffer_queue_[head_idx]);
   }
 
   void BackendBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {

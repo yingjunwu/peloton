@@ -24,17 +24,17 @@ public :
   InvalidBackendLogger() {}
   ~InvalidBackendLogger() {}
 
-  void StartTxn(UNUSED_ATTRIBUTE concurrency::Transaction *txn) {}
-  void LogInsert(UNUSED_ATTRIBUTE const ItemPointer &pos) {}
-  void LogDelete(UNUSED_ATTRIBUTE const ItemPointer &pos) {}
+  void StartTxn(UNUSED_ATTRIBUTE concurrency::Transaction *txn) final {}
+  void LogInsert(UNUSED_ATTRIBUTE const ItemPointer &pos) final {};
+  void LogDelete(UNUSED_ATTRIBUTE const ItemPointer &pos) final {}
 
-  void LogUpdate(UNUSED_ATTRIBUTE const ItemPointer &pos) {}
+  void LogUpdate(UNUSED_ATTRIBUTE const ItemPointer &pos) final {}
 
-  void AbortCurrentTxn() {}
+  // void AbortCurrentTxn() final {}
 
-  void CommitCurrentTxn() {}
+  void CommitCurrentTxn() final {}
 
-  void PublishCurrentLogBuffer() {};
+  void PublishCurrentLogBuffer() final {};
 }
 
 }
