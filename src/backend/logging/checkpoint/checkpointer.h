@@ -10,8 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #pragma once
+
+#include <unordered_set>
+#include <unordered_map>
+#include <vector>
+
+#include "backend/common/types.h"
+#include "backend/common/logger.h"
+
+
+#define CHECKPOINT_INTERVAL 30
+#define CHECKPOINT_DIR "/tmp/"
 
 namespace peloton {
 namespace logging {
@@ -25,26 +35,35 @@ class Checkpointer {
 
 
 public:
-  CheckpointManager() {}
+  CheckpointManager(int thread_count) 
+    : is_running_(true),
+      checkpoint_thread_count_(thread_count) {}
   ~CheckpointManager() {}
 
-  static CheckpointManager& GetInstance() {
-    static CheckpointManager checkpoint_manager();
+  static CheckpointManager& GetInstance(int thread_count = 1) {
+    static CheckpointManager checkpoint_manager(thread_count);
     return checkpoint_manager;
+  }
+
+  void SetDirectory(const std::string &dir_prefix) {
+    checkpoint_dir_prefix_ = dir_prefix;
   }
 
   void StartCheckpointing();
   
   void StopCheckpointing();
 
-  void RegisterTable(oid_t table_id);
-
 
 private:
   void Running();
 
-  void DoCheckpoint();
+  void PerformCheckpoint();
 
+  void CheckpointTable(cid_t begin_cid, storage::Database *);
+
+  std::string GetCheckpointFileFullPath(oid_t database_idx, oid_t table_idx, cid_t begin_cid) {
+    return checkpoint_dir_ + "/" + checkpoint_filename_prefix_ + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
+  }
 
   std::unique_ptr<executor::LogicalTile> Scan(
       std::shared_ptr<storage::TileGroup> tile_group,
@@ -77,64 +96,17 @@ private:
 
 
   // Visibility check
-  bool IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
-    txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
-    cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
-    cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
-
-    bool activated = (current_txn->GetBeginCommitId() >= tuple_begin_cid);
-    bool invalidated = (current_txn->GetBeginCommitId() >= tuple_end_cid);
-
-    if (tuple_txn_id == INVALID_TXN_ID) {
-      // the tuple is not available.
-      return false;
-    }
-
-    // there are exactly two versions that can be owned by a transaction.
-    // unless it is an insertion.
-
-    if (tuple_txn_id != INITIAL_TXN_ID) {
-      // if the tuple is owned by other transactions.
-      if (tuple_begin_cid == MAX_CID) {
-        // never read an uncommitted version.
-        return false;
-      } else {
-        // the older version may be visible.
-        if (activated && !invalidated) {
-          return true;
-        } else {
-          return false;
-        }
-      }
-    } else {
-      // if the tuple is not owned by any transaction.
-      if (activated && !invalidated) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-  }
-
-  // Private Functions
-  void CreateFile() {
-    // open checkpoint file and file descriptor
-    std::string file_name = ConcatFileName(checkpoint_dir, ++checkpoint_version);
-    bool success =
-        LoggingUtil::InitFileHandle(file_name.c_str(), file_handle_, "ab");
-    if (!success) {
-      PL_ASSERT(false);
-      return;
-    }
-    LOG_TRACE("Created a new checkpoint file: %s", file_name.c_str());
-  }
-
+  bool IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id);
 
 
 private:
-  bool is_working_ = false;
-  size_t current_eid_;
+  bool is_running_;
+  int checkpoint_thread_count_;
+  int checkpoint_interval_;
+
+  std::string checkpoint_dir_ = CHECKPOINT_DIR;
+  const std::string checkpoint_filename_prefix_ = "checkpoint_";
+
   std::unique_ptr<std::thread> checkpoint_thread_;
 };
 

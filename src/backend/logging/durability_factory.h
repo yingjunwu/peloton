@@ -22,16 +22,17 @@ namespace logging {
 
 class DurabilityFactory {
  public:
-  static FrontendLogger &GetFrontendLoggerInstance() {
-    return FrontendLogger::GetInstance();
-  }
-
+  
   static BackendLogger &GetBackendLoggerInstance() {
     return BackendLogger::GetInstance();
   }
 
+  static FrontendLogger &GetFrontendLoggerInstance() {
+    return FrontendLogger::GetInstance(frontend_logger_count_);
+  }
+
   static Checkpointer &GetCheckpointerInstance() {
-    return Checkpointer::GetInstance();
+    return Checkpointer::GetInstance(checkpointer_count_);
   }
 
   static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, int frontend_logger_count = default_frontend_logger_count_, int checkpointer_count = default_checkpointer_count_) {
@@ -49,15 +50,6 @@ class DurabilityFactory {
   static CheckpointType GetCheckpointType() { return checkpoint_type_; }
 
  private:
-
-  static std::string logging_dir_prefix_;
-
-  static std::string checkpoint_dir_prefix_;
-
-  const static std::string logging_filename_prefix_ = "logging_";
-
-  const static std::string checkpoint_filename_prefix_ = "checkpoint_";
-
   // GC type
   static LoggingType logging_type_;
 

@@ -39,8 +39,60 @@ void LoggingUtil::FFlushFsync(FileHandle &file_handle) {
   }
 }
 
-bool LoggingUtil::InitFileHandle(const char *name, FileHandle &file_handle,
-                                 const char *mode) {
+
+bool LoggingUtil::CreateDirectory(const char *dir_name, int mode) {
+  int return_val = mkdir(dir_name, mode);
+  if (return_val == 0) {
+    LOG_TRACE("Created directory %s successfully", dir_name);
+  } else if (errno == EEXIST) {
+    LOG_TRACE("Directory %s already exists", dir_name);
+  } else {
+    LOG_TRACE("Creating directory failed: %s", strerror(errno));
+    return false;
+  }
+  return true;
+}
+
+/**
+ * @return false if fail to remove directory
+ */
+bool LoggingUtil::RemoveDirectory(const char *dir_name, bool only_remove_file) {
+  struct dirent *file;
+  DIR *dir;
+
+  dir = opendir(dir_name);
+  if (dir == nullptr) {
+    return true;
+  }
+
+  // XXX readdir is not thread safe???
+  while ((file = readdir(dir)) != nullptr) {
+    if (strcmp(file->d_name, ".") == 0 || strcmp(file->d_name, "..") == 0) {
+      continue;
+    }
+    char complete_path[256];
+    strcpy(complete_path, dir_name);
+    strcat(complete_path, "/");
+    strcat(complete_path, file->d_name);
+    auto ret_val = remove(complete_path);
+    if (ret_val != 0) {
+      LOG_ERROR("Failed to delete file: %s, error: %s", complete_path,
+                strerror(errno));
+    }
+  }
+  closedir(dir);
+  if (!only_remove_file) {
+    auto ret_val = remove(dir_name);
+    if (ret_val != 0) {
+      LOG_ERROR("Failed to delete dir: %s, error: %s", file->d_name,
+                strerror(errno));
+    }
+  }
+  return true;
+}
+
+
+bool LoggingUtil::CreateFile(const char *name, const char *mode, FileHandle &file_handle) {
   auto file = fopen(name, mode);
   if (file == NULL) {
     LOG_ERROR("Checkpoint File is NULL");
@@ -61,12 +113,6 @@ bool LoggingUtil::InitFileHandle(const char *name, FileHandle &file_handle,
   return true;
 }
 
-size_t LoggingUtil::GetLogFileSize(FileHandle &file_handle) {
-  struct stat log_stats;
-  fstat(file_handle.fd, &log_stats);
-  return log_stats.st_size;
-}
-
 bool LoggingUtil::IsFileTruncated(FileHandle &file_handle,
                                   size_t size_to_read) {
   // Cache current position
@@ -80,6 +126,12 @@ bool LoggingUtil::IsFileTruncated(FileHandle &file_handle,
     fseek(file_handle.file, 0, SEEK_END);
     return true;
   }
+}
+
+size_t LoggingUtil::GetLogFileSize(FileHandle &file_handle) {
+  struct stat log_stats;
+  fstat(file_handle.fd, &log_stats);
+  return log_stats.st_size;
 }
 
 size_t LoggingUtil::GetNextFrameSize(FileHandle &file_handle) {
@@ -224,56 +276,6 @@ int LoggingUtil::GetFileSizeFromFileName(const char *file_name) {
   return -1;
 }
 
-bool LoggingUtil::CreateDirectory(const char *dir_name, int mode) {
-  int return_val = mkdir(dir_name, mode);
-  if (return_val == 0) {
-    LOG_TRACE("Created directory %s successfully", dir_name);
-  } else if (errno == EEXIST) {
-    LOG_TRACE("Directory %s already exists", dir_name);
-  } else {
-    LOG_TRACE("Creating directory failed: %s", strerror(errno));
-    return false;
-  }
-  return true;
-}
-
-/**
- * @return false if fail to remove directory
- */
-bool LoggingUtil::RemoveDirectory(const char *dir_name, bool only_remove_file) {
-  struct dirent *file;
-  DIR *dir;
-
-  dir = opendir(dir_name);
-  if (dir == nullptr) {
-    return true;
-  }
-
-  // XXX readdir is not thread safe???
-  while ((file = readdir(dir)) != nullptr) {
-    if (strcmp(file->d_name, ".") == 0 || strcmp(file->d_name, "..") == 0) {
-      continue;
-    }
-    char complete_path[256];
-    strcpy(complete_path, dir_name);
-    strcat(complete_path, "/");
-    strcat(complete_path, file->d_name);
-    auto ret_val = remove(complete_path);
-    if (ret_val != 0) {
-      LOG_ERROR("Failed to delete file: %s, error: %s", complete_path,
-                strerror(errno));
-    }
-  }
-  closedir(dir);
-  if (!only_remove_file) {
-    auto ret_val = remove(dir_name);
-    if (ret_val != 0) {
-      LOG_ERROR("Failed to delete dir: %s, error: %s", file->d_name,
-                strerror(errno));
-    }
-  }
-  return true;
-}
 
 }  // namespace logging
 }  // namespace peloton
