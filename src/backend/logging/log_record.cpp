@@ -12,7 +12,6 @@
 
 #include "backend/expression/container_tuple.h"
 #include "backend/catalog/manager.h"
-#include "backend/common/logger.h"
 #include "backend/logging/log_record.h"
 
 namespace peloton {
