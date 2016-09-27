@@ -15,7 +15,6 @@
 
 #include "backend/common/types.h"
 #include "backend/bridge/ddl/bridge.h"
-#include "backend/common/serializer.h"
 
 namespace peloton {
 namespace logging {
@@ -23,7 +22,6 @@ namespace logging {
 //===--------------------------------------------------------------------===//
 // LogRecord
 //===--------------------------------------------------------------------===//
-
 class LogRecordFactory {
 public:
   static LogRecord CreateTupleRecord(LogRecordType log_type, const ItemPointer &pos) {
@@ -75,6 +73,9 @@ private:
 
   cid_t cid_;
 };
+
+
+
 
 }  // namespace logging
 }  // namespace peloton

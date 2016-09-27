@@ -4,18 +4,17 @@
 //
 // log_manager.cpp
 //
-// Identification: src/backend/logging/loggers/backend_logger.cpp
+// Identification: src/backend/logging/loggers/phylog_frontend_logger.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
-#include "backend/logging/loggers/backend_logger.h"
-#include "backend/catalog/manager.h"
+#include "backend/logging/log_manager.h"
 
 namespace peloton {
 namespace logging {
 
-  std::atomic<size_t> BackendLogger::backend_logger_id_generator = 0;
+
 }
 }

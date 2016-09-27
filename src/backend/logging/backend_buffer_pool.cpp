@@ -24,7 +24,7 @@ namespace logging {
       if (head_.load() < tail_.load()) {
         if (local_buffer_queue_[head_idx] == false) {
           // Not any buffer allocated now
-          local_buffer_queue_[head_idx] = new LogBuffer();
+          local_buffer_queue_[head_idx] = new LogBuffer(backend_logger_id_);
         }
         break;
       }
@@ -38,6 +38,8 @@ namespace logging {
   }
 
   void BackendBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {
+    PL_ASSERT(buf->GetBackendLoggerId() == backend_logger_id_);
+
     size_t head_idx = head_ % buffer_queue_size_;
     size_t tail_idx = tail_idx % buffer_queue_size_;
     // The buffer pool must not be full
