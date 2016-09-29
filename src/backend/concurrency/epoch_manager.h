@@ -92,10 +92,14 @@ class EpochManager {
     return current_epoch_.load();
   }
 
+  // Get a eid that is larger than all the running transactions
+  // TODO: See if we can delete this method
   size_t GetSafeMaxCid() {
     size_t eid = current_epoch_.load();
     size_t epoch_idx = eid % epoch_queue_size_;
     size_t id = epoch_queue_[epoch_idx].id_generator_++;
+
+    // TODO: Also add validation here
     return (eid << 32) | (id & low_32_bit_mask_);
   }
 

@@ -44,7 +44,7 @@ public:
   virtual void StartLogger() = 0;
   virtual void StopLogger() = 0;
 
-  inline std::string GetLogDirectoryName() { return peloton_log_directory; }
+  inline const std::string &GetLogDirectoryName() { return peloton_log_directory; }
 
 private:
   std::string peloton_log_directory;

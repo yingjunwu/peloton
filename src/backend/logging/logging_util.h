@@ -14,8 +14,8 @@
 
 #include "backend/common/types.h"
 #include "backend/common/logger.h"
-#include "backend/logging/records/log_record.h"
 #include "backend/storage/data_table.h"
+#include "backend/common/serializer.h"
 
 namespace peloton {
 namespace logging {
@@ -27,6 +27,8 @@ namespace logging {
 class LoggingUtil {
  public:
   // FILE SYSTEM RELATED OPERATIONS
+  static bool CheckDirectoryExistence(const char *dir_name);
+
   static bool CreateDirectory(const char *dir_name, int mode);
 
   static bool RemoveDirectory(const char *dir_name, bool only_remove_file);

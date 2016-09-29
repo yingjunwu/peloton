@@ -38,6 +38,12 @@ bool LoggingUtil::CreateDirectory(const char *dir_name, int mode) {
   return true;
 }
 
+bool LoggingUtil::CheckDirectoryExistence(const char *dir_name) {
+  struct stat info;
+  int return_val = stat(dir_name, &info);
+  return return_val == 0 && S_ISDIR(info.st_mode);
+}
+
 /**
  * @return false if fail to remove directory
  */
@@ -78,8 +84,8 @@ bool LoggingUtil::RemoveDirectory(const char *dir_name, bool only_remove_file) {
 
 void LoggingUtil::FFlushFsync(FileHandle &file_handle) {
   // First, flush
-  PL_ASSERT(file_handle.fd != -1);
-  if (file_handle.fd == -1) return;
+  PL_ASSERT(file_handle.fd != INVALID_FILE_DESCRIPTOR);
+  if (file_handle.fd == INVALID_FILE_DESCRIPTOR) return;
   int ret = fflush(file_handle.file);
   if (ret != 0) {
     LOG_ERROR("Error occured in fflush(%d)", ret);

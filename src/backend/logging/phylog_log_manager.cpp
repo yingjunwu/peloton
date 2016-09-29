@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <cstdio>
+#include <backend/concurrency/epoch_manager_factory.h>
+
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/catalog/manager.h"
 #include "backend/expression/container_tuple.h"
@@ -19,10 +22,6 @@
 namespace peloton {
 namespace logging {
 
-void PhyLogLogManager::PassBufferToFrontend(LogWorkerContext *ctx) {
-  size_t logger_id = HashToLogger(ctx->worker_id);
-  logger_ctxs_[logger_id]->buffer_queue.Enqueue(std::move(ctx->per_epoch_buffer_ptrs[ctx->current_eid]));
-}
 
 void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
   while(true) {
@@ -38,7 +37,16 @@ void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
 void PhyLogLogManager::CreateLogWorker() {
   PL_ASSERT(log_worker_ctx == nullptr);
   log_worker_ctx = new LogWorkerContext(log_worker_id_generator_++);
-  worker_map_.insert(log_worker_ctx->worker_id, log_worker_ctx);
+  size_t logger_id = HashToLogger(log_worker_ctx->worker_id);
+
+  auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
+  PL_ASSERT(logger_ctx_ptr != nullptr);
+
+  {
+    logger_ctx_ptr->worker_map_lock_.Lock();
+    logger_ctx_ptr->worker_map_.emplace(log_worker_ctx->worker_id, log_worker_ctx);
+    logger_ctx_ptr->worker_map_lock_.Unlock();
+  }
 }
 
 void PhyLogLogManager::TerminateLogWorker() {
@@ -92,16 +100,16 @@ void PhyLogLogManager::WriteRecord(LogRecord &record) {
   }
 
   // Copy the output buffer into current buffer
-  LogBuffer *current_buffer_ptr = ctx->per_epoch_buffer_ptrs[ctx->current_eid].get();
-  PL_ASSERT(current_buffer_ptr);
+  // TODO: figure out how to reference a unique pointer to reduce lookup
+  PL_ASSERT(ctx->per_epoch_buffer_ptrs[ctx->current_eid].empty() == false
+            &&  ctx->per_epoch_buffer_ptrs[ctx->current_eid].top());
 
-  if (current_buffer_ptr->WriteData(output.Data(), output.Size())) {
+  if ( ctx->per_epoch_buffer_ptrs[ctx->current_eid].top()->WriteData(output.Data(), output.Size())) {
     // A buffer is full, pass it to the front end logger
-    PassBufferToFrontend(ctx);
     // Get a new buffer and register it to current epoch
     RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
     // Write it again
-    bool res = ctx->per_epoch_buffer_ptrs[ctx->current_eid].get()->WriteData(output.Data(), output.Size());
+    bool res = ctx->per_epoch_buffer_ptrs[ctx->current_eid].top()->WriteData(output.Data(), output.Size());
     PL_ASSERT(res);
   }
 }
@@ -152,6 +160,11 @@ void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
 
 void PhyLogLogManager::StartLogger() {
   is_running_ = true;
+
+  if (LoggingUtil::CheckDirectoryExistence(GetLogDirectoryName().c_str()) == false) {
+    LOG_ERROR("Logging directory %s is not accessible or does not exist\n", GetLogDirectoryName().c_str());
+  }
+
   for (size_t lid = 0; lid < logger_thread_count_; ++lid) {
     logger_ctxs_[lid]->logger_thread.reset(new std::thread(&PhyLogLogManager::Run, this, lid));
   }
@@ -164,39 +177,124 @@ void PhyLogLogManager::StopLogger() {
   }
 }
 
-void PhyLogLogManager::InitLoggerContext(size_t lid) {
-  auto logger_ctx = logger_ctxs_[lid];
+void PhyLogLogManager::CreateAndInitLogFile(PhyLogLogManager::LoggerContext *logger_ctx_ptr) {
+  // Get the file name
+  // TODO: we just use the last file id. May be we can use some epoch id?
+  std::string filename =
+    logger_ctx_ptr->log_dir + "/" + log_file_prefix + "_" + ((logger_ctx_ptr->next_file_id)++) + log_file_surfix;
 
-  // Init log directory
-  logger_ctx->lid = lid;
-  logger_ctx->log_dir = GetLogDirectoryName() + "/" + logger_dir_prefix + lid;
-
-  bool res = LoggingUtil::CreateDirectory(logger_ctx->log_dir.c_str(), 0700);
-  if (res == false) {
-    LOG_ERROR("Failed to create logging directory %s", logger_ctx->log_dir.c_str());
+  // Create a new file
+  if (LoggingUtil::CreateFile(filename.c_str(), "wb", logger_ctx_ptr->cur_file_handle) == false) {
+    LOG_ERROR("Unable to create log file %s\n", filename.c_str());
     exit(EXIT_FAILURE);
   }
 
-  // Init file list
+  // Init the header of the log file
+  fwrite((void *)(&uint64_place_holder), sizeof(uint64_place_holder), 1, logger_ctx_ptr->cur_file_handle.file);
 
+  // Update the logger context
+  logger_ctx_ptr->cur_file_handle.size = 0;
+}
+
+void PhyLogLogManager::CloseCurrentLogFile(LoggerContext *logger_ctx_ptr) {
+  // Seek and write the integrity information inthe header
+
+  // Safely close the file
+
+  // Reset the logger context
+}
+
+void PhyLogLogManager::InitLoggerContext(size_t logger_id) {
+  // Init log directory
+  auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
+  logger_ctx_ptr->lid = logger_id;
+  logger_ctx_ptr->log_dir = GetLogDirectoryName() + "/" + logger_dir_prefix + "_" + logger_id;
+
+  bool res = LoggingUtil::CreateDirectory(logger_ctx_ptr->log_dir.c_str(), 0700);
+  if (res == false) {
+    LOG_ERROR("Failed to create logging directory %s", logger_ctx_ptr->log_dir.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+  // Init file list for recovery and figure out the next log file id of this logger
+  // TODO: Figure out how to assign logger directory before recovery
+
+  // Create a new log file
+  CreateAndInitLogFile(logger_ctx_ptr);
 }
 
 void PhyLogLogManager::Run(size_t logger_id) {
-  /* Init */
+  /**
+   * Init the logger
+   */
+  InitLoggerContext(logger_id);
+  auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
 
+  /**
+   *  Main loop
+   */
+  // TODO: Once we have recovery, we should be able to set the begin epoch id for the epoch manager. Then the start epoch
+  // id is not neccessary the START_EPOCH_ID. We should load it from the epoch manager.
 
-  /* Main loop  */
+  // TODO: Another option is, instead of the logger checking the epoch id, the epoch manager can push the epoch id of
+  // dead epochs to the logger
+  size_t last_epoch_id = START_EPOCH_ID;
+
   while (true) {
     if (is_running_ == false) {
       return;
     }
 
+    size_t current_epoch_id = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
+    // Pull log records from workers per epoch buffer
+    {
+      logger_ctx_ptr->worker_map_lock_.Lock();
+
+      for (size_t eid = last_epoch_id + 1; eid <= current_epoch_id; ++eid) {
+          size_t epoch_idx = eid % concurrency::EpochManager::GetEpochQueueCapacity();
+
+          for (auto wp : logger_ctx_ptr->worker_map_) {
+            auto worker_ctx_ptr = wp.second.get();
+            auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
+
+            while (buffers.empty() == false) {
+              // Check if the buffer is empty
+              if (buffers.top()->Empty()) {
+                // Return the buffer to the worker immediately
+                worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
+                // Insert an empty place holder into the local buffer queue, for maintance of the max committed epoch id
+                logger_ctx_ptr->local_buffer_queue.emplace_back(eid, nullptr);
+              } else {
+                // Move the buffer into the local buffer queue
+                logger_ctx_ptr->local_buffer_queue.emplace_back(
+                  eid, std::move(buffers.top()));
+              }
+              buffers.pop();
+            }
+          }
+      }
+
+      logger_ctx_ptr->worker_map_lock_.Unlock();
+    }
+
+    // Log down all possible epochs
+
+    // Fsync and post the max committed epoch id
+
+    // Wait for next round
+    last_epoch_id = current_epoch_id;
     // TODO: calibrate the timer like siloR
     std::this_thread::sleep_for(std::chrono::microseconds(sleep_period_us));
   }
 
-  /* Clean */
+  /**
+   *  Clean the logger before termination
+   */
 
+  // Clean the log record in current queue
+
+  // Close the log file
+  CloseCurrentLogFile(logger_ctx_ptr);
 }
 
 }
