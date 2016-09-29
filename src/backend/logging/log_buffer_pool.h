@@ -16,21 +16,24 @@
 
 #include "backend/common/macros.h"
 #include "backend/common/types.h"
-#include "backend/logging/log_buffer.h"
 #include "backend/common/platform.h"
 
+#include "backend/logging/log_buffer.h"
 
 namespace peloton {
 namespace logging {
-  class BackendBufferPool {
-    BackendBufferPool(const BackendBufferPool &) = delete;
-    BackendBufferPool &operator=(const BackendBufferPool &) = delete;
-    BackendBufferPool(const BackendBufferPool &&) = delete;
-    BackendBufferPool &operator=(const BackendBufferPool &&) = delete;
+  class LogBufferPool {
+    LogBufferPool(const LogBufferPool &) = delete;
+    LogBufferPool &operator=(const LogBufferPool &) = delete;
+    LogBufferPool(const LogBufferPool &&) = delete;
+    LogBufferPool &operator=(const LogBufferPool &&) = delete;
 
   public:
-    BackendBufferPool(size_t backend_id) : head_(0), tail_(buffer_queue_size_),
-      backend_logger_id_(backend_id), local_buffer_queue_(buffer_queue_size_) {}
+    LogBufferPool(size_t backend_id) : 
+      head_(0), 
+      tail_(buffer_queue_size_),
+      backend_logger_id_(backend_id),
+      local_buffer_queue_(buffer_queue_size_) {}
 
     std::unique_ptr<LogBuffer> GetBuffer();
 
@@ -42,6 +45,7 @@ namespace logging {
     static const size_t buffer_queue_size_ = 16;
     std::atomic<size_t> head_;
     std::atomic<size_t> tail_;
+    
     size_t backend_logger_id_;
 
     std::vector<std::unique_ptr<LogBuffer>> local_buffer_queue_;

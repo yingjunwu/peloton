@@ -142,7 +142,12 @@ class Checkpointer {
         // check tuple version visibility
         if (IsVisible(tile_group_header, tuple_id) == true) {
           // persist this version.
-          PersistTuple(tile_group_header, tuple_id);
+          //PersistTuple(tile_group_header, tuple_id);
+
+          CopySerializeOutput output_buffer;
+          
+          expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group_header, tuple_id);
+          container_tuple.SerializeTo(output);
 
         } // end if isvisible
       }   // end for

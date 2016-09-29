@@ -70,7 +70,7 @@ protected:
   struct LogWorkerContext {
     // Every epoch has a buffer stack
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
-    BackendBufferPool buffer_pool;
+    LogBufferPool buffer_pool;
     CopySerializeOutput output_buffer;
 
     size_t current_eid;

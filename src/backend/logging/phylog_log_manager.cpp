@@ -110,12 +110,13 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[ctx->current_eid].top().get();
   PL_ASSERT(buffer_ptr);
 
-  if (buffer_ptr->WriteData(output.Data(), output.Size())) {
+  bool is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+  if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
     buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
     // Write it again
-    bool res = buffer_ptr->WriteData(output.Data(), output.Size());
+    is_success = buffer_ptr->WriteData(output.Data(), output.Size());
     PL_ASSERT(res);
   }
 }
