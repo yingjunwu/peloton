@@ -59,7 +59,7 @@ void PhyLogLogManager::TerminateLogWorker() {
   log_worker_ctx->terminated = true;
 }
 
-void PhyLogLogManager::WriteRecord(LogRecord &record) {
+void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   LogWorkerContext *ctx = log_worker_ctx;
   PL_ASSERT(ctx);
 
@@ -105,16 +105,17 @@ void PhyLogLogManager::WriteRecord(LogRecord &record) {
   }
 
   // Copy the output buffer into current buffer
-  // TODO: figure out how to reference a unique pointer to reduce lookup
-  PL_ASSERT(ctx->per_epoch_buffer_ptrs[ctx->current_eid].empty() == false
-            &&  ctx->per_epoch_buffer_ptrs[ctx->current_eid].top());
+  PL_ASSERT(ctx->per_epoch_buffer_ptrs[ctx->current_eid].empty() == false);
 
-  if ( ctx->per_epoch_buffer_ptrs[ctx->current_eid].top()->WriteData(output.Data(), output.Size())) {
+  LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[ctx->current_eid].top().get();
+  PL_ASSERT(buffer_ptr);
+
+  if (buffer_ptr->WriteData(output.Data(), output.Size())) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
-    RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
     // Write it again
-    bool res = ctx->per_epoch_buffer_ptrs[ctx->current_eid].top()->WriteData(output.Data(), output.Size());
+    bool res = buffer_ptr->WriteData(output.Data(), output.Size());
     PL_ASSERT(res);
   }
 }
@@ -138,30 +139,30 @@ void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
 
   // Log down the begin of txn
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
-  WriteRecord(record);
+  WriteRecordToBuffer(record);
 }
 
 void PhyLogLogManager::CommitCurrentTxn() {
   PL_ASSERT(log_worker_ctx);
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, log_worker_ctx->current_cid);
-  WriteRecord(record);
+  WriteRecordToBuffer(record);
 }
 
 
 void PhyLogLogManager::LogInsert(const ItemPointer &tuple_pos) {
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos);
-  WriteRecord(record);
+  WriteRecordToBuffer(record);
 }
 
 void PhyLogLogManager::LogUpdate(const ItemPointer &tuple_pos) {
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_UPDATE, tuple_pos);
-  WriteRecord(record);
+  WriteRecordToBuffer(record);
 }
 
 void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   // Need the tuple value for the deleted tuple
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_DELETE, tuple_pos_deleted);
-  WriteRecord(record);
+  WriteRecordToBuffer(record);
 }
 
 void PhyLogLogManager::StartLogger() {
@@ -229,6 +230,13 @@ void PhyLogLogManager::InitLoggerContext(size_t logger_id) {
   CreateAndInitLogFile(logger_ctx_ptr);
 }
 
+void PhyLogLogManager::WriteLogBufferToFile(FileHandle &file, LogBuffer *buffer) {
+  PL_ASSERT(file.fd != INVALID_FILE_DESCRIPTOR);
+  PL_ASSERT(file.file != nullptr);
+
+  //
+}
+
 void PhyLogLogManager::Run(size_t logger_id) {
   /**
    * Init the logger
@@ -275,6 +283,7 @@ void PhyLogLogManager::Run(size_t logger_id) {
                 logger_ctx_ptr->local_buffer_queue.emplace_back(
                   eid, std::move(buffers.top()));
               }
+              PL_ASSERT(buffers.top() == nullptr);
               buffers.pop();
             }
           }
@@ -284,6 +293,22 @@ void PhyLogLogManager::Run(size_t logger_id) {
     }
 
     // Log down all possible epochs
+    // TODO: We just log down all buffers without any throttling
+    size_t max_committed_eid = logger_ctx_ptr->max_committed_eid;
+    auto &local_buffer_queue = logger_ctx_ptr->local_buffer_queue;
+
+    while (local_buffer_queue.empty() == false) {
+      size_t buffer_eid = local_buffer_queue.back().first;
+      LogBuffer *buffer_ptr = local_buffer_queue.back().second.get();
+
+      // Newly arrvied log buffer's eid must be larger than the last max committed eid
+      PL_ASSERT(buffer_eid > logger_ctx_ptr->max_committed_eid);
+
+
+      // Give the buffer back to worker
+
+      local_buffer_queue.pop_back();
+    }
 
     // Fsync and post the max committed epoch id
 

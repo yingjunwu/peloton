@@ -112,7 +112,7 @@ namespace test {
 //    record.Serialize(output_buffer);
 //    size_t len = record.GetMessageLength();
 //    total_length += len;
-//    log_buffer.WriteRecord(&record);
+//    log_buffer.WriteRecordToBuffer(&record);
 //  }
 //  EXPECT_EQ(log_buffer.GetSize(), total_length);
 //}
@@ -149,7 +149,7 @@ namespace test {
 //  record.Serialize(output_buffer);
 //  size_t len = record.GetMessageLength();
 //  total_length += len;
-//  auto success = log_buffer.WriteRecord(&record);
+//  auto success = log_buffer.WriteRecordToBuffer(&record);
 //  EXPECT_EQ(log_buffer.GetSize(), total_length);
 //  EXPECT_EQ(success, true);
 //}

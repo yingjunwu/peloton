@@ -31,12 +31,6 @@
 namespace peloton {
 namespace logging {
 
-/*
- * Log file layout:
- *  Header: 8 bytes, for integrity validation
- *  Body:  actual log records
- *  Tail:   8 bytes, for integrity validation
- */
 
 class PhyLogLogManager : public LogManager {
   PhyLogLogManager(const PhyLogLogManager &) = delete;
@@ -68,12 +62,13 @@ protected:
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     std::unordered_map<oid_t, std::shared_ptr<LogWorkerContext>> worker_map_;
-    std::list<std::pair<size_t, std::shared_ptr<peloton::logging::LogBuffer>>> local_buffer_queue;
+    std::list<std::pair<size_t, std::unique_ptr<peloton::logging::LogBuffer>>> local_buffer_queue;
 
     // TODO: Add con/destructor
   };
 
   struct LogWorkerContext {
+    // Every epoch has a buffer stack
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
     BackendBufferPool buffer_pool;
     CopySerializeOutput output_buffer;
@@ -106,7 +101,7 @@ public:
   // TODO: init all members
   PhyLogLogManager(std::string &log_dir, int thread_count)
     : LogManager(log_dir), logger_thread_count_(thread_count), log_worker_id_generator_(0) {
-      // TOOD: Init all vectors!
+      // TODO: Init all vectors!
     }
   virtual ~PhyLogLogManager() {}
 
@@ -125,11 +120,12 @@ public:
   virtual void StopLogger() override ;
 
 private:
-
-  inline void RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
+  // Don't delete the returned pointer
+  inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
     PL_ASSERT(log_buffer_ptr);
     PL_ASSERT(log_worker_ctx);
     log_worker_ctx->per_epoch_buffer_ptrs[log_worker_ctx->current_eid].push(std::move(log_buffer_ptr));
+    return log_worker_ctx->per_epoch_buffer_ptrs[log_worker_ctx->current_eid].top().get();
   }
 
   void UpdateGlobalCommittedEid(size_t committed_eid);
@@ -138,13 +134,21 @@ private:
     return ((size_t) worker_id) % logger_thread_count_;
   }
 
-  void WriteRecord(LogRecord &record);
+  void WriteLogBufferToFile(FileHandle &file, LogBuffer *buffer);
+
+  void WriteRecordToBuffer(LogRecord &record);
 
   // Run logger thread
   void Run(size_t logger_id);
 
   void InitLoggerContext(size_t lid);
 
+  /*
+   * Log file layout:
+   *  Header: 8 bytes, for integrity validation
+   *  Body:  actual log records
+   *  Tail:   8 bytes, for integrity validation
+   */
   void CreateAndInitLogFile(LoggerContext *logger_ctx_ptr);
 
   void CloseCurrentLogFile(LoggerContext *logger_ctx_ptr);
