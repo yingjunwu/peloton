@@ -12,8 +12,8 @@
 
 #pragma once
 
-#include "backend/logging/checkpoint/checkpointer.h"
-#include "backend/logging/loggers/phylog_backend_logger.h"
+#include "backend/logging/checkpointer.h"
+#include "backend/logging/phylog_log_manager.h"
 
 #define TMP_DIR = "/tmp/"
 
