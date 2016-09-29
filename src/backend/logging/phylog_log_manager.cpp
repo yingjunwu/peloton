@@ -34,8 +34,11 @@ void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
   }
 }
 
+// register worker threads to the log manager before execution.
+// TODO: change function name to RegisterWorkerToLogger() (?)
 void PhyLogLogManager::CreateLogWorker() {
   PL_ASSERT(log_worker_ctx == nullptr);
+  // shuffle worker to logger
   log_worker_ctx = new LogWorkerContext(log_worker_id_generator_++);
   size_t logger_id = HashToLogger(log_worker_ctx->worker_id);
 
@@ -49,6 +52,8 @@ void PhyLogLogManager::CreateLogWorker() {
   }
 }
 
+// deregister worker threads.
+// TODO: change function name.
 void PhyLogLogManager::TerminateLogWorker() {
   PL_ASSERT(log_worker_ctx != nullptr);
   log_worker_ctx->terminated = true;
@@ -119,6 +124,7 @@ void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
   size_t txn_eid = txn->GetEpochId();
 
   // Handle the epoch id
+  // TODO: what if there's no read-write transaction within a certain epoch?
   if (log_worker_ctx->current_eid == INVALID_EPOCH_ID || log_worker_ctx->current_eid != txn_eid) {
     // Get a new buffer
     PL_ASSERT(log_worker_ctx->current_eid == INVALID_EPOCH_ID || log_worker_ctx->current_eid < txn_eid);
@@ -131,7 +137,7 @@ void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
   log_worker_ctx->current_cid = txn_cid;
 
   // Log down the begin of txn
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_EPOCH_BEGIN, txn_cid);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
   WriteRecord(record);
 }
 

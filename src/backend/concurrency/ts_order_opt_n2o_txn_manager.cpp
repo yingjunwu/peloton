@@ -550,14 +550,6 @@ void TsOrderOptN2OTxnManager::PerformDelete(const ItemPointer &location) {
 Result TsOrderOptN2OTxnManager::CommitTransaction() {
   LOG_TRACE("Committing peloton txn : %lu ", current_txn->GetTransactionId());
 
-  // if (current_txn->IsReadOnly() == true) {
-  //   Result ret = current_txn->GetResult();
-
-  //   EndTransaction();
-
-  //   return ret;
-  // }
-
   auto &manager = catalog::Manager::GetInstance();
 
   // generate transaction id.

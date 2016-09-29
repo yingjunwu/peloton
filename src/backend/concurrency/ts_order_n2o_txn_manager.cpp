@@ -493,9 +493,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   cid_t end_commit_id = current_txn->GetBeginCommitId();
 
   auto &log_manager = logging::LogManager::GetInstance();
-  log_manager.PrepareLogging();
-  log_manager.LogBeginTransaction(end_commit_id);
-
+  log_manager.StartTxn(current_txn);
+  
   auto &rw_set = current_txn->GetRWSet();
 
   // TODO: Add optimization for read only
@@ -538,7 +537,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
         // add to log manager
-        log_manager.LogUpdate(end_commit_id, ItemPointer(tile_group_id, tuple_slot), new_version);
+        log_manager.LogUpdate(new_version);
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
@@ -566,7 +565,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
         // add to log manager
-        log_manager.LogDelete(end_commit_id, ItemPointer(tile_group_id, tuple_slot));
+        log_manager.LogDelete(ItemPointer(tile_group_id, tuple_slot));
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -580,7 +579,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
         
         // add to log manager
-        log_manager.LogInsert(end_commit_id, ItemPointer(tile_group_id, tuple_slot));
+        log_manager.LogInsert(ItemPointer(tile_group_id, tuple_slot));
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
         assert(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -601,7 +600,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 
   gc::GCManagerFactory::GetInstance().EndGCContext(current_txn->GetEpochId());
 
-  log_manager.LogCommitTransaction(current_txn->GetBeginCommitId());
+  log_manager.CommitCurrentTxn();
 
   EndTransaction();
 
@@ -611,15 +610,6 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 Result TsOrderN2OTxnManager::AbortTransaction() {
   LOG_TRACE("Aborting peloton txn : %lu ", current_txn->GetTransactionId());
   auto &manager = catalog::Manager::GetInstance();
-
-  // generate transaction id.
-  cid_t end_commit_id = current_txn->GetBeginCommitId();
-
-  auto &log_manager = logging::LogManager::GetInstance();
-  log_manager.PrepareLogging();
-  log_manager.LogBeginTransaction(end_commit_id);
-
-  log_manager.DoneLogging();
 
   auto &rw_set = current_txn->GetRWSet();
 
