@@ -5,16 +5,14 @@
 ######################################################################
 
 logging_FILES = \
+			   backend/logging/checkpointer.cpp \
+			   backend/logging/durability_factory.cpp \
+			   backend/logging/log_buffer.cpp \
+			   backend/logging/log_buffer_pool.cpp \
 			   backend/logging/log_manager.cpp \
-			   backend/logging/checkpoint_manager.cpp \
-			   backend/logging/logger.cpp \
+			   backend/logging/log_record.cpp \
 			   backend/logging/logging_util.cpp \
-			   backend/logging/records/tuple_record.cpp \
-			   backend/logging/records/transaction_record.cpp \
-			   backend/logging/records/log_record_pool.cpp \
-			   backend/logging/checkpoint.cpp \
-			   backend/logging/checkpoint_tile_scanner.cpp \
-			   backend/logging/log_file.cpp
+			   backend/logging/phylog_log_manager.cpp
 
 logging_INCLUDES = \
                   -I$(srcdir)/logging

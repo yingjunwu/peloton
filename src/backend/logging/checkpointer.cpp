@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "backend/logging/chekcpoint/checkpointer.h"
+#include "backend/logging/checkpointer.h"
 
 namespace peloton {
 namespace logging {
@@ -145,7 +145,7 @@ class Checkpointer {
           //PersistTuple(tile_group_header, tuple_id);
 
           CopySerializeOutput output_buffer;
-          
+
           expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group_header, tuple_id);
           container_tuple.SerializeTo(output);
 
