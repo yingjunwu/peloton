@@ -48,7 +48,7 @@ void PhyLogLogManager::CreateLogWorker() {
 
   {
     logger_ctx_ptr->worker_map_lock_.Lock();
-    logger_ctx_ptr->worker_map_.emplace(log_worker_ctx->worker_id, log_worker_ctx);
+    logger_ctx_ptr->worker_map_[log_worker_ctx->worker_id].reset(log_worker_ctx);
     logger_ctx_ptr->worker_map_lock_.Unlock();
   }
 }

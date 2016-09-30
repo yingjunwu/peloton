@@ -97,79 +97,79 @@ peloton_bootstrap() {
     // Process the utility statement
     peloton::bridge::Bootstrap::BootstrapPeloton();
 
-    if(logging_module_check == false){
-      elog(DEBUG2, "....................................................................................................");
-      elog(DEBUG2, "Logging Mode : %d", peloton_logging_mode);
+    // if(logging_module_check == false){
+    //   elog(DEBUG2, "....................................................................................................");
+    //   elog(DEBUG2, "Logging Mode : %d", peloton_logging_mode);
 
-      // Finished checking logging module
-      logging_module_check = true;
+    //   // Finished checking logging module
+    //   logging_module_check = true;
 
-      auto& checkpoint_manager = peloton::logging::CheckpointManager::GetInstance();
-      auto& log_manager = peloton::logging::LogManager::GetInstance();
+    //   auto& checkpoint_manager = peloton::logging::CheckpointManager::GetInstance();
+    //   auto& log_manager = peloton::logging::LogManager::GetInstance();
 
-      if (peloton_checkpoint_mode != CHECKPOINT_TYPE_INVALID) {
-    	  // launch checkpoint thread
-    	  if (!checkpoint_manager.IsInCheckpointingMode()) {
+    //   if (peloton_checkpoint_mode != CHECKPOINT_TYPE_INVALID) {
+    // 	  // launch checkpoint thread
+    // 	  if (!checkpoint_manager.IsInCheckpointingMode()) {
 
-            // Wait for standby mode
-            std::thread(&peloton::logging::CheckpointManager::StartStandbyMode,
-                        &checkpoint_manager).detach();
-            checkpoint_manager.WaitForModeTransition(peloton::CHECKPOINT_STATUS_STANDBY, true);
-            elog(DEBUG2, "Standby mode");
+    //         // Wait for standby mode
+    //         std::thread(&peloton::logging::CheckpointManager::StartStandbyMode,
+    //                     &checkpoint_manager).detach();
+    //         checkpoint_manager.WaitForModeTransition(peloton::CHECKPOINT_STATUS_STANDBY, true);
+    //         elog(DEBUG2, "Standby mode");
 
-            // Clean up table tile state before recovery from checkpoint
-            log_manager.PrepareRecovery();
+    //         // Clean up table tile state before recovery from checkpoint
+    //         log_manager.PrepareRecovery();
 
-            // Do any recovery
-            checkpoint_manager.StartRecoveryMode();
-            elog(DEBUG2, "Wait for logging mode");
+    //         // Do any recovery
+    //         checkpoint_manager.StartRecoveryMode();
+    //         elog(DEBUG2, "Wait for logging mode");
 
-            // Wait for standby mode
-            checkpoint_manager.WaitForModeTransition(peloton::CHECKPOINT_STATUS_DONE_RECOVERY, true);
-            elog(DEBUG2, "Done recovery mode");
-          }
-      }
+    //         // Wait for standby mode
+    //         checkpoint_manager.WaitForModeTransition(peloton::CHECKPOINT_STATUS_DONE_RECOVERY, true);
+    //         elog(DEBUG2, "Done recovery mode");
+    //       }
+    //   }
 
-      if(peloton_logging_mode != LOGGING_TYPE_INVALID) {
+    //   if(peloton_logging_mode != LOGGING_TYPE_INVALID) {
 
-        // Launching a thread for logging
-        if (!log_manager.IsInLoggingMode()) {
+    //     // Launching a thread for logging
+    //     if (!log_manager.IsInLoggingMode()) {
 
-          // Set default logging mode
-          log_manager.SetSyncCommit(true);
-          elog(DEBUG2, "Wait for standby mode");
+    //       // Set default logging mode
+    //       log_manager.SetSyncCommit(true);
+    //       elog(DEBUG2, "Wait for standby mode");
 
-          // Wait for standby mode
-          std::thread(&peloton::logging::LogManager::StartStandbyMode,
-                      &log_manager).detach();
-          log_manager.WaitForModeTransition(peloton::LOGGING_STATUS_TYPE_STANDBY, true);
-          elog(DEBUG2, "Standby mode");
+    //       // Wait for standby mode
+    //       std::thread(&peloton::logging::LogManager::StartStandbyMode,
+    //                   &log_manager).detach();
+    //       log_manager.WaitForModeTransition(peloton::LOGGING_STATUS_TYPE_STANDBY, true);
+    //       elog(DEBUG2, "Standby mode");
 
-          // Clean up database tile state before recovery from checkpoint
-          log_manager.PrepareRecovery();
+    //       // Clean up database tile state before recovery from checkpoint
+    //       log_manager.PrepareRecovery();
 
-          // Do any recovery
-          log_manager.StartRecoveryMode();
-          elog(DEBUG2, "Wait for logging mode");
+    //       // Do any recovery
+    //       log_manager.StartRecoveryMode();
+    //       elog(DEBUG2, "Wait for logging mode");
 
-          // Wait for logging mode
-          log_manager.WaitForModeTransition(peloton::LOGGING_STATUS_TYPE_LOGGING, true);
-          elog(DEBUG2, "Logging mode");
+    //       // Wait for logging mode
+    //       log_manager.WaitForModeTransition(peloton::LOGGING_STATUS_TYPE_LOGGING, true);
+    //       elog(DEBUG2, "Logging mode");
 
-          // Done recovery
-          log_manager.DoneRecovery();
-        }
-      }
+    //       // Done recovery
+    //       log_manager.DoneRecovery();
+    //     }
+    //   }
 
-      // start checkpointing mode after recovery
-      if (peloton_checkpoint_mode != CHECKPOINT_TYPE_INVALID) {
-    	if (!checkpoint_manager.IsInCheckpointingMode()) {
-    	  // Now, enter CHECKPOINTING mode
-		  checkpoint_manager.SetCheckpointStatus(peloton::CHECKPOINT_STATUS_CHECKPOINTING);
-		  elog(DEBUG2, "Checkpointing mode");
-    	}
-      }
-    }
+    //   // start checkpointing mode after recovery
+    //   if (peloton_checkpoint_mode != CHECKPOINT_TYPE_INVALID) {
+    // 	if (!checkpoint_manager.IsInCheckpointingMode()) {
+    // 	  // Now, enter CHECKPOINTING mode
+		  // checkpoint_manager.SetCheckpointStatus(peloton::CHECKPOINT_STATUS_CHECKPOINTING);
+		  // elog(DEBUG2, "Checkpointing mode");
+    // 	}
+    //   }
+    // }
   }
   catch(const std::exception &exception) {
     elog(ERROR, "Peloton exception :: %s", exception.what());
