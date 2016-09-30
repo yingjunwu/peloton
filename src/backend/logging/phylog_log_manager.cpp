@@ -23,6 +23,8 @@ namespace peloton {
 namespace logging {
 
 thread_local LogWorkerContext* log_worker_ctx = nullptr;
+const size_t PhyLogLogManager::sleep_period_us = 40000;
+const uint64_t PhyLogLogManager::uint64_place_holder = 0;
 
 void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
   while(true) {
@@ -201,7 +203,7 @@ void PhyLogLogManager::CreateAndInitLogFile(LoggerContext *logger_ctx_ptr) {
   }
 
   // Init the header of the log file
-  fwrite((void *)(&uint64_place_holder), sizeof(uint64_place_holder), 1, logger_ctx_ptr->cur_file_handle.file);
+  fwrite((void *)(&PhyLogLogManager::uint64_place_holder), sizeof(PhyLogLogManager::uint64_place_holder), 1, logger_ctx_ptr->cur_file_handle.file);
 
   // Update the logger context
   logger_ctx_ptr->cur_file_handle.size = 0;
@@ -382,7 +384,7 @@ void PhyLogLogManager::Run(size_t logger_id) {
     // Wait for next round
     last_epoch_id = current_epoch_id;
     // TODO: calibrate the timer like siloR
-    std::this_thread::sleep_for(std::chrono::microseconds(sleep_period_us));
+    std::this_thread::sleep_for(std::chrono::microseconds(PhyLogLogManager::sleep_period_us));
   }
 
   /**

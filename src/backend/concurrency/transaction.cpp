@@ -47,8 +47,8 @@ void Transaction::RecordReadTs(const ItemPointer &location, const cid_t &begin_c
   if (ts_rw_set_.find(tile_group_id) != ts_rw_set_.end() &&
       ts_rw_set_.at(tile_group_id).find(tuple_id) !=
           ts_rw_set_.at(tile_group_id).end()) {
-    PL_ASSERT(ts_rw_set_.at(tile_group_id).at(tuple_id) != RW_TYPE_DELETE &&
-           ts_rw_set_.at(tile_group_id).at(tuple_id) != RW_TYPE_INS_DEL);
+//    PL_ASSERT(ts_rw_set_.at(tile_group_id).at(tuple_id) != RW_TYPE_DELETE &&
+//           ts_rw_set_.at(tile_group_id).at(tuple_id) != RW_TYPE_INS_DEL);
     return;
   } else {
     // if (begin_cid == MAX_CID) {

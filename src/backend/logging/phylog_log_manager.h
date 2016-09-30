@@ -97,12 +97,6 @@ class PhyLogLogManager : public LogManager {
   PhyLogLogManager(PhyLogLogManager &&) = delete;
   PhyLogLogManager &operator=(PhyLogLogManager &&) = delete;
 
-  // TODO: See if we can move some of this to the base class
-  const static size_t sleep_period_us = 40000;
-
-
-  const uint64_t uint64_place_holder = 0;
-
 protected:
 
   PhyLogLogManager(int thread_count)
@@ -130,6 +124,10 @@ public:
   // Logger side logic
   virtual void StartLogger() override ;
   virtual void StopLogger() override ;
+
+  // TODO: See if we can move some of this to the base class
+  static const size_t sleep_period_us;
+  static const uint64_t uint64_place_holder;
 
 private:
 

@@ -23,7 +23,6 @@
 #include <random>
 #include <cstddef>
 #include <limits>
-#include <backend/logging/durability_factory.h>
 
 #include "backend/benchmark/ycsb/ycsb_workload.h"
 #include "backend/benchmark/ycsb/ycsb_configuration.h"

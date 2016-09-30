@@ -38,7 +38,7 @@ namespace logging {
   }
 
   void LogBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {
-    PL_ASSERT(buf->GetBackendLoggerId() == backend_logger_id_);
+    PL_ASSERT(buf->GetWorkerId() == backend_logger_id_);
 
     UNUSED_ATTRIBUTE size_t head_idx = head_ % buffer_queue_size_;
     size_t tail_idx = tail_ % buffer_queue_size_;
