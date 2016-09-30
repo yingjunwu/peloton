@@ -24,13 +24,13 @@ namespace logging {
 
   void Checkpointer::StartCheckpointing() {
     bool res = true;
-    res = LoggingUtil::RemoveDirectory(checkpoint_dir_prefix_.c_str(), false);
+    res = LoggingUtil::RemoveDirectory(checkpoint_dir_.c_str(), false);
     PL_ASSERT(res == true);
     if (res != true) {
       LOG_ERROR("remove directory failed!");
       exit(-1);
     }
-    res = LoggingUtil::CreateDirectory(checkpoint_dir_prefix_.c_str(), 0700);
+    res = LoggingUtil::CreateDirectory(checkpoint_dir_.c_str(), 0700);
     PL_ASSERT(res == true);
     if (res != true) {
       LOG_ERROR("create directory failed!");

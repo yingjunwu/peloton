@@ -26,14 +26,18 @@ class LogManager {
   LogManager &operator=(LogManager &&) = delete;
 
 public:
-  LogManager(const std::string &log_dir) : peloton_log_directory(log_dir) {
-    // TODO: check the existence of the directory
-  }
-
+  LogManager(int thread_count) 
+    : is_running_(false), 
+      logging_thread_count_(thread_count), logging_dirs_(thread_count, TMP_DIR) {}
   virtual ~LogManager() {}
 
-  virtual void CreateLogWorker() = 0;
-  virtual void TerminateLogWorker() = 0;
+  void SetDirectory(const std::vector<std::string> &logging_dirs) {
+    logging_dirs_ = logging_dirs;
+  }
+
+
+  virtual void RegisterWorkerToLogger() = 0;
+  virtual void DeregisterWorkerFromLogger() = 0;
 
   virtual void LogInsert(const ItemPointer &tuple_pos) = 0;
   virtual void LogUpdate(const ItemPointer &tuple_pos) = 0;
@@ -44,10 +48,19 @@ public:
   virtual void StartLogger() = 0;
   virtual void StopLogger() = 0;
 
-  inline const std::string &GetLogDirectoryName() { return peloton_log_directory; }
+protected:
+  std::string GetLogFileFullPath(size_t logger_id, size_t file_id) {
+    return logging_dirs_.at(logger_id) + "/" + logging_filename_prefix_ + "_" + std::to_string(file_id);
+  }
 
-private:
-  std::string peloton_log_directory;
+protected:
+  bool is_running_;
+
+  size_t logging_thread_count_;
+  std::vector<std::string> logging_dirs_;
+
+  const std::string logging_filename_prefix_ = "log";
+
 };
 
 }

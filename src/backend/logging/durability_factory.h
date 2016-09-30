@@ -25,23 +25,22 @@ class DurabilityFactory {
   static LogManager& GetLoggerInstance() {
     switch (logging_type_) {
       case LOGGING_TYPE_PHYLOG:
-        return PhyLogLogManager::GetInstance("/tmp", 1);
+        return PhyLogLogManager::GetInstance(logger_count_);
       default:
-        return DummyLogManager::GetInstance();
+        return DummyLogManager::GetInstance(logger_count_);
     }
   }
 
-// TODO: Checkpointer or Checkpoint manager?
-//  static Checkpointer &GetCheckpointerInstance() {
-//    return Checkpointer::GetInstance(checkpointer_count_);
-//  }
+  static Checkpointer &GetCheckpointerInstance() {
+    return Checkpointer::GetInstance(checkpointer_count_);
+  }
 
-  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, int frontend_logger_count = default_frontend_logger_count_, int checkpointer_count = default_checkpointer_count_) {
+  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, int logger_count = default_logger_count_, int checkpointer_count = default_checkpointer_count_) {
 
     logging_type_ = logging_type;
     checkpoint_type_ = checkpoint_type;
 
-    frontend_logger_count_ = frontend_logger_count;
+    logger_count_ = logger_count;
     checkpointer_count_ = checkpointer_count;
 
   }
@@ -57,10 +56,10 @@ class DurabilityFactory {
   static CheckpointType checkpoint_type_;
 
   // thread count
-  static int frontend_logger_count_;
+  static int logger_count_;
   static int checkpointer_count_;
 
-  const static int default_frontend_logger_count_ = 1;
+  const static int default_logger_count_ = 1;
   const static int default_checkpointer_count_ = 1;
 };
 } // namespace gc

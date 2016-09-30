@@ -19,12 +19,9 @@
 #include "backend/common/types.h"
 #include "backend/common/logger.h"
 
-
 #define CHECKPOINT_INTERVAL 30
-#define CHECKPOINT_DIR "/tmp/"
 
 namespace peloton {
-
 
 namespace storage {
   class Database;
@@ -35,6 +32,24 @@ namespace storage {
 
 namespace logging {
 
+
+
+/**
+ * checkpoint file name layout :
+ * 
+ * dir_name + "/" + prefix + "_" + database_id + "_" + table_id + "_" + epoch_id
+ *
+ *
+ * checkpoint file layout :
+ *
+ *  -----------------------------------------------------------------------------
+ *  | tuple_1 | tuple_2 | tuple_3 | ...
+ *  -----------------------------------------------------------------------------
+ *
+ * NOTE: tuple length can be obtained from the table schema.
+ *
+ */
+
 class Checkpointer {
   // Deleted functions
   Checkpointer(const Checkpointer &) = delete;
@@ -44,41 +59,23 @@ class Checkpointer {
 
 
 public:
-  Checkpointer(int thread_count) 
+  Checkpointer(size_t thread_count) 
     : is_running_(true),
       checkpoint_thread_count_(thread_count) {}
   ~Checkpointer() {}
 
-  static Checkpointer& GetInstance(int thread_count = 1) {
+  static Checkpointer& GetInstance(size_t thread_count) {
     static Checkpointer checkpointer(thread_count);
     return checkpointer;
   }
 
-  void SetDirectory(const std::string &dir_prefix) {
-    checkpoint_dir_prefix_ = dir_prefix;
+  void SetDirectory(const std::string &checkpoint_dir) {
+    checkpoint_dir_ = checkpoint_dir;
   }
 
   void StartCheckpointing();
   
   void StopCheckpointing();
-
-
-  /**
-   * checkpoint file name layout :
-   * 
-   * dir_name + "/" + prefix + "_" + database_id + "_" + table_id + "_" + epoch_id
-   *
-   *
-   * checkpoint file layout :
-   *
-   *  -----------------------------------------------------------------------------
-   *  | tuple_1 | tuple_2 | tuple_3 | ...
-   *  -----------------------------------------------------------------------------
-   *
-   * NOTE: tuple length can be obtained from the table schema.
-   *
-   */
-
 
 private:
   void Running();
@@ -97,12 +94,11 @@ private:
 
 private:
   bool is_running_;
-  int checkpoint_thread_count_;
   int checkpoint_interval_;
-
-  std::string checkpoint_dir_ = CHECKPOINT_DIR;
   
-  std::string checkpoint_dir_prefix_ = CHECKPOINT_DIR;
+  size_t checkpoint_thread_count_;
+  std::string checkpoint_dir_ = TMP_DIR;
+
   const std::string checkpoint_filename_prefix_ = "checkpoint";
   
   std::unique_ptr<std::thread> checkpoint_thread_;

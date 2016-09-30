@@ -36,8 +36,8 @@ void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
 }
 
 // register worker threads to the log manager before execution.
-// TODO: change function name to RegisterWorkerToLogger() (?)
-void PhyLogLogManager::CreateLogWorker() {
+// this function is called by worker threads.
+void PhyLogLogManager::RegisterWorkerToLogger() {
   PL_ASSERT(log_worker_ctx == nullptr);
   // shuffle worker to logger
   log_worker_ctx = new LogWorkerContext(log_worker_id_generator_++);
@@ -54,8 +54,7 @@ void PhyLogLogManager::CreateLogWorker() {
 }
 
 // deregister worker threads.
-// TODO: change function name.
-void PhyLogLogManager::TerminateLogWorker() {
+void PhyLogLogManager::DeregisterWorkerFromLogger() {
   PL_ASSERT(log_worker_ctx != nullptr);
   log_worker_ctx->terminated = true;
 }
@@ -174,18 +173,18 @@ void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
 void PhyLogLogManager::StartLogger() {
   is_running_ = true;
 
-  if (LoggingUtil::CheckDirectoryExistence(GetLogDirectoryName().c_str()) == false) {
-    LOG_ERROR("Logging directory %s is not accessible or does not exist\n", GetLogDirectoryName().c_str());
-  }
+  // if (LoggingUtil::CheckDirectoryExistence(logging_dir_.c_str()) == false) {
+  //   LOG_ERROR("Logging directory %s is not accessible or does not exist\n", logging_dir_.c_str());
+  // }
 
-  for (size_t lid = 0; lid < logger_thread_count_; ++lid) {
+  for (size_t lid = 0; lid < logging_thread_count_; ++lid) {
     logger_ctxs_[lid]->logger_thread.reset(new std::thread(&PhyLogLogManager::Run, this, lid));
   }
 }
 
 void PhyLogLogManager::StopLogger() {
   is_running_ = false;
-  for (size_t lid = 0; lid < logger_thread_count_; ++lid) {
+  for (size_t lid = 0; lid < logging_thread_count_; ++lid) {
     logger_ctxs_[lid]->logger_thread->join();
   }
 }
@@ -224,7 +223,7 @@ void PhyLogLogManager::InitLoggerContext(size_t logger_id) {
   auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
   logger_ctx_ptr->lid = logger_id;
   // TODO: write a function
-  logger_ctx_ptr->log_dir = GetLogDirectoryName() + "/" + logger_dir_prefix + "_" + std::to_string(logger_id);
+  logger_ctx_ptr->log_dir = logging_dirs_.at(logger_id);
 
   bool res = LoggingUtil::CreateDirectory(logger_ctx_ptr->log_dir.c_str(), 0700);
   if (res == false) {

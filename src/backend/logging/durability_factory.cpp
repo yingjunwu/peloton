@@ -19,7 +19,7 @@ namespace logging {
 
   CheckpointType DurabilityFactory::checkpoint_type_ = CHECKPOINT_TYPE_INVALID;
 
-  int DurabilityFactory::frontend_logger_count_ = default_frontend_logger_count_;
+  int DurabilityFactory::logger_count_ = default_logger_count_;
 
   int DurabilityFactory::checkpointer_count_ = default_checkpointer_count_;
 }

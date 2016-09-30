@@ -42,7 +42,7 @@ namespace logging {
     cid_t current_cid;
     oid_t worker_id;
 
-    // When a worker terminate, we can not destruct it immediately.
+    // When a worker terminates, we cannot destruct it immediately.
     // What we do is first set this flag and the logger will check if it can destruct a terminated worker
     // TODO: Find out some where to call termination to a worker
     bool terminated;
@@ -100,29 +100,26 @@ class PhyLogLogManager : public LogManager {
   // TODO: See if we can move some of this to the base class
   const static size_t sleep_period_us = 40000;
 
-  const std::string logger_dir_prefix = "phylog_logdir";
-  const std::string log_file_prefix = "phylog_log";
-  const std::string log_file_surfix = ".log";
 
   const uint64_t uint64_place_holder = 0;
 
 protected:
 
-  PhyLogLogManager(const std::string &log_dir, int thread_count)
-    : LogManager(log_dir), logger_thread_count_(thread_count), log_worker_id_generator_(0),
-      is_running_(false), global_committed_eid_(INVALID_EPOCH_ID),
+  PhyLogLogManager(int thread_count)
+    : LogManager(thread_count), log_worker_id_generator_(0),
+      global_committed_eid_(INVALID_EPOCH_ID),
       logger_ctxs_(thread_count) {}
 
 public:
-  static PhyLogLogManager &GetInstance(const std::string &log_dir, int thread_count) {
-    static PhyLogLogManager logManager(log_dir, thread_count);
-    return logManager;
+  static PhyLogLogManager &GetInstance(int thread_count) {
+    static PhyLogLogManager log_manager(thread_count);
+    return log_manager;
   }
   virtual ~PhyLogLogManager() {}
 
   // Worker side logic
-  virtual void CreateLogWorker() override ;
-  virtual void TerminateLogWorker() override ;
+  virtual void RegisterWorkerToLogger() override ;
+  virtual void DeregisterWorkerFromLogger() override ;
 
   virtual void LogInsert(const ItemPointer &tuple_pos) override ;
   virtual void LogUpdate(const ItemPointer &tuple_pos) override ;
@@ -150,7 +147,7 @@ private:
 
 
   inline size_t HashToLogger(oid_t worker_id) {
-    return ((size_t) worker_id) % logger_thread_count_;
+    return ((size_t) worker_id) % logging_thread_count_;
   }
 
   void WriteRecordToBuffer(LogRecord &record);
@@ -162,12 +159,12 @@ private:
   void UpdateGlobalCommittedEid(size_t committed_eid);
   void SyncEpochToFile(LoggerContext *logger_ctx, size_t eid);
   void InitLoggerContext(size_t lid);
+
   inline std::string GetNextLogFileName(LoggerContext *logger_ctx) {
     // Example: /tmp/phylog_log_0.log
     size_t file_id = logger_ctx->next_file_id;
     logger_ctx->next_file_id++;
-    return logger_ctx->log_dir + "/" +
-           log_file_prefix + "_" + std::to_string(file_id) + log_file_surfix;
+    return GetLogFileFullPath(logger_ctx->lid, file_id);
   }
   /*
    * Log file layout:
@@ -179,10 +176,8 @@ private:
   void CloseCurrentLogFile(LoggerContext *logger_ctx_ptr);
 
 private:
-  const size_t logger_thread_count_;
   std::atomic<oid_t> log_worker_id_generator_;
 
-  volatile bool is_running_;
   size_t global_committed_eid_;
 
   std::vector<std::shared_ptr<LoggerContext>> logger_ctxs_;

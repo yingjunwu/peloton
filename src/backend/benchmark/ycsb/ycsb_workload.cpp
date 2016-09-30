@@ -93,7 +93,7 @@ void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.CreateLogWorker();
+  log_manager.RegisterWorkerToLogger();
 
   auto update_ratio = state.update_ratio;
   auto operation_count = state.operation_count;
@@ -136,14 +136,14 @@ void RunBackend(oid_t thread_id) {
 
     transaction_count_ref++;
   }
-  log_manager.TerminateLogWorker();
+  log_manager.DeregisterWorkerFromLogger();
 }
 
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.CreateLogWorker();
+  log_manager.RegisterWorkerToLogger();
 
   double update_ratio = 0;
   auto operation_count = state.operation_count;
@@ -192,14 +192,14 @@ void RunReadOnlyBackend(oid_t thread_id) {
     ro_transaction_count_ref++;
   }
 
-  log_manager.TerminateLogWorker();
+  log_manager.DeregisterWorkerFromLogger();
 }
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.CreateLogWorker();
+  log_manager.RegisterWorkerToLogger();
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -244,7 +244,7 @@ void RunScanBackend(oid_t thread_id) {
     backoff_shifts >>= 1;
   }
 
-  log_manager.TerminateLogWorker();
+  log_manager.DeregisterWorkerFromLogger();
 }
 
 

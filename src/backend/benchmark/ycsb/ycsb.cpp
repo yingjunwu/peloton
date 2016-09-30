@@ -198,16 +198,19 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
-  // Start the logging manager
+  // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.StartLogger();
 
   // Create and load the user table
-  log_manager.CreateLogWorker();
-  CreateYCSBDatabase();
 
+  // for now, we do not perform logging when loading tables. --Yingjun
+  // log_manager.RegisterWorkerToLogger();
+  
+  CreateYCSBDatabase();
   LoadYCSBDatabase();
-  log_manager.TerminateLogWorker();
+
+  // log_manager.DeregisterWorkerFromLogger();
 
   // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
