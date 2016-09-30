@@ -199,7 +199,7 @@ void RunBenchmark() {
   index::IndexFactory::Configure(state.sindex);
 
   // Start the logging manager
-  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.StartLogger();
 
   // Create and load the user table

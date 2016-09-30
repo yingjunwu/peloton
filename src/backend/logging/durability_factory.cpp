@@ -15,10 +15,6 @@
 namespace peloton {
 namespace logging {
 
-  std::string DurabilityFactory::logging_dir_prefix_ = TMP_DIR;
-
-  std::string DurabilityFactory::checkpoint_dir_prefix_ = TMP_DIR;
-
   LoggingType DurabilityFactory::logging_type_ = LOGGING_TYPE_INVALID;
 
   CheckpointType DurabilityFactory::checkpoint_type_ = CHECKPOINT_TYPE_INVALID;

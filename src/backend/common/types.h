@@ -688,14 +688,6 @@ enum LoggingStatus {
   LOGGING_STATUS_TYPE_SLEEP = 5
 };
 
-enum LoggerType {
-  LOGGER_TYPE_INVALID = 0,
-
-  LOGGER_TYPE_FRONTEND = 1,
-  LOGGER_TYPE_BACKEND = 2
-
-};
-
 enum LogRecordType {
   LOGRECORD_TYPE_INVALID = 0,
 
@@ -900,8 +892,6 @@ ConstraintType StringToConstraintType(std::string str);
 
 std::string LoggingTypeToString(LoggingType type);
 std::string LoggingStatusToString(LoggingStatus type);
-std::string LoggerTypeToString(LoggerType type);
-std::string LogRecordTypeToString(LogRecordType type);
 
 ValueType PostgresValueTypeToPelotonValueType(
     PostgresValueType PostgresValType);

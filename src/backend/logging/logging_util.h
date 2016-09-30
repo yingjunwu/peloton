@@ -5,7 +5,7 @@
  *
  * Copyright(c) 2015, CMU
  *
- * /peloton/src/backend/logging/logger.h
+ * /src/backend/logging/logging_util.h
  *
  *-------------------------------------------------------------------------
  */

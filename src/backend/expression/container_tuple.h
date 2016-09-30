@@ -69,7 +69,8 @@ class ContainerTuple : public AbstractTuple {
   void SerializeTo(SerializeOutput &output) {
     PL_ASSERT(container_ != nullptr);
 
-    size_t start = output.ReserveBytes(4);
+    // DOUBLE CHECK: why we need this start???
+    //size_t start = output.ReserveBytes(4);
     auto column_count = container_->GetColumnCount();
     for (size_t col_id = 0; col_id < column_count; ++col_id) {
       auto value = GetValue(col_id);

@@ -4,28 +4,33 @@
 //
 // checkpointer.cpp
 //
-// Identification: src/backend/logging/checkpoint/checkpointer.cpp
+// Identification: src/backend/logging/checkpointer.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
 #include "backend/logging/checkpointer.h"
+#include "backend/logging/logging_util.h"
+#include "backend/storage/database.h"
+#include "backend/storage/data_table.h"
+#include "backend/storage/tile_group.h"
+#include "backend/storage/tile_group_header.h"
+#include "backend/concurrency/transaction_manager.h"
+#include "backend/concurrency/epoch_manager_factory.h"
 
 namespace peloton {
 namespace logging {
 
-class Checkpointer {
-
   void Checkpointer::StartCheckpointing() {
     bool res = true;
-    res = LoggingUtil::RemoveDirectory(checkpoint_dir_prefix.c_str(), false);
+    res = LoggingUtil::RemoveDirectory(checkpoint_dir_prefix_.c_str(), false);
     PL_ASSERT(res == true);
     if (res != true) {
       LOG_ERROR("remove directory failed!");
       exit(-1);
     }
-    res = LoggingUtil::CreateDirectory(checkpoint_dir_prefix.c_str(), 0700);
+    res = LoggingUtil::CreateDirectory(checkpoint_dir_prefix_.c_str(), 0700);
     PL_ASSERT(res == true);
     if (res != true) {
       LOG_ERROR("create directory failed!");
@@ -43,7 +48,7 @@ class Checkpointer {
   void Checkpointer::Running() {
     int count = 0;
     while (1) {
-      if (is_working_ == false) {
+      if (is_running_ == false) {
         return;
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -61,6 +66,10 @@ class Checkpointer {
     auto &catalog_manager = catalog::Manager::GetInstance();
     auto database_count = catalog_manager.GetDatabaseCount();
     
+    // first of all, we should get a snapshot txn id.
+    auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+    cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
+
     // creating files
     FileHandle **file_handles = new FileHandle*[database_count];
     for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
@@ -69,7 +78,7 @@ class Checkpointer {
       
       file_handles[database_idx] = new FileHandle[table_count];
       for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
-        std::string filename = GetCheckpointFileFullPath(database_idx, table_idx, begin_cid);
+        std::string file_name = GetCheckpointFileFullPath(database_idx, table_idx, begin_cid);
        
         bool success =
             LoggingUtil::CreateFile(file_name.c_str(), "ab", file_handles[database_idx][table_idx]);
@@ -83,9 +92,6 @@ class Checkpointer {
       }
     }
 
-    // first of all, we should get a snapshot txn id.
-    auto &epoch_manager = EpochManagerFactory::GetInstance();
-    cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
 
     // loop all databases
     for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
@@ -104,7 +110,7 @@ class Checkpointer {
     }
 
     // exit epoch.
-    epoch_manager.ExitReadOnlyEpoch(current_txn->GetEpochId());
+    epoch_manager.ExitReadOnlyEpoch(concurrency::current_txn->GetEpochId());
 
 
     // close files
@@ -123,14 +129,14 @@ class Checkpointer {
     delete[] file_handles;
   }
 
-  void Checkpointer::CheckpointTable(cid_t begin_cid, storage::DataTable *target_table) {
+  void Checkpointer::CheckpointTable(cid_t begin_cid UNUSED_ATTRIBUTE, storage::DataTable *target_table) {
 
     LOG_TRACE("perform checkpoint cid = %lu", begin_cid);
 
     oid_t tile_group_count = target_table->GetTileGroupCount();
     oid_t current_tile_group_offset = 0;
 
-    while (current_tile_group_offset < table_tile_group_count) {
+    while (current_tile_group_offset < tile_group_count) {
       auto tile_group =
           target_table->GetTileGroup(current_tile_group_offset++);
       auto tile_group_header = tile_group->GetHeader();
@@ -146,8 +152,8 @@ class Checkpointer {
 
           CopySerializeOutput output_buffer;
 
-          expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group_header, tuple_id);
-          container_tuple.SerializeTo(output);
+          expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group.get(), tuple_id);
+          container_tuple.SerializeTo(output_buffer);
 
         } // end if isvisible
       }   // end for
@@ -161,8 +167,8 @@ class Checkpointer {
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
     cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
-    bool activated = (current_txn->GetBeginCommitId() >= tuple_begin_cid);
-    bool invalidated = (current_txn->GetBeginCommitId() >= tuple_end_cid);
+    bool activated = (concurrency::current_txn->GetBeginCommitId() >= tuple_begin_cid);
+    bool invalidated = (concurrency::current_txn->GetBeginCommitId() >= tuple_end_cid);
 
     if (tuple_txn_id == INVALID_TXN_ID) {
       // the tuple is not available.
@@ -194,8 +200,6 @@ class Checkpointer {
       }
     }
   }
-
-}
 
 }
 }

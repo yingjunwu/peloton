@@ -303,7 +303,7 @@ bool IsBasedOnWriteAheadLogging(const LoggingType& logging_type) {
   bool status = false;
 
   switch (logging_type) {
-    case LOGGING_TYPE_ON:
+    case LOGGING_TYPE_PHYLOG:
       status = true;
       break;
 
@@ -321,7 +321,7 @@ BackendType GetBackendType(const LoggingType& logging_type) {
 
   switch (logging_type) {
 
-    case LOGGING_TYPE_ON:
+    case LOGGING_TYPE_PHYLOG:
       backend_type = BACKEND_TYPE_MM;
       break;
 
@@ -938,8 +938,8 @@ std::string LoggingTypeToString(LoggingType type) {
       return "INVALID";
 
     // WAL Based
-    case LOGGING_TYPE_ON:
-      return "WAL_ON";
+    case LOGGING_TYPE_PHYLOG:
+      return "WAL_PHYLOG";
     
     default:
       LOG_ERROR("Invalid logging_type :: %d", type);
@@ -967,75 +967,6 @@ std::string LoggingStatusToString(LoggingStatus type) {
     }
     case LOGGING_STATUS_TYPE_SLEEP: {
       return "LOGGING_STATUS_TYPE_SLEEP";
-    }
-  }
-  return "INVALID";
-}
-
-std::string LoggerTypeToString(LoggerType type) {
-  switch (type) {
-    case LOGGER_TYPE_INVALID: {
-      return "INVALID";
-    }
-    case LOGGER_TYPE_FRONTEND: {
-      return "LOGGER_TYPE_FRONTEND";
-    }
-    case LOGGER_TYPE_BACKEND: {
-      return "LOGGER_TYPE_BACKEND";
-    }
-  }
-  return "INVALID";
-}
-
-std::string LogRecordTypeToString(LogRecordType type) {
-  switch (type) {
-    case LOGRECORD_TYPE_INVALID: {
-      return "INVALID";
-    }
-    case LOGRECORD_TYPE_TRANSACTION_BEGIN: {
-      return "LOGRECORD_TYPE_TRANSACTION_BEGIN";
-    }
-    case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
-      return "LOGRECORD_TYPE_TRANSACTION_COMMIT";
-    }
-    case LOGRECORD_TYPE_TRANSACTION_END: {
-      return "LOGRECORD_TYPE_TRANSACTION_END";
-    }
-    case LOGRECORD_TYPE_TRANSACTION_ABORT: {
-      return "LOGRECORD_TYPE_TRANSACTION_ABORT";
-    }
-    case LOGRECORD_TYPE_TRANSACTION_DONE: {
-      return "LOGRECORD_TYPE_TRANSACTION_DONE";
-    }
-    case LOGRECORD_TYPE_TUPLE_INSERT: {
-      return "LOGRECORD_TYPE_TUPLE_INSERT";
-    }
-    case LOGRECORD_TYPE_TUPLE_DELETE: {
-      return "LOGRECORD_TYPE_TUPLE_DELETE";
-    }
-    case LOGRECORD_TYPE_TUPLE_UPDATE: {
-      return "LOGRECORD_TYPE_TUPLE_UPDATE";
-    }
-    case LOGRECORD_TYPE_WAL_TUPLE_INSERT: {
-      return "LOGRECORD_TYPE_WAL_TUPLE_INSERT";
-    }
-    case LOGRECORD_TYPE_WAL_TUPLE_DELETE: {
-      return "LOGRECORD_TYPE_WAL_TUPLE_DELETE";
-    }
-    case LOGRECORD_TYPE_WAL_TUPLE_UPDATE: {
-      return "LOGRECORD_TYPE_WAL_TUPLE_UPDATE";
-    }
-    case LOGRECORD_TYPE_WBL_TUPLE_INSERT: {
-      return "LOGRECORD_TYPE_WBL_TUPLE_INSERT";
-    }
-    case LOGRECORD_TYPE_WBL_TUPLE_DELETE: {
-      return "LOGRECORD_TYPE_WBL_TUPLE_DELETE";
-    }
-    case LOGRECORD_TYPE_WBL_TUPLE_UPDATE: {
-      return "LOGRECORD_TYPE_WBL_TUPLE_UPDATE";
-    }
-    case LOGRECORD_TYPE_ITERATION_DELIMITER: {
-      return "LOGRECORD_TYPE_ITERATION_DELIMITER";
     }
   }
   return "INVALID";

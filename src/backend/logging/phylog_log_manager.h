@@ -16,6 +16,7 @@
 #include <thread>
 #include <list>
 #include <stack>
+#include <unordered_map>
 
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
@@ -30,49 +31,6 @@
 
 namespace peloton {
 namespace logging {
-
-
-class PhyLogLogManager : public LogManager {
-  PhyLogLogManager(const PhyLogLogManager &) = delete;
-  PhyLogLogManager &operator=(const PhyLogLogManager &) = delete;
-  PhyLogLogManager(PhyLogLogManager &&) = delete;
-  PhyLogLogManager &operator=(PhyLogLogManager &&) = delete;
-
-  // TODO: See if we can move some of this to the base class
-  const static size_t sleep_period_us = 40000;
-  const static std::string logger_dir_prefix = "phylog_logdir";
-  const static std::string log_file_prefix = "phylog_log";
-  const static std::string log_file_surfix = ".log";
-
-  const static uint64_t uint64_place_holder = 0;
-
-protected:
-  struct LoggerContext {
-    size_t lid;
-    std::unique_ptr<std::thread> logger_thread;
-
-    /* File system related */
-    std::string log_dir;
-    size_t next_file_id;
-    CopySerializeOutput output_buffer;
-    FileHandle cur_file_handle;
-
-    /* Log buffers */
-    size_t max_committed_eid;
-
-    // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
-    Spinlock worker_map_lock_;
-    std::unordered_map<oid_t, std::shared_ptr<LogWorkerContext>> worker_map_;
-    std::vector<std::stack<std::unique_ptr<peloton::logging::LogBuffer>>> local_buffer_map;
-
-    LoggerContext() :
-      lid(INVALID_LOGGERID), logger_thread(nullptr), log_dir(), next_file_id(0), output_buffer(),
-      cur_file_handle(), max_committed_eid(INVALID_EPOCH_ID), worker_map_lock_(), worker_map_(),
-      local_buffer_map(concurrency::EpochManager::GetEpochQueueCapacity())
-    {}
-
-    ~LoggerContext() {}
-  };
 
   struct LogWorkerContext {
     // Every epoch has a buffer stack
@@ -100,8 +58,55 @@ protected:
     }
   };
 
+
+  struct LoggerContext {
+    size_t lid;
+    std::unique_ptr<std::thread> logger_thread;
+
+    /* File system related */
+    std::string log_dir;
+    size_t next_file_id;
+    CopySerializeOutput output_buffer;
+    FileHandle cur_file_handle;
+
+    /* Log buffers */
+    size_t max_committed_eid;
+
+    // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
+    Spinlock worker_map_lock_;
+    std::unordered_map<oid_t, std::shared_ptr<LogWorkerContext>> worker_map_;
+    std::vector<std::stack<std::unique_ptr<peloton::logging::LogBuffer>>> local_buffer_map;
+
+    LoggerContext() :
+      lid(INVALID_LOGGERID), logger_thread(nullptr), log_dir(), next_file_id(0), output_buffer(),
+      cur_file_handle(), max_committed_eid(INVALID_EPOCH_ID), worker_map_lock_(), worker_map_(),
+      local_buffer_map(concurrency::EpochManager::GetEpochQueueCapacity())
+    {}
+
+    ~LoggerContext() {}
+  };
+
   /* Per worker thread local context */
-  thread_local LogWorkerContext* log_worker_ctx = nullptr;
+  extern thread_local LogWorkerContext* log_worker_ctx;
+
+
+
+class PhyLogLogManager : public LogManager {
+  PhyLogLogManager(const PhyLogLogManager &) = delete;
+  PhyLogLogManager &operator=(const PhyLogLogManager &) = delete;
+  PhyLogLogManager(PhyLogLogManager &&) = delete;
+  PhyLogLogManager &operator=(PhyLogLogManager &&) = delete;
+
+  // TODO: See if we can move some of this to the base class
+  const static size_t sleep_period_us = 40000;
+
+  const std::string logger_dir_prefix = "phylog_logdir";
+  const std::string log_file_prefix = "phylog_log";
+  const std::string log_file_surfix = ".log";
+
+  const static uint64_t uint64_place_holder = 0;
+
+protected:
 
   PhyLogLogManager(const std::string &log_dir, int thread_count)
     : LogManager(log_dir), logger_thread_count_(thread_count), log_worker_id_generator_(0),
@@ -159,8 +164,10 @@ private:
   void InitLoggerContext(size_t lid);
   inline std::string GetNextLogFileName(LoggerContext *logger_ctx) {
     // Example: /tmp/phylog_log_0.log
+    size_t file_id = logger_ctx->next_file_id;
+    logger_ctx->next_file_id++;
     return logger_ctx->log_dir + "/" +
-           log_file_prefix + "_" + ((logger_ctx->next_file_id)++) + log_file_surfix;
+           log_file_prefix + "_" + std::to_string(file_id) + log_file_surfix;
   }
   /*
    * Log file layout:
@@ -172,7 +179,7 @@ private:
   void CloseCurrentLogFile(LoggerContext *logger_ctx_ptr);
 
 private:
-  const int logger_thread_count_;
+  const size_t logger_thread_count_;
   std::atomic<oid_t> log_worker_id_generator_;
 
   volatile bool is_running_;

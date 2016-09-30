@@ -14,6 +14,7 @@
 #pragma once
 
 #include "backend/common/types.h"
+#include "backend/common/serializer.h"
 #include "backend/bridge/ddl/bridge.h"
 
 namespace peloton {
@@ -22,20 +23,6 @@ namespace logging {
 //===--------------------------------------------------------------------===//
 // LogRecord
 //===--------------------------------------------------------------------===//
-class LogRecordFactory {
-public:
-  static LogRecord CreateTupleRecord(LogRecordType log_type, const ItemPointer &pos) {
-    return LogRecord(log_type, pos, INVALID_EPOCH_ID, INVALID_CID);
-  }
-
-  static LogRecord CreateTxnRecord(LogRecordType log_type, cid_t commit_id) {
-    return LogRecord(log_type, INVALID_ITEMPOINTER, INVALID_EPOCH_ID, commit_id);
-  }
-
-  static LogRecord CreateEpochRecord(LogRecordType log_type, size_t epoch_id) {
-    return LogRecord(log_type, INVALID_ITEMPOINTER, epoch_id, INVALID_CID);
-  }
-};
 
 class LogRecord {
   friend class LogRecordFactory;
@@ -62,7 +49,7 @@ public:
 
   void Serialize(CopySerializeOutput &output);
 
-  void Deserialize(CopySerializeInput &input);
+  // void Deserialize(CopySerializeInput &input);
 
 private:
   LogRecordType log_record_type_ = LOGRECORD_TYPE_INVALID;
@@ -75,6 +62,20 @@ private:
 };
 
 
+class LogRecordFactory {
+public:
+  static LogRecord CreateTupleRecord(LogRecordType log_type, const ItemPointer &pos) {
+    return LogRecord(log_type, pos, INVALID_EPOCH_ID, INVALID_CID);
+  }
+
+  static LogRecord CreateTxnRecord(LogRecordType log_type, cid_t commit_id) {
+    return LogRecord(log_type, INVALID_ITEMPOINTER, INVALID_EPOCH_ID, commit_id);
+  }
+
+  static LogRecord CreateEpochRecord(LogRecordType log_type, size_t epoch_id) {
+    return LogRecord(log_type, INVALID_ITEMPOINTER, epoch_id, INVALID_CID);
+  }
+};
 
 
 }  // namespace logging

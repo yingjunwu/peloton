@@ -22,7 +22,7 @@ namespace logging {
 class DurabilityFactory {
  public:
 
-  static LogManager& GetInstance() {
+  static LogManager& GetLoggerInstance() {
     switch (logging_type_) {
       case LOGGING_TYPE_PHYLOG:
         return PhyLogLogManager::GetInstance("/tmp", 1);

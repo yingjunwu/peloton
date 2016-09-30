@@ -24,7 +24,7 @@ namespace logging {
       if (head_.load() < tail_.load()) {
         if (local_buffer_queue_[head_idx] == false) {
           // Not any buffer allocated now
-          local_buffer_queue_[head_idx] = new LogBuffer(backend_logger_id_);
+          local_buffer_queue_[head_idx].reset(new LogBuffer(backend_logger_id_));
         }
         break;
       }
@@ -40,15 +40,15 @@ namespace logging {
   void LogBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {
     PL_ASSERT(buf->GetBackendLoggerId() == backend_logger_id_);
 
-    size_t head_idx = head_ % buffer_queue_size_;
-    size_t tail_idx = tail_idx % buffer_queue_size_;
+    UNUSED_ATTRIBUTE size_t head_idx = head_ % buffer_queue_size_;
+    size_t tail_idx = tail_ % buffer_queue_size_;
     // The buffer pool must not be full
     PL_ASSERT(tail_idx != head_idx);
     // The tail pos must be null
     PL_ASSERT(local_buffer_queue_[tail_idx] == false);
     // The returned buffer must be empty
     PL_ASSERT(buf->Empty() == true);
-    local_buffer_queue_[tail_idx] = buf.release();
+    local_buffer_queue_[tail_idx].reset(buf.release());
     tail_++;
   }
 

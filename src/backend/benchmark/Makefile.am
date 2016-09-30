@@ -16,29 +16,29 @@ benchmark_common_ldadd = libpelotonpg.la libpeloton.la -lpthread
 # LOGGER
 ######################################################################
 
-logger_SOURCES =  \
-					backend/benchmark/logger/logger.cpp \
-                    backend/benchmark/logger/logger_configuration.cpp \
-                    backend/benchmark/logger/logger_workload.cpp \
-                    backend/benchmark/ycsb/ycsb_configuration.cpp \
-                    backend/benchmark/ycsb/ycsb_workload.cpp \
-                    backend/benchmark/ycsb/ycsb_loader.cpp \
-                    backend/benchmark/ycsb/ycsb_mixed.cpp \
-                    backend/benchmark/ycsb/ycsb_scan.cpp \
-                    backend/benchmark/tpcc/tpcc_configuration.cpp \
-                    backend/benchmark/tpcc/tpcc_workload.cpp \
-                    backend/benchmark/tpcc/tpcc_loader.cpp \
-                    backend/benchmark/tpcc/tpcc_new_order.cpp \
-                    backend/benchmark/tpcc/tpcc_delivery.cpp \
-                    backend/benchmark/tpcc/tpcc_payment.cpp \
-                    backend/benchmark/tpcc/tpcc_stock_level.cpp \
-                    backend/benchmark/tpcc/tpcc_order_status.cpp \
-                    backend/benchmark/tpcc/tpcc_scan_stock.cpp \
-                    backend/benchmark/benchmark_common.cpp
+#logger_SOURCES =  \
+#					backend/benchmark/logger/logger.cpp \
+#                    backend/benchmark/logger/logger_configuration.cpp \
+#                    backend/benchmark/logger/logger_workload.cpp \
+#                    backend/benchmark/ycsb/ycsb_configuration.cpp \
+#                    backend/benchmark/ycsb/ycsb_workload.cpp \
+#                    backend/benchmark/ycsb/ycsb_loader.cpp \
+#                    backend/benchmark/ycsb/ycsb_mixed.cpp \
+#                    backend/benchmark/ycsb/ycsb_scan.cpp \
+#                    backend/benchmark/tpcc/tpcc_configuration.cpp \
+#                    backend/benchmark/tpcc/tpcc_workload.cpp \
+#                    backend/benchmark/tpcc/tpcc_loader.cpp \
+#                    backend/benchmark/tpcc/tpcc_new_order.cpp \
+#                    backend/benchmark/tpcc/tpcc_delivery.cpp \
+#                    backend/benchmark/tpcc/tpcc_payment.cpp \
+#                    backend/benchmark/tpcc/tpcc_stock_level.cpp \
+#                    backend/benchmark/tpcc/tpcc_order_status.cpp \
+#                    backend/benchmark/tpcc/tpcc_scan_stock.cpp \
+#                    backend/benchmark/benchmark_common.cpp
 
-logger_LDFLAGS =
-logger_CPPFLAGS = $(benchmark_common_cppflags)
-logger_LDADD = $(benchmark_common_ldadd) -lboost_system -lboost_filesystem
+#logger_LDFLAGS =
+#logger_CPPFLAGS = $(benchmark_common_cppflags)
+#logger_LDADD = $(benchmark_common_ldadd) -lboost_system -lboost_filesystem
 
 ######################################################################
 # YCSB

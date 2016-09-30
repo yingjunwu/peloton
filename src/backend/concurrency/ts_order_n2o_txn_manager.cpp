@@ -20,6 +20,7 @@
 #include "backend/storage/data_table.h"
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
+#include "backend/logging/durability_factory.h"
 
 namespace peloton {
 namespace concurrency {
@@ -492,7 +493,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   // generate transaction id.
   cid_t end_commit_id = current_txn->GetBeginCommitId();
 
-  auto &log_manager = logging::LogManager::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.StartTxn(current_txn);
   
   auto &rw_set = current_txn->GetRWSet();

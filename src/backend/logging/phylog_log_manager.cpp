@@ -22,6 +22,7 @@
 namespace peloton {
 namespace logging {
 
+thread_local LogWorkerContext* log_worker_ctx = nullptr;
 
 void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
   while(true) {
@@ -76,7 +77,7 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   switch (type) {
     case LOGRECORD_TYPE_TUPLE_INSERT:
     case LOGRECORD_TYPE_TUPLE_DELETE:
-    case LOGRECORD_TYPE_TUPLE_UPDATE:
+    case LOGRECORD_TYPE_TUPLE_UPDATE: {
       auto &manager = catalog::Manager::GetInstance();
       auto tuple_pos = record.GetItemPointer();
       auto tg = manager.GetTileGroup(tuple_pos.block).get();
@@ -91,17 +92,21 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
       );
       container_tuple.SerializeTo(output);
       break;
+    }
     case LOGRECORD_TYPE_TRANSACTION_BEGIN:
-    case LOGRECORD_TYPE_TRANSACTION_COMMIT:
+    case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
       output.WriteLong(ctx->current_cid);
       break;
+    }
     case LOGRECORD_TYPE_EPOCH_BEGIN:
-    case LOGRECORD_TYPE_EPOCH_END:
+    case LOGRECORD_TYPE_EPOCH_END: {
       output.WriteLong((uint64_t) ctx->current_eid);
       break;
-    default:
+    }
+    default: {
       LOG_ERROR("Unsupported log record type");
       PL_ASSERT(false);
+    }
   }
 
   // Copy the output buffer into current buffer
@@ -185,7 +190,7 @@ void PhyLogLogManager::StopLogger() {
   }
 }
 
-void PhyLogLogManager::CreateAndInitLogFile(PhyLogLogManager::LoggerContext *logger_ctx_ptr) {
+void PhyLogLogManager::CreateAndInitLogFile(LoggerContext *logger_ctx_ptr) {
   // Get the file name
   // TODO: we just use the last file id. May be we can use some epoch id?
   std::string filename = GetNextLogFileName(logger_ctx_ptr);
@@ -209,7 +214,7 @@ void PhyLogLogManager::CloseCurrentLogFile(LoggerContext *logger_ctx_ptr) {
   // Safely close the file
   bool res = LoggingUtil::CloseFile(logger_ctx_ptr->cur_file_handle);
   if (res == false) {
-    LOG_ERROR("Can not close log file under directory %s", logger_ctx_ptr->log_dir);
+    LOG_ERROR("Can not close log file under directory %s", logger_ctx_ptr->log_dir.c_str());
     exit(EXIT_FAILURE);
   }
 }
@@ -219,7 +224,7 @@ void PhyLogLogManager::InitLoggerContext(size_t logger_id) {
   auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
   logger_ctx_ptr->lid = logger_id;
   // TODO: write a function
-  logger_ctx_ptr->log_dir = GetLogDirectoryName() + "/" + logger_dir_prefix + "_" + logger_id;
+  logger_ctx_ptr->log_dir = GetLogDirectoryName() + "/" + logger_dir_prefix + "_" + std::to_string(logger_id);
 
   bool res = LoggingUtil::CreateDirectory(logger_ctx_ptr->log_dir.c_str(), 0700);
   if (res == false) {

@@ -46,7 +46,7 @@ static struct option opts[] = {
 
 static void ValidateLoggingType(const configuration& state) {
   if (state.logging_type != LOGGING_TYPE_INVALID && 
-      state.logging_type != LOGGING_TYPE_ON) {
+      state.logging_type != LOGGING_TYPE_PHYLOG) {
     LOG_ERROR("Invalid logging_type :: %d", state.logging_type);
     exit(EXIT_FAILURE);
   }
@@ -103,7 +103,7 @@ static void ValidateDataFileSize(const configuration& state) {
 
 void ParseArguments(int argc, char* argv[], configuration& state) {
   // Default Logger Values
-  state.logging_type = LOGGING_TYPE_ON;
+  state.logging_type = LOGGING_TYPE_PHYLOG;
   state.log_file_dir = TMP_DIR;
   state.data_file_size = 512;
 
@@ -422,7 +422,7 @@ void ParseArguments(int argc, char* argv[], configuration& state) {
   }
 
   if (state.checkpoint_type == CHECKPOINT_TYPE_NORMAL &&
-      (state.logging_type == LOGGING_TYPE_ON)) {
+      (state.logging_type == LOGGING_TYPE_PHYLOG)) {
     peloton_checkpoint_mode = CHECKPOINT_TYPE_NORMAL;
   }
 

@@ -24,6 +24,15 @@
 #define CHECKPOINT_DIR "/tmp/"
 
 namespace peloton {
+
+
+namespace storage {
+  class Database;
+  class DataTable;
+  class TileGroup;
+  class TileGroupHeader;
+}
+
 namespace logging {
 
 class Checkpointer {
@@ -35,14 +44,14 @@ class Checkpointer {
 
 
 public:
-  CheckpointManager(int thread_count) 
+  Checkpointer(int thread_count) 
     : is_running_(true),
       checkpoint_thread_count_(thread_count) {}
-  ~CheckpointManager() {}
+  ~Checkpointer() {}
 
-  static CheckpointManager& GetInstance(int thread_count = 1) {
-    static CheckpointManager checkpoint_manager(thread_count);
-    return checkpoint_manager;
+  static Checkpointer& GetInstance(int thread_count = 1) {
+    static Checkpointer checkpointer(thread_count);
+    return checkpointer;
   }
 
   void SetDirectory(const std::string &dir_prefix) {
@@ -70,15 +79,13 @@ public:
    *
    */
 
-  static GetCheckpointFileFullPath();
-
 
 private:
   void Running();
 
   void PerformCheckpoint();
 
-  void CheckpointTable(cid_t begin_cid, storage::Database *);
+  void CheckpointTable(cid_t begin_cid, storage::DataTable *);
 
   std::string GetCheckpointFileFullPath(oid_t database_idx, oid_t table_idx, cid_t begin_cid) {
     return checkpoint_dir_ + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
@@ -94,8 +101,10 @@ private:
   int checkpoint_interval_;
 
   std::string checkpoint_dir_ = CHECKPOINT_DIR;
+  
+  std::string checkpoint_dir_prefix_ = CHECKPOINT_DIR;
   const std::string checkpoint_filename_prefix_ = "checkpoint";
-
+  
   std::unique_ptr<std::thread> checkpoint_thread_;
 };
 
