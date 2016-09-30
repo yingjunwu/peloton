@@ -226,7 +226,7 @@ namespace test {
 //    PL_ASSERT(frontend_idx < frontend_schedules.size());
 //    PL_ASSERT(backend_idx < num_backend_logger_per_frontend);
 //    cur_id.front = frontend_idx;
-//    cur_id.back = GetBackendLoggerId(frontend_idx, backend_idx);
+//    cur_id.back = GetWorkerId(frontend_idx, backend_idx);
 //    return *this;
 //  }
 //
@@ -262,7 +262,7 @@ namespace test {
 //  storage::DataTable *table;
 //
 // private:
-//  inline unsigned int GetBackendLoggerId(unsigned int frontend_idx,
+//  inline unsigned int GetWorkerId(unsigned int frontend_idx,
 //                                         unsigned int backend_idx) {
 //    return frontend_idx * num_backend_logger_per_frontend + backend_idx;
 //  }

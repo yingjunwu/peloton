@@ -20,6 +20,7 @@
 
 #include "backend/gc/gc_manager_factory.h"
 #include "backend/concurrency/transaction_manager_factory.h"
+#include "backend/logging/durability_factory.h"
 
 #include "backend/common/logger.h"
 
@@ -37,14 +38,24 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.StartLogger();
+
+  // Create log worker for loading the database
+  log_manager.CreateLogWorker();
+
   // Create the database
   CreateTPCCDatabase();
 
   // Load the database
   LoadTPCCDatabase();
 
+  log_manager.TerminateLogWorker();
+
   // Run the workload
   RunWorkload();
+
+  log_manager.StopLogger();
 
   WriteOutput();
 }

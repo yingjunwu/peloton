@@ -14,26 +14,27 @@
 
 #include "backend/logging/checkpointer.h"
 #include "backend/logging/phylog_log_manager.h"
-
-#define TMP_DIR = "/tmp/"
+#include "backend/logging/dummy_log_manager.h"
 
 namespace peloton {
 namespace logging {
 
 class DurabilityFactory {
  public:
-  
-  static BackendLogger &GetBackendLoggerInstance() {
-    return BackendLogger::GetInstance();
+
+  static LogManager& GetInstance() {
+    switch (logging_type_) {
+      case LOGGING_TYPE_PHYLOG:
+        return PhyLogLogManager::GetInstance("/tmp", 1);
+      default:
+        return DummyLogManager::GetInstance();
+    }
   }
 
-  static FrontendLogger &GetFrontendLoggerInstance() {
-    return FrontendLogger::GetInstance(frontend_logger_count_);
-  }
-
-  static Checkpointer &GetCheckpointerInstance() {
-    return Checkpointer::GetInstance(checkpointer_count_);
-  }
+// TODO: Checkpointer or Checkpoint manager?
+//  static Checkpointer &GetCheckpointerInstance() {
+//    return Checkpointer::GetInstance(checkpointer_count_);
+//  }
 
   static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, int frontend_logger_count = default_frontend_logger_count_, int checkpointer_count = default_checkpointer_count_) {
 

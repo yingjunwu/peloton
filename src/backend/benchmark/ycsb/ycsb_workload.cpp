@@ -23,6 +23,7 @@
 #include <random>
 #include <cstddef>
 #include <limits>
+#include <backend/logging/durability_factory.h>
 
 #include "backend/benchmark/ycsb/ycsb_workload.h"
 #include "backend/benchmark/ycsb/ycsb_configuration.h"
@@ -57,7 +58,7 @@
 
 #include "backend/index/index_factory.h"
 
-#include "backend/logging/log_manager.h"
+#include "backend/logging/durability_factory.h"
 
 #include "backend/planner/abstract_plan.h"
 #include "backend/planner/materialization_plan.h"
@@ -90,6 +91,9 @@ double scan_avg_latency;
 
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
+
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.CreateLogWorker();
 
   auto update_ratio = state.update_ratio;
   auto operation_count = state.operation_count;
@@ -132,11 +136,14 @@ void RunBackend(oid_t thread_id) {
 
     transaction_count_ref++;
   }
+  log_manager.TerminateLogWorker();
 }
 
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.CreateLogWorker();
 
   double update_ratio = 0;
   auto operation_count = state.operation_count;
@@ -184,10 +191,15 @@ void RunReadOnlyBackend(oid_t thread_id) {
 
     ro_transaction_count_ref++;
   }
+
+  log_manager.TerminateLogWorker();
 }
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
+
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.CreateLogWorker();
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -231,6 +243,8 @@ void RunScanBackend(oid_t thread_id) {
     }
     backoff_shifts >>= 1;
   }
+
+  log_manager.TerminateLogWorker();
 }
 
 

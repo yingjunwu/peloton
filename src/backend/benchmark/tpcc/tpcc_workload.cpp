@@ -60,7 +60,7 @@
 
 #include "backend/index/index_factory.h"
 
-#include "backend/logging/log_manager.h"
+#include "backend/logging/durability_factory.h"
 
 #include "backend/planner/abstract_plan.h"
 #include "backend/planner/materialization_plan.h"
@@ -132,6 +132,9 @@ size_t GenerateWarehouseId(const size_t &thread_id) {
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.CreateLogWorker();
+
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
 
@@ -156,12 +159,15 @@ void RunScanBackend(oid_t thread_id) {
       scan_stock_count++;
     }
   }
+  log_manager.TerminateLogWorker();
 }
 
 
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.CreateLogWorker();
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -334,6 +340,7 @@ void RunBackend(oid_t thread_id) {
     transaction_count_ref++;
 
   }
+  log_manager.TerminateLogWorker();
 }
 
 void RunWorkload() {

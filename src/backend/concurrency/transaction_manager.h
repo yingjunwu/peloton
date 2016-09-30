@@ -29,6 +29,8 @@
 #include "backend/gc/gc_manager_factory.h"
 #include "backend/planner/project_info.h"
 
+#include "backend/logging/log_manager.h"
+
 #include "libcuckoo/cuckoohash_map.hh"
 
 namespace peloton {

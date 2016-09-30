@@ -37,15 +37,17 @@ class LoggingUtil {
   
   static bool CreateFile(const char *name, const char *mode, FileHandle &file_handle);
 
+  static bool CloseFile(FileHandle &file_handle);
+
   static bool IsFileTruncated(FileHandle &file_handle, size_t size_to_read);
   
-  static size_t GetFileSize(FileHandle &file_handle);
-
-
-  // TUPLE TO LOG TRANSFORMATIONS
-  static bool SerializeTuple();
-
-  static bool DeserializeTuple();
+//  static size_t GetFileSize(FileHandle &file_handle);
+//
+//
+//  // TUPLE TO LOG TRANSFORMATIONS
+//  static bool SerializeTuple();
+//
+//  static bool DeserializeTuple();
 
   static void CompressData() {}
 
@@ -108,24 +110,24 @@ class LoggingUtil {
    */
 
 
-    static GetLoggingFileFullPath();
+//    static GetLoggingFileFullPath();
 
 
 
-  
-  static size_t GetNextFrameSize(FileHandle &file_handle);
-
-  static LogRecordType GetNextLogRecordType(FileHandle &file_handle);
-
-  static int ExtractNumberFromFileName(const char *name);
-
-  static storage::Tuple *ReadTupleRecordBody(catalog::Schema *schema,
-                                             VarlenPool *pool,
-                                             FileHandle &file_handle);
-
-  static void SkipTupleRecordBody(FileHandle &file_handle);
-
-  static int GetFileSizeFromFileName(const char *);
+//
+//  static size_t GetNextFrameSize(FileHandle &file_handle);
+//
+//  static LogRecordType GetNextLogRecordType(FileHandle &file_handle);
+//
+//  static int ExtractNumberFromFileName(const char *name);
+//
+//  static storage::Tuple *ReadTupleRecordBody(catalog::Schema *schema,
+//                                             VarlenPool *pool,
+//                                             FileHandle &file_handle);
+//
+//  static void SkipTupleRecordBody(FileHandle &file_handle);
+//
+//  static int GetFileSizeFromFileName(const char *);
 
 };
 

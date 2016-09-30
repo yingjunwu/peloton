@@ -27,6 +27,8 @@
 #include "backend/benchmark/ycsb/ycsb_loader.h"
 #include "backend/benchmark/ycsb/ycsb_workload.h"
 
+#include "backend/logging/durability_factory.h"
+
 #define CHECK(x)                                                          \
   do {                                                                    \
     if (!(x)) {                                                           \
@@ -196,10 +198,16 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
+  // Start the logging manager
+  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  log_manager.StartLogger();
+
   // Create and load the user table
+  log_manager.CreateLogWorker();
   CreateYCSBDatabase();
 
   LoadYCSBDatabase();
+  log_manager.TerminateLogWorker();
 
   // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
@@ -217,6 +225,9 @@ void RunBenchmark() {
     && concurrency::TransactionManagerFactory::IsSV() == false) {
     ValidateMVCC();
   }
+
+  // Stop the logger
+  log_manager.StopLogger();
 
   WriteOutput();
 }

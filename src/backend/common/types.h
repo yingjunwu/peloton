@@ -33,7 +33,7 @@ enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
 
   // Based on write ahead logging
-  LOGGING_TYPE_SILOR = 1,
+  LOGGING_TYPE_PHYLOG = 1,
 
 };
 
@@ -778,6 +778,9 @@ static const cid_t READ_ONLY_START_CID = 1;
 static const cid_t START_CID = 2;
 
 static const cid_t MAX_CID = std::numeric_limits<cid_t>::max();
+
+// For logger
+static const size_t INVALID_LOGGERID = std::numeric_limits<size_t>::max();
 
 // For epoch id
 static const size_t INVALID_EPOCH_ID = 0;
