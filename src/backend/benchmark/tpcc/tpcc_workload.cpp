@@ -132,7 +132,7 @@ size_t GenerateWarehouseId(const size_t &thread_id) {
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.CreateLogWorker();
 
   bool slept = false;
@@ -166,7 +166,7 @@ void RunScanBackend(oid_t thread_id) {
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.CreateLogWorker();
 
   oid_t &execution_count_ref = abort_counts[thread_id];

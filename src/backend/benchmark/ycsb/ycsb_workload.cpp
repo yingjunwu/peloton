@@ -92,7 +92,7 @@ double scan_avg_latency;
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.CreateLogWorker();
 
   auto update_ratio = state.update_ratio;
@@ -142,7 +142,7 @@ void RunBackend(oid_t thread_id) {
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.CreateLogWorker();
 
   double update_ratio = 0;
@@ -198,7 +198,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.CreateLogWorker();
 
   bool slept = false;

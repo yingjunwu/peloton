@@ -104,7 +104,7 @@ class PhyLogLogManager : public LogManager {
   const std::string log_file_prefix = "phylog_log";
   const std::string log_file_surfix = ".log";
 
-  const static uint64_t uint64_place_holder = 0;
+  const uint64_t uint64_place_holder = 0;
 
 protected:
 
