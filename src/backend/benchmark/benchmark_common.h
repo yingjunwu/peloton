@@ -15,6 +15,8 @@
 #include <cmath>
 #include <cstdint>
 #include <thread>
+#include <string>
+#include <vector>
 
 namespace peloton {
 namespace benchmark {
@@ -117,6 +119,8 @@ class ZipfDistribution {
 
 
 void PinToCore(size_t core);
+
+void SplitString(const std::string &src_str, char delim, std::vector<std::string> &ret_strs);
 
 }  // namespace benchmark
 }  // namespace peloton

@@ -40,7 +40,8 @@ void RunBenchmark() {
 
   logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.logger_count, 1);
 
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.SetDirectories(state.log_directories);
   log_manager.StartLogger();
 
   // Create log worker for loading the database

@@ -952,4 +952,5 @@ namespace std {
       return ((uint64_t)(item_pointer.block) << 32) | item_pointer.offset;
     }
   };
+
 }

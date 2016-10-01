@@ -42,9 +42,9 @@ void Usage(FILE *out) {
           "                             gc protocol could be off, co, va, n2o and n2otxn\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
-          "   -f --epoch_length      :  epoch length\n "
+          "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, off\n"
-          "   -G --logger_count      :  logger count\n"
+          "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -64,7 +64,9 @@ static struct option opts[] = {
   { "gc_protocol", optional_argument, NULL, 'g'},
   { "gc_thread", optional_argument, NULL, 't'},
   { "sindex_mode", optional_argument, NULL, 'q'},
-  {"epoch_length", optional_argument, NULL, 'f'},
+  { "epoch_length", optional_argument, NULL, 'f'},
+  { "log_type", optional_argument, NULL, 'L'},
+  { "log_directories", optional_argument, NULL, 'D'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -189,11 +191,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_length = 40;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.logger_count = 1;
+  state.log_directories = {TMP_DIR};
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:G:", opts, &idx);
+    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:", opts, &idx);
 
     if (c == -1) break;
 
@@ -231,9 +234,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
-      case 'G':
-        state.logger_count = atoi(optarg);
-        break;
       case 'L': {
         char *logging_proto = optarg;
         if (strcmp(logging_proto, "off") == 0) {
@@ -244,6 +244,13 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);
         }
+        break;
+      }
+      case 'D': {
+        state.log_directories.clear();
+        std::string log_dir_param(optarg);
+        SplitString(log_dir_param, ',', state.log_directories);
+        state.logger_count = state.log_directories.size();
         break;
       }
       case 'p': {

@@ -20,6 +20,8 @@
 
 #include "backend/common/types.h"
 
+#include "backend/benchmark/benchmark_common.h"
+
 namespace peloton {
 namespace benchmark {
 namespace tpcc {
@@ -143,17 +145,29 @@ class configuration {
   // secondary index type
   SecondaryIndexType sindex;
 
+  // Logging type
+  LoggingType logging_type;
+
+  // Number of loggers
+  size_t logger_count;
+
+  // Log directories
+  std::vector<std::string> log_directories;
+
+  // Checkpoint type
+  CheckpointType checkpoint_type;
+
+  // Number of checkpointers
+  size_t checkpointer_count;
+
+  // Checkpoint directories
+  std::vector<std::string> checkpoint_directories;
+
   // number of threads used in GC,
   // Only available when gc type is n2o and va
   int gc_thread_count;
 
   int epoch_length;
-
-  // Logging type
-  LoggingType logging_type;
-
-  // Number of logger
-  int logger_count;
 
 };
 

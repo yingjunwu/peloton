@@ -20,6 +20,8 @@
 
 #include "backend/common/types.h"
 
+#include "backend/benchmark/benchmark_common.h"
+
 namespace peloton {
 namespace benchmark {
 namespace ycsb {

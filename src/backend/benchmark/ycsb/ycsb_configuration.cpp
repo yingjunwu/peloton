@@ -16,7 +16,6 @@
 #include <iomanip>
 #include <algorithm>
 #include <string.h>
-#include <sstream>
 
 #include "backend/benchmark/ycsb/ycsb_configuration.h"
 #include "backend/common/logger.h"
@@ -54,7 +53,7 @@ void Usage(FILE *out) {
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/n2otxn/va\n"
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
-          "   -f --epoch_length      :  epoch length\n "
+          "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
   );
@@ -253,15 +252,6 @@ void ValidateEpoch(const configuration &state) {
   }
 
   LOG_TRACE("%s : %d", "epoch_length", state.epoch_length);
-}
-
-void SplitString(const std::string &src_str, char delim, std::vector<std::string> &ret_strs) {
-  std::stringstream ss;
-  ss.str(src_str);
-  std::string ret_str;
-  while (std::getline(ss, ret_str, delim)) {
-    ret_strs.push_back(ret_str);
-  }
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
