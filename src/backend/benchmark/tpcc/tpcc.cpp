@@ -38,7 +38,9 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
-  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.logger_count, 1);
+
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.StartLogger();
 
   // Create log worker for loading the database

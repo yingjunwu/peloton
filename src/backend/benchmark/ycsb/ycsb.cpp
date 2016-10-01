@@ -198,9 +198,6 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
-  // Start the logger
-  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.StartLogger();
 
   // Create and load the user table
 
@@ -212,7 +209,13 @@ void RunBenchmark() {
 
   // log_manager.DeregisterWorkerFromLogger();
 
-  // Validate MVCC storage
+  // XXX: Change the logging type from INVALID to the logging type we want
+  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.logger_count, 1);
+  // Start the logger
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.StartLogger();
+
+    // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
     && concurrency::TransactionManagerFactory::IsRB() == false
     && concurrency::TransactionManagerFactory::IsSV() == false) {

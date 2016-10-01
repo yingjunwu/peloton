@@ -28,7 +28,12 @@ class LogManager {
 public:
   LogManager(int thread_count) 
     : is_running_(false), 
-      logging_thread_count_(thread_count), logging_dirs_(thread_count, TMP_DIR) {}
+      logging_thread_count_(thread_count), logging_dirs_() {
+    for (int i = 0; i < thread_count; ++i) {
+      // XXX: Dirty init
+      logging_dirs_.emplace_back(std::string(TMP_DIR) + std::to_string(i));
+    }
+  }
   virtual ~LogManager() {}
 
   void SetDirectory(const std::vector<std::string> &logging_dirs) {

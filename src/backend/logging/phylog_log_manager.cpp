@@ -22,7 +22,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local LogWorkerContext* log_worker_ctx = nullptr;
+thread_local LogWorkerContext* thread_local_log_worker_ctx = nullptr;
 const size_t PhyLogLogManager::sleep_period_us = 40000;
 const uint64_t PhyLogLogManager::uint64_place_holder = 0;
 
@@ -40,29 +40,29 @@ void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
 // register worker threads to the log manager before execution.
 // this function is called by worker threads.
 void PhyLogLogManager::RegisterWorkerToLogger() {
-  PL_ASSERT(log_worker_ctx == nullptr);
+  PL_ASSERT(thread_local_log_worker_ctx == nullptr);
   // shuffle worker to logger
-  log_worker_ctx = new LogWorkerContext(log_worker_id_generator_++);
-  size_t logger_id = HashToLogger(log_worker_ctx->worker_id);
+  thread_local_log_worker_ctx = new LogWorkerContext(log_worker_id_generator_++);
+  size_t logger_id = HashToLogger(thread_local_log_worker_ctx->worker_id);
 
   auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
   PL_ASSERT(logger_ctx_ptr != nullptr);
 
   {
     logger_ctx_ptr->worker_map_lock_.Lock();
-    logger_ctx_ptr->worker_map_[log_worker_ctx->worker_id].reset(log_worker_ctx);
+    logger_ctx_ptr->worker_map_[thread_local_log_worker_ctx->worker_id].reset(thread_local_log_worker_ctx);
     logger_ctx_ptr->worker_map_lock_.Unlock();
   }
 }
 
 // deregister worker threads.
 void PhyLogLogManager::DeregisterWorkerFromLogger() {
-  PL_ASSERT(log_worker_ctx != nullptr);
-  log_worker_ctx->terminated = true;
+  PL_ASSERT(thread_local_log_worker_ctx != nullptr);
+  thread_local_log_worker_ctx->terminated = true;
 }
 
 void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
-  LogWorkerContext *ctx = log_worker_ctx;
+  LogWorkerContext *ctx = thread_local_log_worker_ctx;
   PL_ASSERT(ctx);
 
   // First serialize the epoch to current output buffer
@@ -128,21 +128,21 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
 }
 
 void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
-  PL_ASSERT(log_worker_ctx);
+  PL_ASSERT(thread_local_log_worker_ctx);
   size_t txn_eid = txn->GetEpochId();
 
   // Handle the epoch id
   // TODO: what if there's no read-write transaction within a certain epoch?
-  if (log_worker_ctx->current_eid == INVALID_EPOCH_ID || log_worker_ctx->current_eid != txn_eid) {
+  if (thread_local_log_worker_ctx->current_eid == INVALID_EPOCH_ID || thread_local_log_worker_ctx->current_eid != txn_eid) {
     // Get a new buffer
-    PL_ASSERT(log_worker_ctx->current_eid == INVALID_EPOCH_ID || log_worker_ctx->current_eid < txn_eid);
-    log_worker_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(log_worker_ctx->buffer_pool.GetBuffer()));
+    PL_ASSERT(thread_local_log_worker_ctx->current_eid == INVALID_EPOCH_ID || thread_local_log_worker_ctx->current_eid < txn_eid);
+    thread_local_log_worker_ctx->current_eid = txn_eid;
+    RegisterNewBufferToEpoch(std::move(thread_local_log_worker_ctx->buffer_pool.GetBuffer()));
   }
 
   // Handle the commit id
   cid_t txn_cid = txn->GetBeginCommitId();
-  log_worker_ctx->current_cid = txn_cid;
+  thread_local_log_worker_ctx->current_cid = txn_cid;
 
   // Log down the begin of txn
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
@@ -150,8 +150,8 @@ void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
 }
 
 void PhyLogLogManager::CommitCurrentTxn() {
-  PL_ASSERT(log_worker_ctx);
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, log_worker_ctx->current_cid);
+  PL_ASSERT(thread_local_log_worker_ctx);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, thread_local_log_worker_ctx->current_cid);
   WriteRecordToBuffer(record);
 }
 
@@ -180,6 +180,7 @@ void PhyLogLogManager::StartLogger() {
   // }
 
   for (size_t lid = 0; lid < logging_thread_count_; ++lid) {
+    LOG_TRACE("Start loggger %d", (int) lid);
     logger_ctxs_[lid]->logger_thread.reset(new std::thread(&PhyLogLogManager::Run, this, lid));
   }
 }
@@ -250,10 +251,10 @@ void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
   if (buffers.empty() == false) {
     // Write down the epoch begin record
     LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_BEGIN, eid);
-    record.Serialize(log_worker_ctx->output_buffer);
-    fwrite((const void *) (logger_ctx->output_buffer.Data()), logger_ctx->output_buffer.Size(), 1,
+    record.Serialize(logger_ctx->logger_output_buffer);
+    fwrite((const void *) (logger_ctx->logger_output_buffer.Data()), logger_ctx->logger_output_buffer.Size(), 1,
            logger_ctx->cur_file_handle.file);
-    logger_ctx->output_buffer.Reset();
+    logger_ctx->logger_output_buffer.Reset();
 
     // Write every log buffer
     while (buffers.empty() == false) {
@@ -265,7 +266,14 @@ void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
       buffer_ptr->Reset();
       {
         logger_ctx->worker_map_lock_.Lock();
-        logger_ctx->worker_map_[buffer_ptr->GetWorkerId()]->buffer_pool.PutBuffer(std::move(buffers.top()));
+        auto itr = logger_ctx->worker_map_.find(buffer_ptr->GetWorkerId());
+        if (itr != logger_ctx->worker_map_.end()) {
+          // In this case, the worker is already terminated and removed
+          itr->second->buffer_pool.PutBuffer(std::move(buffers.top()));
+        } else {
+          // Release the buffer
+          buffers.top().reset(nullptr);
+        }
         logger_ctx->worker_map_lock_.Unlock();
       }
       PL_ASSERT(buffers.top() == nullptr);
@@ -274,10 +282,10 @@ void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
 
     // Write down the epoch end record
     record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_END, eid);
-    record.Serialize(log_worker_ctx->output_buffer);
-    fwrite((const void *) (logger_ctx->output_buffer.Data()), logger_ctx->output_buffer.Size(), 1,
+    record.Serialize(logger_ctx->logger_output_buffer);
+    fwrite((const void *) (logger_ctx->logger_output_buffer.Data()), logger_ctx->logger_output_buffer.Size(), 1,
            logger_ctx->cur_file_handle.file);
-    logger_ctx->output_buffer.Reset();
+    logger_ctx->logger_output_buffer.Reset();
 
     // Call fsync
     LoggingUtil::FFlushFsync(logger_ctx->cur_file_handle);
@@ -306,64 +314,59 @@ void PhyLogLogManager::Run(size_t logger_id) {
       // TODO: Wait for all registered worker to terminate
       break;
     }
+    LOG_TRACE("Logger %d running", (int) logger_ctx_ptr->lid);
 
     size_t current_epoch_id = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
     // Pull log records from workers per epoch buffer
     {
       logger_ctx_ptr->worker_map_lock_.Lock();
 
+      if (is_running_ == false && logger_ctx_ptr->worker_map_.empty()) {
+        // TODO: Wait for all registered worker to terminate
+        logger_ctx_ptr->worker_map_lock_.Unlock();
+        break;
+      }
+
       for (size_t eid = last_epoch_id + 1; eid <= current_epoch_id; ++eid) {
-          size_t epoch_idx = eid % concurrency::EpochManager::GetEpochQueueCapacity();
+        LOG_TRACE("Logger %d collecting buffers for epoch %d", (int) logger_ctx_ptr->lid, (int) eid);
+        // For every dead epoch, check the local buffer of all workers
+        size_t epoch_idx = eid % concurrency::EpochManager::GetEpochQueueCapacity();
 
-          auto worker_itr = logger_ctx_ptr->worker_map_.begin();
-          while (worker_itr != logger_ctx_ptr->worker_map_.end()) {
-            auto worker_ctx_ptr = worker_itr->second.get();
-            auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
-            // NOTE: load the terminated flag before we start checking log buffers
-            bool terminated = log_worker_ctx->terminated;
+        auto worker_itr = logger_ctx_ptr->worker_map_.begin();
+        while (worker_itr != logger_ctx_ptr->worker_map_.end()) {
+          // For every alive worker, move its buffer to the logger's local buffer
+          auto worker_ctx_ptr = worker_itr->second.get();
+          auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
 
-            COMPILER_MEMORY_FENCE;
+          // NOTE: load the terminated flag before we start checking log buffers
+          bool terminated = worker_ctx_ptr->terminated;
 
-            // Move to local queue
-            while (buffers.empty() == false) {
-              // Check if the buffer is empty
-              if (buffers.top()->Empty()) {
-                // Return the buffer to the worker immediately
-                worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
-              } else {
-                // Move the buffer into the local buffer queue
-                logger_ctx_ptr->local_buffer_map[epoch_idx].emplace(std::move(buffers.top()));
-              }
-              PL_ASSERT(buffers.top() == nullptr);
-              buffers.pop();
-            }
+          COMPILER_MEMORY_FENCE;
 
-            COMPILER_MEMORY_FENCE;
-            if (terminated) {
-              // Remove terminated workers
-              worker_itr = logger_ctx_ptr->worker_map_.erase(worker_itr);
+          // Move to local queue
+          while (buffers.empty() == false) {
+            // Check the worker's local buffer for the entire epoch
+            // Check if the buffer is empty
+            if (buffers.top()->Empty()) {
+              // Return the buffer to the worker immediately
+              worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
             } else {
-              worker_itr++;
+              // Move the buffer into the local buffer queue
+              logger_ctx_ptr->local_buffer_map[epoch_idx].emplace(std::move(buffers.top()));
             }
+            PL_ASSERT(buffers.top() == nullptr);
+            buffers.pop();
           }
 
-          for (auto wp : logger_ctx_ptr->worker_map_) {
-            auto worker_ctx_ptr = wp.second.get();
-            auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
+          COMPILER_MEMORY_FENCE;
 
-            while (buffers.empty() == false) {
-              // Check if the buffer is empty
-              if (buffers.top()->Empty()) {
-                // Return the buffer to the worker immediately
-                worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
-              } else {
-                // Move the buffer into the local buffer queue
-                logger_ctx_ptr->local_buffer_map[epoch_idx].emplace(std::move(buffers.top()));
-              }
-              PL_ASSERT(buffers.top() == nullptr);
-              buffers.pop();
-            }
+          if (terminated) {
+            // Remove terminated workers
+            worker_itr = logger_ctx_ptr->worker_map_.erase(worker_itr);
+          } else {
+            worker_itr++;
           }
+        }
       }
 
       logger_ctx_ptr->worker_map_lock_.Unlock();

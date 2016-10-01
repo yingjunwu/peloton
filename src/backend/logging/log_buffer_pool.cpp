@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "backend/common/logger.h"
 #include "log_buffer_pool.h"
 
 namespace peloton {
@@ -31,6 +32,7 @@ namespace logging {
 
       // sleep a while, and try to get a new buffer
       _mm_pause();
+      LOG_TRACE("Worker %d uses up its buffer", (int) backend_logger_id_);
     }
 
     head_++;
@@ -38,6 +40,7 @@ namespace logging {
   }
 
   void LogBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {
+    PL_ASSERT(buf);
     PL_ASSERT(buf->GetWorkerId() == backend_logger_id_);
 
     UNUSED_ATTRIBUTE size_t head_idx = head_ % buffer_queue_size_;

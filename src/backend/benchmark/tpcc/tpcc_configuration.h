@@ -149,6 +149,12 @@ class configuration {
 
   int epoch_length;
 
+  // Logging type
+  LoggingType logging_type;
+
+  // Number of logger
+  int logger_count;
+
 };
 
 extern configuration state;

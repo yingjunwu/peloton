@@ -118,6 +118,12 @@ class configuration {
   // secondary index type
   SecondaryIndexType sindex;
 
+  // Logging type
+  LoggingType logging_type;
+
+  // Number of logger
+  int logger_count;
+
   // number of threads used in GC,
   // Only available when gc type is n2o and va
   int gc_thread_count;

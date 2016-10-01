@@ -54,6 +54,8 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n "
+          "   -L --log_type          :  log type could be phylog, off\n"
+          "   -G --logger_count      :  logger count\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -83,6 +85,8 @@ static struct option opts[] = {
     {"sindex_mode", optional_argument, NULL, 'q'},
     {"sindex_scan", optional_argument, NULL, 'j'},
     {"epoch_length", optional_argument, NULL, 'f'},
+    {"log_type", optional_argument, NULL, 'L'},
+    {"logger_count", optional_argument, NULL, 'G'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -276,10 +280,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
   state.sindex_scan = false;
   state.epoch_length = 40;
+  state.logging_type = LOGGING_TYPE_INVALID;
+  state.logger_count = 1;
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:", opts, &idx);
+    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:G:", opts, &idx);
 
     if (c == -1) break;
 
@@ -344,6 +350,21 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
+      case 'G':
+        state.logger_count = atoi(optarg);
+        break;
+      case 'L': {
+        char *logging_proto = optarg;
+        if (strcmp(logging_proto, "off") == 0) {
+          state.logging_type = LOGGING_TYPE_INVALID;
+        } else if (strcmp(logging_proto, "phylog") == 0) {
+          state.logging_type = LOGGING_TYPE_PHYLOG;
+        } else {
+          fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
       case 'p': {
         char *protocol = optarg;
         bool valid_proto = false;

@@ -43,6 +43,8 @@ void Usage(FILE *out) {
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -f --epoch_length      :  epoch length\n "
+          "   -L --log_type          :  log type could be phylog, off\n"
+          "   -G --logger_count      :  logger count\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -185,11 +187,13 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.gc_thread_count = 1;
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
   state.epoch_length = 40;
+  state.logging_type = LOGGING_TYPE_INVALID;
+  state.logger_count = 1;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:f:", opts, &idx);
+    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:G:", opts, &idx);
 
     if (c == -1) break;
 
@@ -227,6 +231,21 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
+      case 'G':
+        state.logger_count = atoi(optarg);
+        break;
+      case 'L': {
+        char *logging_proto = optarg;
+        if (strcmp(logging_proto, "off") == 0) {
+          state.logging_type = LOGGING_TYPE_INVALID;
+        } else if (strcmp(logging_proto, "phylog") == 0) {
+          state.logging_type = LOGGING_TYPE_PHYLOG;
+        } else {
+          fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
       case 'p': {
         char *protocol = optarg;
         bool valid_proto = false;

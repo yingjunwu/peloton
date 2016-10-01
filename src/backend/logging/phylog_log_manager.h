@@ -17,6 +17,7 @@
 #include <list>
 #include <stack>
 #include <unordered_map>
+#include <backend/common/logger.h>
 
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
@@ -28,6 +29,8 @@
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
+#include "backend/common/logger.h"
+
 
 namespace peloton {
 namespace logging {
@@ -46,15 +49,17 @@ namespace logging {
     // What we do is first set this flag and the logger will check if it can destruct a terminated worker
     // TODO: Find out some where to call termination to a worker
     bool terminated;
-    bool cleaned;
 
     LogWorkerContext(oid_t id)
       : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
         buffer_pool(id), output_buffer(),
-        current_eid(INVALID_EPOCH_ID), current_cid(INVALID_CID), worker_id(id), terminated(false), cleaned(false)
-    {}
+        current_eid(INVALID_EPOCH_ID), current_cid(INVALID_CID), worker_id(id), terminated(false)
+    {
+      LOG_TRACE("Create worker %d", (int) id);
+    }
+
     ~LogWorkerContext() {
-      PL_ASSERT(cleaned == true);
+      LOG_TRACE("Destroy worker %d", (int) worker_id);
     }
   };
 
@@ -66,7 +71,7 @@ namespace logging {
     /* File system related */
     std::string log_dir;
     size_t next_file_id;
-    CopySerializeOutput output_buffer;
+    CopySerializeOutput logger_output_buffer;
     FileHandle cur_file_handle;
 
     /* Log buffers */
@@ -78,7 +83,7 @@ namespace logging {
     std::vector<std::stack<std::unique_ptr<peloton::logging::LogBuffer>>> local_buffer_map;
 
     LoggerContext() :
-      lid(INVALID_LOGGERID), logger_thread(nullptr), log_dir(), next_file_id(0), output_buffer(),
+      lid(INVALID_LOGGERID), logger_thread(nullptr), log_dir(), next_file_id(0), logger_output_buffer(),
       cur_file_handle(), max_committed_eid(INVALID_EPOCH_ID), worker_map_lock_(), worker_map_(),
       local_buffer_map(concurrency::EpochManager::GetEpochQueueCapacity())
     {}
@@ -87,7 +92,7 @@ namespace logging {
   };
 
   /* Per worker thread local context */
-  extern thread_local LogWorkerContext* log_worker_ctx;
+  extern thread_local LogWorkerContext* thread_local_log_worker_ctx;
 
 
 
@@ -102,7 +107,11 @@ protected:
   PhyLogLogManager(int thread_count)
     : LogManager(thread_count), log_worker_id_generator_(0),
       global_committed_eid_(INVALID_EPOCH_ID),
-      logger_ctxs_(thread_count) {}
+      logger_ctxs_() {
+    for (int i = 0; i < thread_count; ++i) {
+      logger_ctxs_.emplace_back(new LoggerContext());
+    }
+  }
 
 public:
   static PhyLogLogManager &GetInstance(int thread_count) {
@@ -137,10 +146,11 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) thread_local_log_worker_ctx->worker_id, (int) thread_local_log_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(log_worker_ctx);
-    log_worker_ctx->per_epoch_buffer_ptrs[log_worker_ctx->current_eid].push(std::move(log_buffer_ptr));
-    return log_worker_ctx->per_epoch_buffer_ptrs[log_worker_ctx->current_eid].top().get();
+    PL_ASSERT(thread_local_log_worker_ctx);
+    thread_local_log_worker_ctx->per_epoch_buffer_ptrs[thread_local_log_worker_ctx->current_eid].push(std::move(log_buffer_ptr));
+    return thread_local_log_worker_ctx->per_epoch_buffer_ptrs[thread_local_log_worker_ctx->current_eid].top().get();
   }
 
 

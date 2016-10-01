@@ -294,7 +294,7 @@ private:
   // queue size
   static const size_t epoch_queue_size_ = 4096;
 
-  static const int safety_interval_ = 0;
+  static const int safety_interval_ = 2;
   static const size_t low_32_bit_mask_ = 0xffffffff;
   const int epoch_length_;
 
