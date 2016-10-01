@@ -169,7 +169,7 @@ private:
   void InitLoggerContext(size_t lid);
 
   inline std::string GetNextLogFileName(LoggerContext *logger_ctx) {
-    // Example: /tmp/phylog_log_0.log
+    // Example: /tmp/log_0_0.log
     size_t file_id = logger_ctx->next_file_id;
     logger_ctx->next_file_id++;
     return GetLogFileFullPath(logger_ctx->lid, file_id);

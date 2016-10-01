@@ -32,7 +32,7 @@ public:
       logging_dirs_(thread_count, TMP_DIR) {}
   virtual ~LogManager() {}
 
-  void SetDirectory(const std::vector<std::string> &logging_dirs) {
+  void SetDirectories(const std::vector<std::string> &logging_dirs) {
     logging_dirs_ = logging_dirs;
   }
 

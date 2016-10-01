@@ -213,6 +213,7 @@ void RunBenchmark() {
   logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.logger_count, 1);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.SetDirectories(state.log_directories);
   log_manager.StartLogger();
 
     // Validate MVCC storage

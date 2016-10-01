@@ -68,7 +68,7 @@ public:
     return checkpoint_manager;
   }
 
-  void SetDirectory(const std::vector<std::string> &checkpoint_dirs) {
+  void SetDirectories(const std::vector<std::string> &checkpoint_dirs) {
     checkpoint_dirs_ = checkpoint_dirs;
   }
 

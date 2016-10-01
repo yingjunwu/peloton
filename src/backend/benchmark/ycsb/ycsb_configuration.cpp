@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <string.h>
+#include <sstream>
 
 #include "backend/benchmark/ycsb/ycsb_configuration.h"
 #include "backend/common/logger.h"
@@ -55,7 +56,7 @@ void Usage(FILE *out) {
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n "
           "   -L --log_type          :  log type could be phylog, off\n"
-          "   -G --logger_count      :  logger count\n"
+          "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -86,7 +87,7 @@ static struct option opts[] = {
     {"sindex_scan", optional_argument, NULL, 'j'},
     {"epoch_length", optional_argument, NULL, 'f'},
     {"log_type", optional_argument, NULL, 'L'},
-    {"logger_count", optional_argument, NULL, 'G'},
+    {"log_directories", optional_argument, NULL, 'D'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -254,6 +255,15 @@ void ValidateEpoch(const configuration &state) {
   LOG_TRACE("%s : %d", "epoch_length", state.epoch_length);
 }
 
+void SplitString(const std::string &src_str, char delim, std::vector<std::string> &ret_strs) {
+  std::stringstream ss;
+  ss.str(src_str);
+  std::string ret_str;
+  while (std::getline(ss, ret_str, delim)) {
+    ret_strs.push_back(ret_str);
+  }
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -282,10 +292,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_length = 40;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.logger_count = 1;
+  state.log_directories = {TMP_DIR};
+
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:G:", opts, &idx);
+    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:", opts, &idx);
 
     if (c == -1) break;
 
@@ -350,9 +362,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
-      case 'G':
-        state.logger_count = atoi(optarg);
-        break;
       case 'L': {
         char *logging_proto = optarg;
         if (strcmp(logging_proto, "off") == 0) {
@@ -363,6 +372,13 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);
         }
+        break;
+      }
+      case 'D': {
+        state.log_directories.clear();
+        std::string log_dir_param(optarg);
+        SplitString(log_dir_param, ',', state.log_directories);
+        state.logger_count = state.log_directories.size();
         break;
       }
       case 'p': {
