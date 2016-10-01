@@ -32,12 +32,10 @@ namespace storage {
 
 namespace logging {
 
-
-
 /**
  * checkpoint file name layout :
  * 
- * dir_name + "/" + prefix + "_" + database_id + "_" + table_id + "_" + epoch_id
+ * dir_name + "/" + prefix + "_" + checkpointer_id + "_" + database_id + "_" + table_id + "_" + epoch_id
  *
  *
  * checkpoint file layout :
@@ -50,27 +48,28 @@ namespace logging {
  *
  */
 
-class Checkpointer {
+class CheckpointManager {
   // Deleted functions
-  Checkpointer(const Checkpointer &) = delete;
-  Checkpointer &operator=(const Checkpointer &) = delete;
-  Checkpointer(Checkpointer &&) = delete;
-  Checkpointer &operator=(const Checkpointer &&) = delete;
+  CheckpointManager(const CheckpointManager &) = delete;
+  CheckpointManager &operator=(const CheckpointManager &) = delete;
+  CheckpointManager(CheckpointManager &&) = delete;
+  CheckpointManager &operator=(const CheckpointManager &&) = delete;
 
 
 public:
-  Checkpointer(size_t thread_count) 
+  CheckpointManager(size_t thread_count) 
     : is_running_(true),
-      checkpoint_thread_count_(thread_count) {}
-  ~Checkpointer() {}
+      checkpoint_thread_count_(thread_count),
+      checkpoint_dirs_(thread_count, TMP_DIR) {}
+  ~CheckpointManager() {}
 
-  static Checkpointer& GetInstance(size_t thread_count) {
-    static Checkpointer checkpointer(thread_count);
+  static CheckpointManager& GetInstance(size_t thread_count) {
+    static CheckpointManager checkpointer(thread_count);
     return checkpointer;
   }
 
-  void SetDirectory(const std::string &checkpoint_dir) {
-    checkpoint_dir_ = checkpoint_dir;
+  void SetDirectory(const std::vector<std::string> &checkpoint_dirs) {
+    checkpoint_dirs_ = checkpoint_dirs;
   }
 
   void StartCheckpointing();
@@ -84,8 +83,8 @@ private:
 
   void CheckpointTable(cid_t begin_cid, storage::DataTable *);
 
-  std::string GetCheckpointFileFullPath(oid_t database_idx, oid_t table_idx, cid_t begin_cid) {
-    return checkpoint_dir_ + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
+  std::string GetCheckpointFileFullPath(size_t checkpointer_id, oid_t database_idx, oid_t table_idx, cid_t begin_cid) {
+    return checkpoint_dirs_.at(logger_id) + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(checkpointer_id) + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
   }
 
   // Visibility check
@@ -97,7 +96,7 @@ private:
   int checkpoint_interval_;
   
   size_t checkpoint_thread_count_;
-  std::string checkpoint_dir_ = TMP_DIR;
+  std::vector<std::string> checkpoint_dirs_;
 
   const std::string checkpoint_filename_prefix_ = "checkpoint";
   

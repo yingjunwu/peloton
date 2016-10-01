@@ -31,8 +31,8 @@ class DurabilityFactory {
     }
   }
 
-  static Checkpointer &GetCheckpointerInstance() {
-    return Checkpointer::GetInstance(checkpointer_count_);
+  static CheckpointManager &GetCheckpointerInstance() {
+    return CheckpointManager::GetInstance(checkpointer_count_);
   }
 
   static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, int logger_count = default_logger_count_, int checkpointer_count = default_checkpointer_count_) {

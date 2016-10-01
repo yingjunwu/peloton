@@ -28,12 +28,8 @@ class LogManager {
 public:
   LogManager(int thread_count) 
     : is_running_(false), 
-      logging_thread_count_(thread_count), logging_dirs_() {
-    for (int i = 0; i < thread_count; ++i) {
-      // XXX: Dirty init
-      logging_dirs_.emplace_back(std::string(TMP_DIR) + std::to_string(i));
-    }
-  }
+      logging_thread_count_(thread_count), 
+      logging_dirs_(thread_count, TMP_DIR) {}
   virtual ~LogManager() {}
 
   void SetDirectory(const std::vector<std::string> &logging_dirs) {
@@ -55,7 +51,7 @@ public:
 
 protected:
   std::string GetLogFileFullPath(size_t logger_id, size_t file_id) {
-    return logging_dirs_.at(logger_id) + "/" + logging_filename_prefix_ + "_" + std::to_string(file_id);
+    return logging_dirs_.at(logger_id) + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id) + "_" + std::to_string(file_id);
   }
 
 protected:

@@ -22,7 +22,7 @@
 namespace peloton {
 namespace logging {
 
-  void Checkpointer::StartCheckpointing() {
+  void CheckpointManager::StartCheckpointing() {
     bool res = true;
     res = LoggingUtil::RemoveDirectory(checkpoint_dir_.c_str(), false);
     PL_ASSERT(res == true);
@@ -37,15 +37,15 @@ namespace logging {
       exit(-1);
     }
     is_running_ = true;
-    checkpoint_thread_.reset(new std::thread(&Checkpointer::Running, this));
+    checkpoint_thread_.reset(new std::thread(&CheckpointManager::Running, this));
   }
 
-  void Checkpointer::StopCheckpointing() {
+  void CheckpointManager::StopCheckpointing() {
     is_running_ = false;
     checkpoint_thread_->join();
   }
 
-  void Checkpointer::Running() {
+  void CheckpointManager::Running() {
     int count = 0;
     while (1) {
       if (is_running_ == false) {
@@ -60,7 +60,7 @@ namespace logging {
     }
   }
 
-  void Checkpointer::PerformCheckpoint() {
+  void CheckpointManager::PerformCheckpoint() {
 
     // prepare files
     auto &catalog_manager = catalog::Manager::GetInstance();
@@ -78,7 +78,7 @@ namespace logging {
       
       file_handles[database_idx] = new FileHandle[table_count];
       for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
-        std::string file_name = GetCheckpointFileFullPath(database_idx, table_idx, begin_cid);
+        std::string file_name = GetCheckpointFileFullPath(0, database_idx, table_idx, begin_cid);
        
         bool success =
             LoggingUtil::CreateFile(file_name.c_str(), "ab", file_handles[database_idx][table_idx]);
@@ -129,7 +129,7 @@ namespace logging {
     delete[] file_handles;
   }
 
-  void Checkpointer::CheckpointTable(cid_t begin_cid UNUSED_ATTRIBUTE, storage::DataTable *target_table) {
+  void CheckpointManager::CheckpointTable(cid_t begin_cid UNUSED_ATTRIBUTE, storage::DataTable *target_table) {
 
     LOG_TRACE("perform checkpoint cid = %lu", begin_cid);
 
@@ -162,7 +162,7 @@ namespace logging {
 
 
   // Visibility check
-  bool Checkpointer::IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
+  bool CheckpointManager::IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
     txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
     cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
