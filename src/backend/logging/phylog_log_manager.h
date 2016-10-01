@@ -2,7 +2,7 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.cpp
+// phylog_log_manager.h
 //
 // Identification: src/backend/logging/loggers/phylog_log_manager.h
 //
@@ -26,6 +26,7 @@
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
+#include "backend/logging/log_context.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -35,66 +36,27 @@
 namespace peloton {
 namespace logging {
 
-  struct LogWorkerContext {
-    // Every epoch has a buffer stack
-    std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
-    LogBufferPool buffer_pool;
-    CopySerializeOutput output_buffer;
-
-    size_t current_eid;
-    cid_t current_cid;
-    oid_t worker_id;
-
-    // When a worker terminates, we cannot destruct it immediately.
-    // What we do is first set this flag and the logger will check if it can destruct a terminated worker
-    // TODO: Find out some where to call termination to a worker
-    bool terminated;
-
-    LogWorkerContext(oid_t id)
-      : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
-        buffer_pool(id), output_buffer(),
-        current_eid(INVALID_EPOCH_ID), current_cid(INVALID_CID), worker_id(id), terminated(false)
-    {
-      LOG_TRACE("Create worker %d", (int) id);
-    }
-
-    ~LogWorkerContext() {
-      LOG_TRACE("Destroy worker %d", (int) worker_id);
-    }
-  };
+/* Per worker thread local context */
+extern thread_local LogWorkerContext* thread_local_log_worker_ctx;
 
 
-  struct LoggerContext {
-    size_t lid;
-    std::unique_ptr<std::thread> logger_thread;
-
-    /* File system related */
-    std::string log_dir;
-    size_t next_file_id;
-    CopySerializeOutput logger_output_buffer;
-    FileHandle cur_file_handle;
-
-    /* Log buffers */
-    size_t max_committed_eid;
-
-    // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
-    Spinlock worker_map_lock_;
-    std::unordered_map<oid_t, std::shared_ptr<LogWorkerContext>> worker_map_;
-    std::vector<std::stack<std::unique_ptr<peloton::logging::LogBuffer>>> local_buffer_map;
-
-    LoggerContext() :
-      lid(INVALID_LOGGERID), logger_thread(nullptr), log_dir(), next_file_id(0), logger_output_buffer(),
-      cur_file_handle(), max_committed_eid(INVALID_EPOCH_ID), worker_map_lock_(), worker_map_(),
-      local_buffer_map(concurrency::EpochManager::GetEpochQueueCapacity())
-    {}
-
-    ~LoggerContext() {}
-  };
-
-  /* Per worker thread local context */
-  extern thread_local LogWorkerContext* thread_local_log_worker_ctx;
-
-
+/**
+ * logging file name layout :
+ * 
+ * dir_name + "/" + prefix + "_" + epoch_id
+ *
+ *
+ * logging file layout :
+ *
+ *  -----------------------------------------------------------------------------
+ *  | txn_cid | database_id | table_id | operation_type | data | ... | txn_end_flag
+ *  -----------------------------------------------------------------------------
+ *
+ * NOTE: this layout is designed for physiological logging.
+ *
+ * NOTE: tuple length can be obtained from the table schema.
+ *
+ */
 
 class PhyLogLogManager : public LogManager {
   PhyLogLogManager(const PhyLogLogManager &) = delete;
@@ -164,24 +126,15 @@ private:
    *    Logger utils
    */
   void Run(size_t logger_id);
-  void UpdateGlobalCommittedEid(size_t committed_eid);
+  // void UpdateGlobalCommittedEid(size_t committed_eid);
   void SyncEpochToFile(LoggerContext *logger_ctx, size_t eid);
-  void InitLoggerContext(size_t lid);
 
-  inline std::string GetNextLogFileName(LoggerContext *logger_ctx) {
-    // Example: /tmp/log_0_0.log
-    size_t file_id = logger_ctx->next_file_id;
-    logger_ctx->next_file_id++;
-    return GetLogFileFullPath(logger_ctx->lid, file_id);
-  }
   /*
    * Log file layout:
    *  Header: 8 bytes, for integrity validation
    *  Body:  actual log records
    *  Tail:   8 bytes, for integrity validation
    */
-  void CreateAndInitLogFile(LoggerContext *logger_ctx_ptr);
-  void CloseCurrentLogFile(LoggerContext *logger_ctx_ptr);
 
 private:
   std::atomic<oid_t> log_worker_id_generator_;

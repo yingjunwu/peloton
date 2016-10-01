@@ -18,7 +18,7 @@ namespace logging {
 
   // Acquire a log buffer from the buffer pool.
   // This function will be blocked until there is an available buffer.
-  // Note that only one thread will call this function.
+  // Note that only the corresponding worker thread can call this function.
   std::unique_ptr<LogBuffer> LogBufferPool::GetBuffer() {
     size_t head_idx = head_ % buffer_queue_size_;
     while (true) {

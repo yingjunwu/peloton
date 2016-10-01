@@ -19,6 +19,7 @@
 namespace peloton {
 namespace logging {
 
+// loggers are created before workers.
 class LogManager {
   LogManager(const LogManager &) = delete;
   LogManager &operator=(const LogManager &) = delete;
@@ -50,8 +51,8 @@ public:
   virtual void StopLogger() = 0;
 
 protected:
-  std::string GetLogFileFullPath(size_t logger_id, size_t file_id) {
-    return logging_dirs_.at(logger_id) + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id) + "_" + std::to_string(file_id);
+  std::string GetLogFileFullPath(size_t logger_id, size_t epoch_id) {
+    return logging_dirs_.at(logger_id) + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id) + "_" + std::to_string(epoch_id);
   }
 
 protected:

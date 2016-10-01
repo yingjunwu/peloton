@@ -55,23 +55,6 @@ class LoggingUtil {
 
 
   // LOGGING/CHECKPOINTING SPECIFIC OPERATIONS
-  /**
-   * logging file name layout :
-   * 
-   * dir_name + "/" + prefix + "_" + epoch_id
-   *
-   *
-   * logging file layout :
-   *
-   *  -----------------------------------------------------------------------------
-   *  | txn_cid | database_id | table_id | operation_type | data | ... | txn_end_flag
-   *  -----------------------------------------------------------------------------
-   *
-   * NOTE: this layout is designed for physiological logging.
-   *
-   * NOTE: tuple length can be obtained from the table schema.
-   *
-   */
 
   /**
    * logging file name layout :
