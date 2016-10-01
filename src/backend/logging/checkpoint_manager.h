@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// checkpointer.h
+// checkpoint_manager.h
 //
-// Identification: src/backend/logging/checkpoint/checkpointer.h
+// Identification: src/backend/logging/checkpoint/checkpoint_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -64,8 +64,8 @@ public:
   ~CheckpointManager() {}
 
   static CheckpointManager& GetInstance(size_t thread_count) {
-    static CheckpointManager checkpointer(thread_count);
-    return checkpointer;
+    static CheckpointManager checkpoint_manager(thread_count);
+    return checkpoint_manager;
   }
 
   void SetDirectory(const std::vector<std::string> &checkpoint_dirs) {
@@ -84,7 +84,7 @@ private:
   void CheckpointTable(cid_t begin_cid, storage::DataTable *);
 
   std::string GetCheckpointFileFullPath(size_t checkpointer_id, oid_t database_idx, oid_t table_idx, cid_t begin_cid) {
-    return checkpoint_dirs_.at(logger_id) + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(checkpointer_id) + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
+    return checkpoint_dirs_.at(checkpointer_id) + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(checkpointer_id) + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(begin_cid);
   }
 
   // Visibility check

@@ -2,15 +2,15 @@
 //
 //                         Peloton
 //
-// checkpointer.cpp
+// checkpoint_manager.cpp
 //
-// Identification: src/backend/logging/checkpointer.cpp
+// Identification: src/backend/logging/checkpoint_manager.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
-#include "backend/logging/checkpointer.h"
+#include "backend/logging/checkpoint_manager.h"
 #include "backend/logging/logging_util.h"
 #include "backend/storage/database.h"
 #include "backend/storage/data_table.h"
@@ -23,19 +23,19 @@ namespace peloton {
 namespace logging {
 
   void CheckpointManager::StartCheckpointing() {
-    bool res = true;
-    res = LoggingUtil::RemoveDirectory(checkpoint_dir_.c_str(), false);
-    PL_ASSERT(res == true);
-    if (res != true) {
-      LOG_ERROR("remove directory failed!");
-      exit(-1);
-    }
-    res = LoggingUtil::CreateDirectory(checkpoint_dir_.c_str(), 0700);
-    PL_ASSERT(res == true);
-    if (res != true) {
-      LOG_ERROR("create directory failed!");
-      exit(-1);
-    }
+    // bool res = true;
+    // res = LoggingUtil::RemoveDirectory(checkpoint_dir_.c_str(), false);
+    // PL_ASSERT(res == true);
+    // if (res != true) {
+    //   LOG_ERROR("remove directory failed!");
+    //   exit(-1);
+    // }
+    // res = LoggingUtil::CreateDirectory(checkpoint_dir_.c_str(), 0700);
+    // PL_ASSERT(res == true);
+    // if (res != true) {
+    //   LOG_ERROR("create directory failed!");
+    //   exit(-1);
+    // }
     is_running_ = true;
     checkpoint_thread_.reset(new std::thread(&CheckpointManager::Running, this));
   }

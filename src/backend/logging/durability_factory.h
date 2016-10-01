@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include "backend/logging/checkpointer.h"
+#include "backend/logging/checkpoint_manager.h"
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 
