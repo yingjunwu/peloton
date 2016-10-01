@@ -63,6 +63,8 @@ void PhyLogLogManager::DeregisterWorkerFromLogger() {
 
 void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   LogWorkerContext *ctx = thread_local_log_worker_ctx;
+  LOG_TRACE("Worker %d write a record", ctx->worker_id);
+
   PL_ASSERT(ctx);
 
   // First serialize the epoch to current output buffer
@@ -225,7 +227,6 @@ void PhyLogLogManager::InitLoggerContext(size_t logger_id) {
   // Init log directory
   auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
   logger_ctx_ptr->lid = logger_id;
-  // TODO: write a function
   logger_ctx_ptr->log_dir = logging_dirs_.at(logger_id);
 
   bool res = LoggingUtil::CreateDirectory(logger_ctx_ptr->log_dir.c_str(), 0700);
@@ -260,6 +261,8 @@ void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
     while (buffers.empty() == false) {
       // Write down the buffer
       LogBuffer *buffer_ptr = buffers.top().get();
+      LOG_TRACE("Logger %d flush log buffer of epoch %d from worker %d", (int) logger_ctx->lid, (int) eid, (int) buffer_ptr->GetWorkerId());
+
       fwrite((const void *) (buffer_ptr->GetData()), buffer_ptr->GetSize(), 1, logger_ctx->cur_file_handle.file);
 
       // Return the buffer to the worker

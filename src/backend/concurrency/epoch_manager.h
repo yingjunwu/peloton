@@ -223,10 +223,6 @@ class EpochManager {
     auto tail = reclaim_tail_.load();
 
     while(true) {
-      if(tail + safety_interval_ >= current) {
-        break;
-      }
-
       auto idx = tail % epoch_queue_size_;
 
       // inc tail until we find an epoch that has running txn
@@ -235,6 +231,11 @@ class EpochManager {
       }
 
       tail++;
+
+      if(tail + safety_interval_ >= current) {
+        tail = current - 1;
+        break;
+      }
     }
 
     reclaim_tail_ = tail;
@@ -257,10 +258,6 @@ class EpochManager {
     auto tail = queue_tail_.load();
 
     while(true) {
-      if(tail + safety_interval_ >= current) {
-        break;
-      }
-
       auto idx = tail % epoch_queue_size_;
 
       // inc tail until we find an epoch that has running txn
@@ -269,6 +266,11 @@ class EpochManager {
       }
 
       tail++;
+
+      if(tail + safety_interval_ >= current) {
+        tail = current - 1;
+        break;
+      }
     }
 
     queue_tail_ = tail;
@@ -285,16 +287,16 @@ class EpochManager {
       epoch_queue_[i].Init();
     }
 
-    current_epoch_ = START_EPOCH_ID;
-    queue_tail_ = START_EPOCH_ID;
-    reclaim_tail_ = START_EPOCH_ID;
+    current_epoch_ = START_EPOCH_ID + 2; // 2
+    queue_tail_ = START_EPOCH_ID + 1;    // 1
+    reclaim_tail_ = START_EPOCH_ID;      // 0
   }
 
 private:
   // queue size
   static const size_t epoch_queue_size_ = 4096;
 
-  static const int safety_interval_ = 2;
+  static const int safety_interval_ = 0;
   static const size_t low_32_bit_mask_ = 0xffffffff;
   const int epoch_length_;
 

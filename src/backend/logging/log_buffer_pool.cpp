@@ -43,10 +43,9 @@ namespace logging {
     PL_ASSERT(buf);
     PL_ASSERT(buf->GetWorkerId() == backend_logger_id_);
 
-    UNUSED_ATTRIBUTE size_t head_idx = head_ % buffer_queue_size_;
     size_t tail_idx = tail_ % buffer_queue_size_;
     // The buffer pool must not be full
-    PL_ASSERT(tail_idx != head_idx);
+    PL_ASSERT(tail_idx != head_ % buffer_queue_size_);
     // The tail pos must be null
     PL_ASSERT(local_buffer_queue_[tail_idx] == false);
     // The returned buffer must be empty
