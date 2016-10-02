@@ -95,7 +95,7 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new Logger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new PhyLogLogger(i, logging_dirs.at(i)));
     }
   }
 
@@ -151,7 +151,7 @@ private:
 
   size_t global_committed_eid_;
 
-  std::vector<std::shared_ptr<Logger>> loggers_;
+  std::vector<std::shared_ptr<PhyLogLogger>> loggers_;
 };
 
 }
