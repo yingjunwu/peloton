@@ -123,17 +123,11 @@ class configuration {
   // Logging type
   LoggingType logging_type;
 
-  // Number of loggers
-  size_t logger_count;
-
   // Log directories
   std::vector<std::string> log_directories;
 
   // Checkpoint type
   CheckpointType checkpoint_type;
-
-  // Number of checkpointers
-  size_t checkpointer_count;
 
   // Checkpoint directories
   std::vector<std::string> checkpoint_directories;

@@ -38,7 +38,7 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
-  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.logger_count, 1);
+  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);

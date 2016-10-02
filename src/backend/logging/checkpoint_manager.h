@@ -57,19 +57,18 @@ class CheckpointManager {
 
 
 public:
-  CheckpointManager(size_t thread_count) 
-    : is_running_(true),
-      checkpoint_thread_count_(thread_count),
-      checkpoint_dirs_(thread_count, TMP_DIR) {}
+  CheckpointManager() 
+    : is_running_(true) {}
   ~CheckpointManager() {}
 
-  static CheckpointManager& GetInstance(size_t thread_count) {
-    static CheckpointManager checkpoint_manager(thread_count);
+  static CheckpointManager& GetInstance() {
+    static CheckpointManager checkpoint_manager;
     return checkpoint_manager;
   }
 
   void SetDirectories(const std::vector<std::string> &checkpoint_dirs) {
     checkpoint_dirs_ = checkpoint_dirs;
+    checkpointer_count_ = checkpoint_dirs_.size();
   }
 
   void StartCheckpointing();
@@ -95,7 +94,7 @@ private:
   bool is_running_;
   int checkpoint_interval_;
   
-  size_t checkpoint_thread_count_;
+  size_t checkpointer_count_;
   std::vector<std::string> checkpoint_dirs_;
 
   const std::string checkpoint_filename_prefix_ = "checkpoint";

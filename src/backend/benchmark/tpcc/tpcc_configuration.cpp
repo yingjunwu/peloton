@@ -190,7 +190,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
   state.epoch_length = 40;
   state.logging_type = LOGGING_TYPE_INVALID;
-  state.logger_count = 1;
   state.log_directories = {TMP_DIR};
 
   // Parse args
@@ -250,7 +249,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         state.log_directories.clear();
         std::string log_dir_param(optarg);
         SplitString(log_dir_param, ',', state.log_directories);
-        state.logger_count = state.log_directories.size();
         break;
       }
       case 'p': {
