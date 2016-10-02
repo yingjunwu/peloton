@@ -22,7 +22,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local WorkerLogContext* thread_local_worker_log_ctx = nullptr;
+thread_local WorkerLogContext* tl_worker_log_ctx = nullptr;
 
 // const uint64_t PhyLogLogManager::uint64_place_holder = 0;
 
@@ -42,22 +42,22 @@ thread_local WorkerLogContext* thread_local_worker_log_ctx = nullptr;
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
 void PhyLogLogManager::RegisterWorkerToLogger() {
-  PL_ASSERT(thread_local_worker_log_ctx == nullptr);
+  PL_ASSERT(tl_worker_log_ctx == nullptr);
   // shuffle worker to logger
-  thread_local_worker_log_ctx = new WorkerLogContext(worker_count_++);
-  size_t logger_id = HashToLogger(thread_local_worker_log_ctx->worker_id);
+  tl_worker_log_ctx = new WorkerLogContext(worker_count_++);
+  size_t logger_id = HashToLogger(tl_worker_log_ctx->worker_id);
 
-  loggers_[logger_id]->RegisterWorker(thread_local_worker_log_ctx);
+  loggers_[logger_id]->RegisterWorker(tl_worker_log_ctx);
 }
 
 // deregister worker threads.
 void PhyLogLogManager::DeregisterWorkerFromLogger() {
-  PL_ASSERT(thread_local_worker_log_ctx != nullptr);
-  thread_local_worker_log_ctx->terminated = true;
+  PL_ASSERT(tl_worker_log_ctx != nullptr);
+  tl_worker_log_ctx->terminated = true;
 }
 
 void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
-  WorkerLogContext *ctx = thread_local_worker_log_ctx;
+  WorkerLogContext *ctx = tl_worker_log_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);
@@ -80,7 +80,7 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
       auto tuple_pos = record.GetItemPointer();
       auto tg = manager.GetTileGroup(tuple_pos.block).get();
 
-      // Write down the database it and the table id
+      // Write down the database id and the table id
       output.WriteLong(tg->GetDatabaseId());
       output.WriteLong(tg->GetTableId());
 
@@ -125,30 +125,32 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
 }
 
 void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
-  PL_ASSERT(thread_local_worker_log_ctx);
+  PL_ASSERT(tl_worker_log_ctx);
   size_t txn_eid = txn->GetEpochId();
 
+  PL_ASSERT(tl_worker_log_ctx->current_eid == INVALID_EPOCH_ID || tl_worker_log_ctx->current_eid <= txn_eid);
+
   // Handle the epoch id
-  // TODO: what if there's no read-write transaction within a certain epoch?
-  if (thread_local_worker_log_ctx->current_eid == INVALID_EPOCH_ID || thread_local_worker_log_ctx->current_eid != txn_eid) {
-    // Get a new buffer
-    PL_ASSERT(thread_local_worker_log_ctx->current_eid == INVALID_EPOCH_ID || thread_local_worker_log_ctx->current_eid < txn_eid);
-    thread_local_worker_log_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(thread_local_worker_log_ctx->buffer_pool.GetBuffer()));
+  if (tl_worker_log_ctx->current_eid == INVALID_EPOCH_ID 
+    || tl_worker_log_ctx->current_eid != txn_eid) {
+    // if this is a new epoch, then write to a new buffer
+    tl_worker_log_ctx->current_eid = txn_eid;
+    RegisterNewBufferToEpoch(std::move(tl_worker_log_ctx->buffer_pool.GetBuffer()));
   }
 
   // Handle the commit id
+  // TODO: we should pass the end transaction id when using OCC protocol.
   cid_t txn_cid = txn->GetBeginCommitId();
-  thread_local_worker_log_ctx->current_cid = txn_cid;
+  tl_worker_log_ctx->current_cid = txn_cid;
 
-  // Log down the begin of txn
+  // Log down the begin of a transaction
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
   WriteRecordToBuffer(record);
 }
 
 void PhyLogLogManager::CommitCurrentTxn() {
-  PL_ASSERT(thread_local_worker_log_ctx);
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, thread_local_worker_log_ctx->current_cid);
+  PL_ASSERT(tl_worker_log_ctx);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_worker_log_ctx->current_cid);
   WriteRecordToBuffer(record);
 }
 

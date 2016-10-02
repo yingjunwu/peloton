@@ -38,7 +38,7 @@ namespace peloton {
 namespace logging {
 
 /* Per worker thread local context */
-extern thread_local WorkerLogContext* thread_local_worker_log_ctx;
+extern thread_local WorkerLogContext* tl_worker_log_ctx;
 
 
 /**
@@ -124,11 +124,11 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) thread_local_worker_log_ctx->worker_id, (int) thread_local_worker_log_ctx->current_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_worker_log_ctx->worker_id, (int) tl_worker_log_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(thread_local_worker_log_ctx);
-    thread_local_worker_log_ctx->per_epoch_buffer_ptrs[thread_local_worker_log_ctx->current_eid].push(std::move(log_buffer_ptr));
-    return thread_local_worker_log_ctx->per_epoch_buffer_ptrs[thread_local_worker_log_ctx->current_eid].top().get();
+    PL_ASSERT(tl_worker_log_ctx);
+    tl_worker_log_ctx->per_epoch_buffer_ptrs[tl_worker_log_ctx->current_eid].push(std::move(log_buffer_ptr));
+    return tl_worker_log_ctx->per_epoch_buffer_ptrs[tl_worker_log_ctx->current_eid].top().get();
   }
 
 

@@ -36,6 +36,24 @@ namespace logging {
 
   // the worker context is constructed when registering the worker to the logger.
   struct WorkerLogContext {
+
+    WorkerLogContext(oid_t id)
+      : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
+        buffer_pool(id), 
+        output_buffer(),
+        current_eid(START_EPOCH_ID), 
+        persist_eid(INVALID_EPOCH_ID),
+        current_cid(INVALID_CID), 
+        worker_id(id), 
+        terminated(false) {
+      LOG_TRACE("Create worker %d", (int) worker_id);
+    }
+
+    ~WorkerLogContext() {
+      LOG_TRACE("Destroy worker %d", (int) worker_id);
+    }
+
+
     // Every epoch has a buffer stack
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
     // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
@@ -43,8 +61,15 @@ namespace logging {
     // serialize each tuple to string.
     CopySerializeOutput output_buffer;
 
+    // current epoch id
     size_t current_eid;
+    // persisted epoch id
+    size_t persist_eid;
+
+    // current transaction id
     cid_t current_cid;
+
+    // worker thread id
     oid_t worker_id;
 
     // When a worker terminates, we cannot destruct it immediately.
@@ -52,17 +77,6 @@ namespace logging {
     // TODO: Find out some where to call termination to a worker
     bool terminated;
 
-    WorkerLogContext(oid_t id)
-      : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
-        buffer_pool(id), output_buffer(),
-        current_eid(INVALID_EPOCH_ID), current_cid(INVALID_CID), worker_id(id), terminated(false)
-    {
-      LOG_TRACE("Create worker %d", (int) id);
-    }
-
-    ~WorkerLogContext() {
-      LOG_TRACE("Destroy worker %d", (int) worker_id);
-    }
   };
 
 }

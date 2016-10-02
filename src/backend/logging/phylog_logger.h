@@ -43,10 +43,10 @@ namespace logging {
       is_running_(false),
       logger_output_buffer_(), 
       file_handle_(), 
-      max_committed_epoch_id_(INVALID_EPOCH_ID), 
+      persist_epoch_id_(INVALID_EPOCH_ID), 
       worker_map_lock_(), 
-      worker_map_(), 
-      local_buffer_map_(concurrency::EpochManager::GetEpochQueueCapacity())
+      worker_map_()
+      // local_buffer_map_(concurrency::EpochManager::GetEpochQueueCapacity())
     {}
 
     ~PhyLogLogger() {}
@@ -66,7 +66,10 @@ namespace logging {
 
 private:
   void Run();
-  void SyncEpochToFile(size_t epoch_id);
+
+  void PersistEpochBegin(const size_t epoch_id);
+  void PersistEpochEnd(const size_t epoch_id);
+  void PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer);
 
   std::string GetLogFileFullPath(size_t epoch_id) {
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
@@ -85,14 +88,14 @@ private:
     FileHandle file_handle_;
 
     /* Log buffers */
-    size_t max_committed_epoch_id_;
+    size_t persist_epoch_id_;
 
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
     std::unordered_map<oid_t, std::shared_ptr<WorkerLogContext>> worker_map_;
     
-    std::vector<std::stack<std::unique_ptr<LogBuffer>>> local_buffer_map_;
+    // std::vector<std::stack<std::unique_ptr<LogBuffer>>> local_buffer_map_;
   
     const std::string logging_filename_prefix_ = "log";
 
