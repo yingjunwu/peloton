@@ -28,10 +28,15 @@ void PhyLogLogger::RegisterWorker(WorkerLogContext *worker_log_ctx) {
   worker_map_lock_.Unlock();
 }
 
+void PhyLogLogger::DeregisterWorker(WorkerLogContext *worker_log_ctx) {
+  worker_map_lock_.Lock();
+  worker_map_.erase(worker_log_ctx->worker_id);
+  worker_map_lock_.Unlock();
+}
+
 void PhyLogLogger::Run() {
   
   // Get the file name
-  // TODO: we just use the last file id. May be we can use some epoch id?
   // for now, let's assume that each logger uses a single file to record logs. --YINGJUN
   // SILO uses multiple files only to simplify the process of log truncation.
   std::string filename = GetLogFileFullPath(0);
@@ -42,43 +47,25 @@ void PhyLogLogger::Run() {
     exit(EXIT_FAILURE);
   }
 
-  // Init the header of the log file
-  // for now, we do not need this... --YINGJUN
-  // fwrite((void *)(&PhyLogLogger::uint64_place_holder), sizeof(PhyLogLogger::uint64_place_holder), 1, file_handle_.file);
-
   // Update the logger context
   file_handle_.size = 0;
 
-
   /**
    *  Main loop
-   */ 
-  // TODO: Once we have recovery, we should be able to set the begin epoch id for the epoch manager. Then the start epoch
-  // id is not necessarily the START_EPOCH_ID. We should load it from the epoch manager.
-
+   */
   while (true) {
-    if (is_running_ == false && worker_map_.empty()) {
-      // TODO: Wait for all registered worker to terminate
-      break;
-    }
+    if (is_running_ == false) { break; }
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
     // Pull log records from workers per epoch buffer
     {
       worker_map_lock_.Lock();
 
-      if (is_running_ == false && worker_map_.empty()) {
-        // TODO: Wait for all registered worker to terminate
-        worker_map_lock_.Unlock();
-        break;
-      }
-
       size_t max_workers_persist_eid = INVALID_EPOCH_ID;
-
-
-      auto worker_itr = worker_map_.begin();
-      while (worker_itr != worker_map_.end()) {
+      for (auto &worker_entry : worker_map_) {
         // For every alive worker, move its buffer to the logger's local buffer
-        auto worker_ctx_ptr = worker_itr->second.get();
+        auto worker_ctx_ptr = worker_entry.second.get();
 
         size_t max_persist_eid = worker_ctx_ptr->current_eid - 1;
         size_t current_persist_eid = worker_ctx_ptr->persist_eid;
@@ -88,7 +75,6 @@ void PhyLogLogger::Run() {
         if (current_persist_eid == max_persist_eid) {
           continue;
         }
-
         for (size_t epoch_id = current_persist_eid + 1; epoch_id <= max_persist_eid; ++epoch_id) {
           size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
           // get all the buffers that are associated with the epoch.
@@ -99,7 +85,6 @@ void PhyLogLogger::Run() {
             // it's fine. simply ignore it.
             continue;
           }
-
           PersistEpochBegin(epoch_id);
           // persist all the buffers.
           while (buffers.empty() == false) {
@@ -116,7 +101,6 @@ void PhyLogLogger::Run() {
           PersistEpochEnd(epoch_id);
           // Call fsync
           LoggingUtil::FFlushFsync(file_handle_);
-
         } // end for
 
         worker_ctx_ptr->persist_eid = max_persist_eid;
@@ -125,17 +109,13 @@ void PhyLogLogger::Run() {
           max_workers_persist_eid = max_persist_eid;
         }
 
+      } // end for
 
-        bool terminated = worker_ctx_ptr->terminated;
-
-        if (terminated) {
-          // Remove terminated workers
-          worker_itr = worker_map_.erase(worker_itr);
-        } else {
-          worker_itr++;
-        }
-
-      } // end while
+      if (max_workers_persist_eid == INVALID_EPOCH_ID) {
+        // in this case, it is likely that there's no registered worker or there's nothing to persist.
+        worker_map_lock_.Unlock();
+        continue;
+      }
 
       PL_ASSERT(max_workers_persist_eid >= persist_epoch_id_);
 
@@ -163,7 +143,6 @@ void PhyLogLogger::PersistEpochBegin(const size_t epoch_id) {
   logger_output_buffer_.Reset();
   record.Serialize(logger_output_buffer_);
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
-
 }
 
 void PhyLogLogger::PersistEpochEnd(const size_t epoch_id) {
@@ -182,17 +161,13 @@ void PhyLogLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
 
   // Return the buffer to the worker
   log_buffer->Reset();
-  {
-    worker_map_lock_.Lock();
-    auto itr = worker_map_.find(log_buffer->GetWorkerId());
-    if (itr != worker_map_.end()) {
-      // Release the buffer
-      log_buffer.reset(nullptr);
-    } else {
-      // In this case, the worker is already terminated and removed
-      itr->second->buffer_pool.PutBuffer(std::move(log_buffer));
-    }
-    worker_map_lock_.Unlock();
+  auto itr = worker_map_.find(log_buffer->GetWorkerId());
+  if (itr != worker_map_.end()) {
+    // In this case, the worker is already terminated and removed
+    itr->second->buffer_pool.PutBuffer(std::move(log_buffer));
+  } else {
+    // Release the buffer
+    log_buffer.reset(nullptr);
   }
 }
 

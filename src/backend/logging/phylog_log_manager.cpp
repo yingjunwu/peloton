@@ -24,20 +24,6 @@ namespace logging {
 
 thread_local WorkerLogContext* tl_worker_log_ctx = nullptr;
 
-// const uint64_t PhyLogLogManager::uint64_place_holder = 0;
-
-// NOTE: this function is never used.
-// void PhyLogLogManager::UpdateGlobalCommittedEid(size_t committed_eid) {
-//   while(true) {
-//     auto old = global_committed_eid_;
-//     if(old > committed_eid) {
-//       return;
-//     }else if ( __sync_bool_compare_and_swap(&global_committed_eid_, old, committed_eid) ) {
-//       return;
-//     }
-//   }
-// }
-
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
@@ -53,7 +39,10 @@ void PhyLogLogManager::RegisterWorkerToLogger() {
 // deregister worker threads.
 void PhyLogLogManager::DeregisterWorkerFromLogger() {
   PL_ASSERT(tl_worker_log_ctx != nullptr);
-  tl_worker_log_ctx->terminated = true;
+
+  size_t logger_id = HashToLogger(tl_worker_log_ctx->worker_id);
+
+  loggers_[logger_id]->DeregisterWorker(tl_worker_log_ctx);
 }
 
 void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {

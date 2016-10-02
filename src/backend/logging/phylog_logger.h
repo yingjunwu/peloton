@@ -46,7 +46,6 @@ namespace logging {
       persist_epoch_id_(INVALID_EPOCH_ID), 
       worker_map_lock_(), 
       worker_map_()
-      // local_buffer_map_(concurrency::EpochManager::GetEpochQueueCapacity())
     {}
 
     ~PhyLogLogger() {}
@@ -62,7 +61,7 @@ namespace logging {
     }
 
     void RegisterWorker(WorkerLogContext *worker_log_ctx);
-    
+    void DeregisterWorker(WorkerLogContext *worker_log_ctx);
 
 private:
   void Run();
@@ -81,7 +80,7 @@ private:
     
     // logger thread
     std::unique_ptr<std::thread> logger_thread_;
-    bool is_running_;
+    volatile bool is_running_;
 
     /* File system related */
     CopySerializeOutput logger_output_buffer_;
@@ -94,8 +93,6 @@ private:
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
     std::unordered_map<oid_t, std::shared_ptr<WorkerLogContext>> worker_map_;
-    
-    // std::vector<std::stack<std::unique_ptr<LogBuffer>>> local_buffer_map_;
   
     const std::string logging_filename_prefix_ = "log";
 

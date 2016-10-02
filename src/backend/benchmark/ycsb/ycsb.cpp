@@ -232,7 +232,6 @@ void RunBenchmark() {
     && concurrency::TransactionManagerFactory::IsSV() == false) {
     ValidateMVCC();
   }
-
   // Stop the logger
   log_manager.StopLoggers();
 

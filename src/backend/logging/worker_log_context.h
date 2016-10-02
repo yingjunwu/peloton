@@ -44,8 +44,7 @@ namespace logging {
         current_eid(START_EPOCH_ID), 
         persist_eid(INVALID_EPOCH_ID),
         current_cid(INVALID_CID), 
-        worker_id(id), 
-        terminated(false) {
+        worker_id(id) {
       LOG_TRACE("Create worker %d", (int) worker_id);
     }
 
@@ -71,11 +70,6 @@ namespace logging {
 
     // worker thread id
     oid_t worker_id;
-
-    // When a worker terminates, we cannot destruct it immediately.
-    // What we do is first set this flag and the logger will check if it can destruct a terminated worker
-    // TODO: Find out some where to call termination to a worker
-    bool terminated;
 
   };
 
