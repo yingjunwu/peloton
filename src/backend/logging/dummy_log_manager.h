@@ -21,14 +21,17 @@ namespace peloton {
 namespace logging {
 
 class DummyLogManager : public LogManager {
-  DummyLogManager(int thread_count) : LogManager(thread_count) {}
+  DummyLogManager() {}
 
 public:
-  static DummyLogManager &GetInstance(int thread_count) {
-    static DummyLogManager log_manager(thread_count);
+  static DummyLogManager &GetInstance() {
+    static DummyLogManager log_manager;
     return log_manager;
   }
   virtual ~DummyLogManager() {}
+
+
+  virtual void SetDirectories(const std::vector<std::string> &logging_dirs UNUSED_ATTRIBUTE) override {}
 
   virtual void RegisterWorkerToLogger() {};
   virtual void DeregisterWorkerFromLogger() {};

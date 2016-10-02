@@ -27,16 +27,11 @@ class LogManager {
   LogManager &operator=(LogManager &&) = delete;
 
 public:
-  LogManager(int thread_count) 
-    : is_running_(false), 
-      logging_thread_count_(thread_count), 
-      logging_dirs_(thread_count, TMP_DIR) {}
+  LogManager() {}
+
   virtual ~LogManager() {}
 
-  void SetDirectories(const std::vector<std::string> &logging_dirs) {
-    logging_dirs_ = logging_dirs;
-  }
-
+  virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
 
   virtual void RegisterWorkerToLogger() = 0;
   virtual void DeregisterWorkerFromLogger() = 0;
@@ -51,17 +46,7 @@ public:
   virtual void StopLoggers() = 0;
 
 protected:
-  std::string GetLogFileFullPath(size_t logger_id, size_t epoch_id) {
-    return logging_dirs_.at(logger_id) + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id) + "_" + std::to_string(epoch_id);
-  }
-
-protected:
-  bool is_running_;
-
-  size_t logging_thread_count_;
-  std::vector<std::string> logging_dirs_;
-
-  const std::string logging_filename_prefix_ = "log";
+  size_t logger_count_;
 
 };
 

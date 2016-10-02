@@ -37,45 +37,67 @@ namespace logging {
   class Logger {
 
   public:
-    Logger() :
-      logger_thread_(nullptr), 
-      log_dir(), 
-      next_file_id(0), 
-      logger_output_buffer(),
-      cur_file_handle(), 
-      max_committed_eid(INVALID_EPOCH_ID), 
+    Logger(const size_t &logger_id, const std::string &log_dir) :
+      logger_id_(logger_id),
+      log_dir_(log_dir),
+      logger_thread_(nullptr),
+      is_running_(false),
+      logger_output_buffer_(), 
+      file_handle_(), 
+      max_committed_epoch_id_(INVALID_EPOCH_ID), 
       worker_map_lock_(), 
-      worker_map_(),
-      local_buffer_map(concurrency::EpochManager::GetEpochQueueCapacity())
+      worker_map_(), 
+      local_buffer_map_(concurrency::EpochManager::GetEpochQueueCapacity())
     {}
 
     ~Logger() {}
 
-    void RegisterWorker(WorkerLogContext *log_worker_ctx) {
-      worker_map_lock_.Lock();
-      worker_map_[log_worker_ctx->worker_id].reset(log_worker_ctx);
-      worker_map_lock_.Unlock();
+    void Start() {
+      is_running_ = true;
+      logger_thread_.reset(new std::thread(&Logger::Run, this));
     }
 
+    void Stop() {
+      is_running_ = false;
+      logger_thread_->join();
+    }
+
+    void RegisterWorker(WorkerLogContext *worker_log_ctx);
+    
+
+private:
+  void Run();
+  void SyncEpochToFile(size_t epoch_id);
+
+  std::string GetLogFileFullPath(size_t epoch_id) {
+    return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
+  }
+
+  private:  
+    size_t logger_id_;
+    std::string log_dir_;
+    
     // logger thread
     std::unique_ptr<std::thread> logger_thread_;
+    bool is_running_;
 
     /* File system related */
-    std::string log_dir;
-    size_t next_file_id;
-    CopySerializeOutput logger_output_buffer;
-    FileHandle cur_file_handle;
+    CopySerializeOutput logger_output_buffer_;
+    FileHandle file_handle_;
 
     /* Log buffers */
-    size_t max_committed_eid;
+    size_t max_committed_epoch_id_;
 
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
     std::unordered_map<oid_t, std::shared_ptr<WorkerLogContext>> worker_map_;
     
-    std::vector<std::stack<std::unique_ptr<LogBuffer>>> local_buffer_map;
+    std::vector<std::stack<std::unique_ptr<LogBuffer>>> local_buffer_map_;
+  
+    const std::string logging_filename_prefix_ = "log";
 
+    const size_t sleep_period_us_ = 40000;
   };
 
 

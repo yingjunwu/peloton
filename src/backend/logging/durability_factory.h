@@ -25,9 +25,9 @@ class DurabilityFactory {
   static LogManager& GetLoggerInstance() {
     switch (logging_type_) {
       case LOGGING_TYPE_PHYLOG:
-        return PhyLogLogManager::GetInstance(logger_count_);
+        return PhyLogLogManager::GetInstance();
       default:
-        return DummyLogManager::GetInstance(logger_count_);
+        return DummyLogManager::GetInstance();
     }
   }
 
