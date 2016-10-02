@@ -235,10 +235,10 @@ void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
         logger_ctx->worker_map_lock_.Lock();
         auto itr = logger_ctx->worker_map_.find(buffer_ptr->GetWorkerId());
         if (itr != logger_ctx->worker_map_.end()) {
-          // In this case, the worker is already terminated and removed
           itr->second->buffer_pool.PutBuffer(std::move(buffers.top()));
         } else {
-          // Release the buffer
+          // In this case, the worker is already terminated and removed.
+          // Just deallocate the buffer.
           buffers.top().reset(nullptr);
         }
         logger_ctx->worker_map_lock_.Unlock();
@@ -300,7 +300,7 @@ void PhyLogLogManager::Run(size_t logger_id) {
 
   while (true) {
     if (is_running_ == false && logger_ctx_ptr->worker_map_.empty()) {
-      // TODO: Wait for all registered worker to terminate
+      // Wait for all registered worker to terminate
       break;
     }
     LOG_TRACE("Logger %d running", (int) logger_ctx_ptr->lid);
