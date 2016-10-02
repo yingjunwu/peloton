@@ -214,7 +214,7 @@ void RunBenchmark() {
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
-  log_manager.StartLogger();
+  log_manager.StartLoggers();
 
     // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
@@ -234,7 +234,7 @@ void RunBenchmark() {
   }
 
   // Stop the logger
-  log_manager.StopLogger();
+  log_manager.StopLoggers();
 
   WriteOutput();
 }

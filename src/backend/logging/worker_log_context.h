@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// log_context.h
+// worker_log_context.h
 //
-// Identification: src/backend/logging/loggers/log_context.h
+// Identification: src/backend/logging/loggers/worker_log_context.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -35,7 +35,7 @@ namespace peloton {
 namespace logging {
 
   // the worker context is constructed when registering the worker to the logger.
-  struct LogWorkerContext {
+  struct WorkerLogContext {
     // Every epoch has a buffer stack
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
     // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
@@ -52,7 +52,7 @@ namespace logging {
     // TODO: Find out some where to call termination to a worker
     bool terminated;
 
-    LogWorkerContext(oid_t id)
+    WorkerLogContext(oid_t id)
       : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
         buffer_pool(id), output_buffer(),
         current_eid(INVALID_EPOCH_ID), current_cid(INVALID_CID), worker_id(id), terminated(false)
@@ -60,7 +60,7 @@ namespace logging {
       LOG_TRACE("Create worker %d", (int) id);
     }
 
-    ~LogWorkerContext() {
+    ~WorkerLogContext() {
       LOG_TRACE("Destroy worker %d", (int) worker_id);
     }
   };

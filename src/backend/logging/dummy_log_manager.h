@@ -39,8 +39,8 @@ public:
   virtual void StartTxn(concurrency::Transaction *txn UNUSED_ATTRIBUTE) {};
   virtual void CommitCurrentTxn() {};
 
-  virtual void StartLogger() {};
-  virtual void StopLogger() {};
+  virtual void StartLoggers() {};
+  virtual void StopLoggers() {};
 
 };
 

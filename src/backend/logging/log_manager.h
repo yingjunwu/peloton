@@ -47,8 +47,8 @@ public:
   virtual void StartTxn(concurrency::Transaction *txn) = 0;
   virtual void CommitCurrentTxn() = 0;
 
-  virtual void StartLogger() = 0;
-  virtual void StopLogger() = 0;
+  virtual void StartLoggers() = 0;
+  virtual void StopLoggers() = 0;
 
 protected:
   std::string GetLogFileFullPath(size_t logger_id, size_t epoch_id) {

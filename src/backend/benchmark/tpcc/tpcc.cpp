@@ -42,7 +42,7 @@ void RunBenchmark() {
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
-  log_manager.StartLogger();
+  log_manager.StartLoggers();
 
   // Create log worker for loading the database
   log_manager.RegisterWorkerToLogger();
@@ -58,7 +58,7 @@ void RunBenchmark() {
   // Run the workload
   RunWorkload();
 
-  log_manager.StopLogger();
+  log_manager.StopLoggers();
 
   WriteOutput();
 }

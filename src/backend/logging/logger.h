@@ -38,18 +38,27 @@ namespace logging {
 
   public:
     Logger() :
-      lid(INVALID_LOGGERID), logger_thread(nullptr), log_dir(), next_file_id(0), logger_output_buffer(),
-      cur_file_handle(), max_committed_eid(INVALID_EPOCH_ID), worker_map_lock_(), worker_map_(),
+      logger_thread_(nullptr), 
+      log_dir(), 
+      next_file_id(0), 
+      logger_output_buffer(),
+      cur_file_handle(), 
+      max_committed_eid(INVALID_EPOCH_ID), 
+      worker_map_lock_(), 
+      worker_map_(),
       local_buffer_map(concurrency::EpochManager::GetEpochQueueCapacity())
     {}
 
     ~Logger() {}
 
+    void RegisterWorker(WorkerLogContext *log_worker_ctx) {
+      worker_map_lock_.Lock();
+      worker_map_[log_worker_ctx->worker_id].reset(log_worker_ctx);
+      worker_map_lock_.Unlock();
+    }
 
-    // logger id
-    size_t lid;
     // logger thread
-    std::unique_ptr<std::thread> logger_thread;
+    std::unique_ptr<std::thread> logger_thread_;
 
     /* File system related */
     std::string log_dir;
@@ -63,7 +72,7 @@ namespace logging {
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
-    std::unordered_map<oid_t, std::shared_ptr<LogWorkerContext>> worker_map_;
+    std::unordered_map<oid_t, std::shared_ptr<WorkerLogContext>> worker_map_;
     
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> local_buffer_map;
 

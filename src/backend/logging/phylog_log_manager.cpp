@@ -22,7 +22,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local LogWorkerContext* thread_local_log_worker_ctx = nullptr;
+thread_local WorkerLogContext* thread_local_log_worker_ctx = nullptr;
 const size_t PhyLogLogManager::sleep_period_us = 40000;
 const uint64_t PhyLogLogManager::uint64_place_holder = 0;
 
@@ -44,17 +44,10 @@ const uint64_t PhyLogLogManager::uint64_place_holder = 0;
 void PhyLogLogManager::RegisterWorkerToLogger() {
   PL_ASSERT(thread_local_log_worker_ctx == nullptr);
   // shuffle worker to logger
-  thread_local_log_worker_ctx = new LogWorkerContext(log_worker_id_generator_++);
+  thread_local_log_worker_ctx = new WorkerLogContext(log_worker_id_generator_++);
   size_t logger_id = HashToLogger(thread_local_log_worker_ctx->worker_id);
 
-  auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
-  PL_ASSERT(logger_ctx_ptr != nullptr);
-
-  {
-    logger_ctx_ptr->worker_map_lock_.Lock();
-    logger_ctx_ptr->worker_map_[thread_local_log_worker_ctx->worker_id].reset(thread_local_log_worker_ctx);
-    logger_ctx_ptr->worker_map_lock_.Unlock();
-  }
+  loggers_[logger_id]->RegisterWorker(thread_local_log_worker_ctx);
 }
 
 // deregister worker threads.
@@ -64,7 +57,7 @@ void PhyLogLogManager::DeregisterWorkerFromLogger() {
 }
 
 void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
-  LogWorkerContext *ctx = thread_local_log_worker_ctx;
+  WorkerLogContext *ctx = thread_local_log_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);
@@ -176,7 +169,7 @@ void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::StartLogger() {
+void PhyLogLogManager::StartLoggers() {
   is_running_ = true;
 
   // check the existence of logging directories.
@@ -195,14 +188,14 @@ void PhyLogLogManager::StartLogger() {
   // the states of each logger is set within each thread.
   for (size_t lid = 0; lid < logging_thread_count_; ++lid) {
     LOG_TRACE("Start logger %d", (int) lid);
-    logger_ctxs_[lid]->logger_thread.reset(new std::thread(&PhyLogLogManager::Run, this, lid));
+    loggers_[lid]->logger_thread_.reset(new std::thread(&PhyLogLogManager::Run, this, lid));
   }
 }
 
-void PhyLogLogManager::StopLogger() {
+void PhyLogLogManager::StopLoggers() {
   is_running_ = false;
   for (size_t lid = 0; lid < logging_thread_count_; ++lid) {
-    logger_ctxs_[lid]->logger_thread->join();
+    loggers_[lid]->logger_thread_->join();
   }
 }
 
@@ -262,8 +255,7 @@ void PhyLogLogManager::SyncEpochToFile(Logger *logger_ctx, size_t eid) {
 void PhyLogLogManager::Run(size_t logger_id) {
   
   // set the states of each logger
-  auto logger_ctx_ptr = logger_ctxs_[logger_id].get();
-  logger_ctx_ptr->lid = logger_id;
+  auto logger_ctx_ptr = loggers_[logger_id].get();
   logger_ctx_ptr->log_dir = logging_dirs_.at(logger_id);
 
   // Get the file name
@@ -272,7 +264,7 @@ void PhyLogLogManager::Run(size_t logger_id) {
   // SILO uses multiple files only to simplify the process of log truncation.
   // size_t file_id = logger_ctx_ptr->next_file_id;
   // logger_ctx_ptr->next_file_id++;
-  std::string filename = GetLogFileFullPath(logger_ctx_ptr->lid, 0);
+  std::string filename = GetLogFileFullPath(logger_id, 0);
 
   // Create a new file
   if (LoggingUtil::CreateFile(filename.c_str(), "wb", logger_ctx_ptr->cur_file_handle) == false) {

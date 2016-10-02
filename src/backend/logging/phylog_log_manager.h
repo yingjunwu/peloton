@@ -25,7 +25,7 @@
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
-#include "backend/logging/log_context.h"
+#include "backend/logging/worker_log_context.h"
 #include "backend/logging/logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
@@ -37,7 +37,7 @@ namespace peloton {
 namespace logging {
 
 /* Per worker thread local context */
-extern thread_local LogWorkerContext* thread_local_log_worker_ctx;
+extern thread_local WorkerLogContext* thread_local_log_worker_ctx;
 
 
 /**
@@ -69,9 +69,9 @@ protected:
   PhyLogLogManager(int thread_count)
     : LogManager(thread_count), log_worker_id_generator_(0),
       global_committed_eid_(INVALID_EPOCH_ID),
-      logger_ctxs_() {
+      loggers_() {
     for (int i = 0; i < thread_count; ++i) {
-      logger_ctxs_.emplace_back(new Logger());
+      loggers_.emplace_back(new Logger());
     }
   }
 
@@ -93,8 +93,8 @@ public:
   virtual void CommitCurrentTxn() override ;
 
   // Logger side logic
-  virtual void StartLogger() override ;
-  virtual void StopLogger() override ;
+  virtual void StartLoggers() override ;
+  virtual void StopLoggers() override ;
 
   // TODO: See if we can move some of this to the base class
   static const size_t sleep_period_us;
@@ -141,7 +141,7 @@ private:
 
   size_t global_committed_eid_;
 
-  std::vector<std::shared_ptr<Logger>> logger_ctxs_;
+  std::vector<std::shared_ptr<Logger>> loggers_;
 };
 
 }
