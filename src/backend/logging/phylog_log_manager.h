@@ -17,7 +17,6 @@
 #include <list>
 #include <stack>
 #include <unordered_map>
-#include <backend/common/logger.h>
 
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
@@ -27,6 +26,7 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/log_context.h"
+#include "backend/logging/logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -71,7 +71,7 @@ protected:
       global_committed_eid_(INVALID_EPOCH_ID),
       logger_ctxs_() {
     for (int i = 0; i < thread_count; ++i) {
-      logger_ctxs_.emplace_back(new LoggerContext());
+      logger_ctxs_.emplace_back(new Logger());
     }
   }
 
@@ -127,7 +127,7 @@ private:
    */
   void Run(size_t logger_id);
   // void UpdateGlobalCommittedEid(size_t committed_eid);
-  void SyncEpochToFile(LoggerContext *logger_ctx, size_t eid);
+  void SyncEpochToFile(Logger *logger_ctx, size_t eid);
 
   /*
    * Log file layout:
@@ -141,7 +141,7 @@ private:
 
   size_t global_committed_eid_;
 
-  std::vector<std::shared_ptr<LoggerContext>> logger_ctxs_;
+  std::vector<std::shared_ptr<Logger>> logger_ctxs_;
 };
 
 }

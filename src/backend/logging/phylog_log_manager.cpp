@@ -206,7 +206,7 @@ void PhyLogLogManager::StopLogger() {
   }
 }
 
-void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
+void PhyLogLogManager::SyncEpochToFile(Logger *logger_ctx, size_t eid) {
   // TODO: Check the return value of FS operations
   size_t epoch_idx = eid % concurrency::EpochManager::GetEpochQueueCapacity();
 
@@ -235,10 +235,10 @@ void PhyLogLogManager::SyncEpochToFile(LoggerContext *logger_ctx, size_t eid) {
         logger_ctx->worker_map_lock_.Lock();
         auto itr = logger_ctx->worker_map_.find(buffer_ptr->GetWorkerId());
         if (itr != logger_ctx->worker_map_.end()) {
+          // In this case, the worker is already terminated and removed
           itr->second->buffer_pool.PutBuffer(std::move(buffers.top()));
         } else {
-          // In this case, the worker is already terminated and removed.
-          // Just deallocate the buffer.
+          // Release the buffer
           buffers.top().reset(nullptr);
         }
         logger_ctx->worker_map_lock_.Unlock();
@@ -290,7 +290,7 @@ void PhyLogLogManager::Run(size_t logger_id) {
 
   /**
    *  Main loop
-   */
+   */ 
   // TODO: Once we have recovery, we should be able to set the begin epoch id for the epoch manager. Then the start epoch
   // id is not necessarily the START_EPOCH_ID. We should load it from the epoch manager.
 
@@ -300,7 +300,7 @@ void PhyLogLogManager::Run(size_t logger_id) {
 
   while (true) {
     if (is_running_ == false && logger_ctx_ptr->worker_map_.empty()) {
-      // Wait for all registered worker to terminate
+      // TODO: Wait for all registered worker to terminate
       break;
     }
     LOG_TRACE("Logger %d running", (int) logger_ctx_ptr->lid);
