@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// logger.h
+// phylog_logger.h
 //
-// Identification: src/backend/logging/loggers/logger.h
+// Identification: src/backend/logging/phylog_logger.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -18,7 +18,6 @@
 #include <stack>
 #include <unordered_map>
 
-#include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
 #include "backend/concurrency/epoch_manager.h"
 #include "backend/logging/log_buffer.h"
@@ -34,10 +33,10 @@
 namespace peloton {
 namespace logging {
 
-  class Logger {
+  class PhyLogLogger {
 
   public:
-    Logger(const size_t &logger_id, const std::string &log_dir) :
+    PhyLogLogger(const size_t &logger_id, const std::string &log_dir) :
       logger_id_(logger_id),
       log_dir_(log_dir),
       logger_thread_(nullptr),
@@ -50,11 +49,11 @@ namespace logging {
       local_buffer_map_(concurrency::EpochManager::GetEpochQueueCapacity())
     {}
 
-    ~Logger() {}
+    ~PhyLogLogger() {}
 
     void Start() {
       is_running_ = true;
-      logger_thread_.reset(new std::thread(&Logger::Run, this));
+      logger_thread_.reset(new std::thread(&PhyLogLogger::Run, this));
     }
 
     void Stop() {
@@ -73,7 +72,7 @@ private:
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
   }
 
-  private:  
+  private:
     size_t logger_id_;
     std::string log_dir_;
     

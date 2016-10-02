@@ -27,7 +27,7 @@
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
 #include "backend/logging/worker_log_context.h"
-#include "backend/logging/logger.h"
+#include "backend/logging/phylog_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"

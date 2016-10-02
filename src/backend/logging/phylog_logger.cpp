@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.cpp
+// phylog_logger.cpp
 //
-// Identification: src/backend/logging/loggers/phylog_log_manager.cpp
+// Identification: src/backend/logging/phylog_logger.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -22,13 +22,13 @@
 namespace peloton {
 namespace logging {
 
-void Logger::RegisterWorker(WorkerLogContext *log_worker_ctx) {
+void PhyLogLogger::RegisterWorker(WorkerLogContext *log_worker_ctx) {
   worker_map_lock_.Lock();
   worker_map_[log_worker_ctx->worker_id].reset(log_worker_ctx);
   worker_map_lock_.Unlock();
 }
 
-void Logger::Run() {
+void PhyLogLogger::Run() {
   
   // Get the file name
   // TODO: we just use the last file id. May be we can use some epoch id?
@@ -46,7 +46,7 @@ void Logger::Run() {
 
   // Init the header of the log file
   // for now, we do not need this... --YINGJUN
-  // fwrite((void *)(&Logger::uint64_place_holder), sizeof(Logger::uint64_place_holder), 1, file_handle_.file);
+  // fwrite((void *)(&PhyLogLogger::uint64_place_holder), sizeof(PhyLogLogger::uint64_place_holder), 1, file_handle_.file);
 
   // Update the logger context
   file_handle_.size = 0;
@@ -80,7 +80,7 @@ void Logger::Run() {
       }
 
       for (size_t epoch_id = last_epoch_id + 1; epoch_id <= current_epoch_id; ++epoch_id) {
-        LOG_TRACE("Logger %d collecting buffers for epoch %d", (int) logger_id_, (int) epoch_id);
+        LOG_TRACE("PhyLogLogger %d collecting buffers for epoch %d", (int) logger_id_, (int) epoch_id);
         // For every dead epoch, check the local buffer of all workers
         size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
 
@@ -159,7 +159,7 @@ void Logger::Run() {
 
 
 
-void Logger::SyncEpochToFile(size_t epoch_id) {
+void PhyLogLogger::SyncEpochToFile(size_t epoch_id) {
   // TODO: Check the return value of FS operations
   size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
 
@@ -178,7 +178,7 @@ void Logger::SyncEpochToFile(size_t epoch_id) {
     while (buffers.empty() == false) {
       // Write down the buffer
       LogBuffer *buffer_ptr = buffers.top().get();
-      LOG_TRACE("Logger %d flush log buffer of epoch %d from worker %d", (int) logger_id_, (int) epoch_id, (int) buffer_ptr->GetWorkerId());
+      LOG_TRACE("PhyLogLogger %d flush log buffer of epoch %d from worker %d", (int) logger_id_, (int) epoch_id, (int) buffer_ptr->GetWorkerId());
 
       fwrite((const void *) (buffer_ptr->GetData()), buffer_ptr->GetSize(), 1, file_handle_.file);
 
