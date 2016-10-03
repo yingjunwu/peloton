@@ -51,20 +51,28 @@ namespace logging {
       file_handle_(),
       next_file_id_(0),
       recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)),
-      temp_pool_(new VarlenPool(BACKEND_TYPE_MM)),
-      persist_epoch_id_(INVALID_EPOCH_ID), 
+      persist_epoch_id_(INVALID_EPOCH_ID),
       worker_map_lock_(), 
       worker_map_()
     {}
 
     ~PhyLogLogger() {}
 
-    void Start() {
+    void StartRecover(size_t checkpoint_eid, size_t persist_eid) {
+      // Reuse the thread
+      logger_thread_.reset(new std::thread(&PhyLogLogger::RunRecovery, this, checkpoint_eid, persist_eid));
+    }
+
+    void WaitForRecovery() {
+      logger_thread_->join();
+    }
+
+    void StartLogging() {
       is_running_ = true;
       logger_thread_.reset(new std::thread(&PhyLogLogger::Run, this));
     }
 
-    void Stop() {
+    void StopLogging() {
       is_running_ = false;
       logger_thread_->join();
     }
@@ -76,9 +84,10 @@ namespace logging {
       return persist_epoch_id_;
     }
 
+
 private:
-  void Run();
   void RunRecovery(size_t checkpoint_eid, size_t persist_eid);
+  void Run();
 
   void PersistEpochBegin(const size_t epoch_id);
   void PersistEpochEnd(const size_t epoch_id);
@@ -91,8 +100,10 @@ private:
   std::vector<int> GetSortedLogFileIdList();
   bool ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
   bool InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid);
-  void LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
-  void UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
+
+  // Return value is the swapped txn id, either INVALID_TXNID or INITIAL_TXNID
+  txn_id_t LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
+  void UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id);
 
   private:
     size_t logger_id_;
@@ -108,8 +119,10 @@ private:
     size_t next_file_id_;
 
     /* Recovery */
+    // TODO: Check if we can discard the recovery pool after the recovery is done. Since every thing is copied to the
+    // tile gorup and tile group related pool
     std::unique_ptr<VarlenPool> recovery_pool_;
-    std::unique_ptr<VarlenPool> temp_pool_;
+    bool recovery_done_ = false;
 
     /* Log buffers */
     size_t persist_epoch_id_;

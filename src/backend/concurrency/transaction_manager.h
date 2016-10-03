@@ -97,6 +97,11 @@ class TransactionManager {
     return false;
   }
 
+
+  // Init the tile group header reserved field for the recovery usage
+  virtual void
+  InitInsertedTupleForRecovery(storage::TileGroupHeader *tg_header, oid_t tuple_slot, ItemPointer *itemptr_ptr) = 0;
+
   virtual bool PerformRead(const ItemPointer &location) = 0;
 
   virtual void PerformUpdate(const ItemPointer &old_location,

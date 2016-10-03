@@ -233,6 +233,7 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
   // Index checks and updates
   if (InsertInIndexes(tuple, location, itemptr_ptr) == false) {
     LOG_TRACE("Index constraint violated");
+    gc::GCManagerFactory::GetInstance().RecycleInvalidTupleSlot(table_oid, location.block, location.offset);
     return INVALID_ITEMPOINTER;
   }
 

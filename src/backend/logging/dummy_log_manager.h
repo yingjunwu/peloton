@@ -31,19 +31,21 @@ public:
   virtual ~DummyLogManager() {}
 
 
-  virtual void SetDirectories(const std::vector<std::string> &logging_dirs UNUSED_ATTRIBUTE) override {}
+  virtual void SetDirectories(const std::vector<std::string> &logging_dirs UNUSED_ATTRIBUTE) final {}
 
-  virtual void RegisterWorkerToLogger() {};
-  virtual void DeregisterWorkerFromLogger() {};
+  virtual void RegisterWorkerToLogger() final {};
+  virtual void DeregisterWorkerFromLogger() final {};
 
-  virtual void LogInsert(const ItemPointer &tuple_pos UNUSED_ATTRIBUTE) {};
-  virtual void LogUpdate(const ItemPointer &tuple_pos UNUSED_ATTRIBUTE) {};
-  virtual void LogDelete(const ItemPointer &tuple_pos_deleted UNUSED_ATTRIBUTE) {};
-  virtual void StartTxn(concurrency::Transaction *txn UNUSED_ATTRIBUTE) {};
-  virtual void CommitCurrentTxn() {};
+  virtual void LogInsert(const ItemPointer &tuple_pos UNUSED_ATTRIBUTE) final {};
+  virtual void LogUpdate(const ItemPointer &tuple_pos UNUSED_ATTRIBUTE) final {};
+  virtual void LogDelete(const ItemPointer &tuple_pos_deleted UNUSED_ATTRIBUTE) final {};
+  virtual void StartTxn(concurrency::Transaction *txn UNUSED_ATTRIBUTE) final {};
+  virtual void CommitCurrentTxn() final {};
 
-  virtual void StartLoggers() {};
-  virtual void StopLoggers() {};
+  virtual void DoRecovery() final {};
+
+  virtual void StartLoggers() final {};
+  virtual void StopLoggers() final {};
 
 };
 

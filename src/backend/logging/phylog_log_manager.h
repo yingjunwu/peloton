@@ -110,6 +110,7 @@ public:
   virtual void CommitCurrentTxn() override ;
 
   // Logger side logic
+  virtual void DoRecovery() override;
   virtual void StartLoggers() override ;
   virtual void StopLoggers() override ;
 

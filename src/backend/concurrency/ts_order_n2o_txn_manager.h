@@ -55,6 +55,9 @@ class TsOrderN2OTxnManager : public TransactionManager {
   // which is directly pointed by the primary index.
   bool PerformInsert(const ItemPointer &location, ItemPointer *itemptr_ptr);
 
+  virtual void
+  InitInsertedTupleForRecovery(storage::TileGroupHeader *tg_header, oid_t tuple_slot, ItemPointer *itemptr_ptr);
+
   virtual bool PerformRead(const ItemPointer &location);
 
   virtual void PerformUpdate(const ItemPointer &old_location,

@@ -42,6 +42,8 @@ public:
   virtual void StartTxn(concurrency::Transaction *txn) = 0;
   virtual void CommitCurrentTxn() = 0;
 
+  virtual void DoRecovery() = 0;
+
   virtual void StartLoggers() = 0;
   virtual void StopLoggers() = 0;
 

@@ -86,6 +86,9 @@ class DataTable : public AbstractTable {
   // For RB
   ItemPointer InsertTuple(const Tuple *tuple, index::RBItemPointer **rb_itemptr_ptr);
 
+  // Claim a tuple slot in a tile group
+  ItemPointer FillInEmptyTupleSlot(const storage::Tuple *tuple);
+
   //===--------------------------------------------------------------------===//
   // TILE GROUP
   //===--------------------------------------------------------------------===//
@@ -174,9 +177,6 @@ class DataTable : public AbstractTable {
   //===--------------------------------------------------------------------===//
   // INTEGRITY CHECKS
   //===--------------------------------------------------------------------===//
-
-  // Claim a tuple slot in a tile group
-  ItemPointer FillInEmptyTupleSlot(const storage::Tuple *tuple);
 
   // add a default unpartitioned tile group to table
   oid_t AddDefaultTileGroup(const size_t &tg_seq_id);

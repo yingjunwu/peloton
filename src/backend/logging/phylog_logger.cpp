@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <dirent.h>
 #include <cstdio>
+#include <backend/gc/gc_manager_factory.h>
+#include <backend/concurrency/transaction_manager_factory.h>
 
 #include "backend/catalog/manager.h"
 #include "backend/concurrency/epoch_manager_factory.h"
@@ -68,66 +70,118 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
   return file_ids;
 }
 
-void PhyLogLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
-  while (tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_) == false)) {
+txn_id_t PhyLogLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
+  txn_id_t txnid_logger = (START_TXN_ID + this->logger_id_);
+  while (true) {
+    // We use the txn_id field as a lock. However this field also stored information about whether a tuple is deleted or not.
+    // To restore that information, we need to return the old one before overwriting it.
+    if (tg_header->SetAtomicTransactionId(tuple_offset, INITIAL_TXN_ID, txnid_logger) == INITIAL_TXN_ID) return INITIAL_TXN_ID;
+    if (tg_header->SetAtomicTransactionId(tuple_offset, INVALID_TXN_ID, txnid_logger) == INVALID_TXN_ID) return INVALID_TXN_ID;
     _mm_pause();
   }
 }
 
-void PhyLogLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
-  tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), INITIAL_TXN_ID);
+void PhyLogLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id) {
+  PL_ASSERT(new_txn_id == INVALID_TXN_ID || new_txn_id == INITIAL_TXN_ID);
+  tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), new_txn_id);
 }
 
-bool PhyLogLogger::InstallTupleRecord(LogRecordType type UNUSED_ATTRIBUTE, storage::Tuple *tuple UNUSED_ATTRIBUTE, storage::DataTable *table UNUSED_ATTRIBUTE, cid_t cur_cid UNUSED_ATTRIBUTE) {
+bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
   // First do an index look up, if current version is newer, skip this record
   auto pindex = table->GetIndexWithOid(table->GetPrimaryIndexOid());
   auto pindex_schema = pindex->GetKeySchema();
   PL_ASSERT(pindex);
 
   std::unique_ptr<storage::Tuple> key(new storage::Tuple(pindex_schema, true));
-  key->SetFromTuple(tuple, pindex_schema->GetIndexedColumns(), this->temp_pool_.get());
+  key->SetFromTuple(tuple, pindex_schema->GetIndexedColumns(), pindex->GetPool());
 
   std::vector<ItemPointer *> itemptr_ptrs;
   pindex->ScanKey(key.get(), itemptr_ptrs);
 
   if (itemptr_ptrs.empty()) {
     // Try to insert a new tuple
+    std::function<bool (const void *)> fn = [](const void *t UNUSED_ATTRIBUTE) -> bool {return true;};
 
-    // First allocate the tuple in a tile group
+    // Allocate a slot from the table's tile group
+    ItemPointer insert_location = table->FillInEmptyTupleSlot(tuple); // This function does not insert indexes
+    if (insert_location.block == INVALID_OID) {
+      LOG_ERROR("Failed to get tuple slot");
+      return false;
+    }
 
+    auto insert_tg_header = catalog::Manager::GetInstance().GetTileGroup(insert_location.block)->GetHeader();
 
-    // Initialize the tuple's header
+    // Get the lock before trying to insert it into the primary index
+    txn_id_t old_txn_id = LockTuple(insert_tg_header, insert_location.offset);
+    PL_ASSERT(old_txn_id == INVALID_TXN_ID);
 
-    // Use the conditional insert interface to insert the tuple
+    // Insert into primary index
+    ItemPointer *itemptr_ptr = new ItemPointer(insert_location);
+    if (pindex->CondInsertEntryInTupleIndex(key.get(), itemptr_ptr, fn) == false) {
+      // Already inserted by others (concurrently), fall back to the override approach
+      delete itemptr_ptr;
+      UnlockTuple(insert_tg_header, insert_location.offset, old_txn_id);
+      gc::GCManagerFactory::GetInstance().RecycleInvalidTupleSlot(table->GetOid(), insert_location.block, insert_location.offset);
 
-    // If failed, fall back to the else branch --> Try to overwrite. Remember to recycle the used itempointer (notify GC)
+      // Redo the scan so that we have the correct item pointer
+      pindex->ScanKey(key.get(), itemptr_ptrs);
+    } else {
+      // Successfully inserted into the primary index
+      // Initialize the tuple's header
+      concurrency::TransactionManagerFactory::GetInstance()
+        .InitInsertedTupleForRecovery(insert_tg_header, insert_location.offset, itemptr_ptr);
 
-    // Insert the tuple in all secondary indexes
+      // TODO: Insert the tuple in all secondary indexes.
+      // TODO: May be we should rebuild all secondary indexes after we finish the log replay,
+      // so that we can ensure some constraints on the sindexes. --Jiexi
 
-    // Yield ownership
+      // Set the time stamp for the new tuple
+      insert_tg_header->SetBeginCommitId(insert_location.offset, cur_cid);
+      PL_ASSERT(insert_tg_header->GetEndCommitId(insert_location.offset) == MAX_CID);
 
-    return true;
+      // Yield ownership
+      UnlockTuple(insert_tg_header, insert_location.offset, (type == LOGRECORD_TYPE_TUPLE_DELETE) ? INVALID_TXN_ID : INITIAL_TXN_ID);
+      return true;
+    }
   }
 
   // Try to overwrite the tuple
-
   PL_ASSERT(itemptr_ptrs.size() == 1); // Primary index property
-  ItemPointer itemptr = *(itemptr_ptrs.front());
-  auto tg = catalog::Manager::GetInstance().GetTileGroup(itemptr.block);
+  ItemPointer overwrite_location = *(itemptr_ptrs.front());
+  auto tg = catalog::Manager::GetInstance().GetTileGroup(overwrite_location.block);
   PL_ASSERT(tg);
   auto tg_header = tg->GetHeader();
 
-  // Acquire the ownership of the tuple
-  UnlockTuple(tg_header, itemptr.offset);
+  // Acquire the ownership of the tuple, before doing any read/write
+  txn_id_t old_txn_id = LockTuple(tg_header, overwrite_location.offset);
 
   // Check if we have a newer version of that tuple
-  auto old_cid = tg_header->GetBeginCommitId(itemptr.offset);
+  auto old_cid = tg_header->GetBeginCommitId(overwrite_location.offset);
   if (old_cid < cur_cid) {
-    // TODO: Overwrite the old version, delete/re-insert all secondary indexes
-  }
+    // Overwrite the old version if we are not deleting a tuple
+    if (type != LOGRECORD_TYPE_TUPLE_DELETE) {
+      expression::ContainerTuple<storage::TileGroup> allocated_location(tg.get(), overwrite_location.offset);
+      for (oid_t col_id : tuple->GetSchema()->GetIndexedColumns()) {
+        auto value = tuple->GetValue(col_id);
+        allocated_location.SetValue(col_id, value);
+      }
+    }
 
-  // Release the ownership
-  UnlockTuple(tg_header, itemptr.offset);
+    // TODO: Delete and reinsert all secondary indexes
+    // TODO: May be we should rebuild all secondary indexes after we finish the log replay,
+    // so that we can ensure some constraints on the sindexes. --Jiexi
+
+    // Set the begin time stamp before release the lock
+    tg_header->SetBeginCommitId(overwrite_location.offset, cur_cid);
+    PL_ASSERT(tg_header->GetEndCommitId(overwrite_location.offset) == MAX_CID);
+
+    // Release the lock
+    UnlockTuple(tg_header, overwrite_location.offset, (type == LOGRECORD_TYPE_TUPLE_DELETE ? INVALID_TXN_ID : INITIAL_TXN_ID));
+  } else {
+    // The installed version is newer than the version in the log
+    // Release the ownership without any modification
+    UnlockTuple(tg_header, overwrite_location.offset, old_txn_id);
+  }
   return true;
 }
 
@@ -260,16 +314,19 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
       exit(EXIT_FAILURE);
     }
     ReplayLogFile(file_handle, checkpoint_eid, persist_eid);
+    next_file_id_ = std::max(next_file_id_, (size_t) fid);
   }
+  recovery_done_ = true;
 }
 
 
 void PhyLogLogger::Run() {
-  
+  // TODO: Ensure that we have called run recovery before
+
   // Get the file name
   // for now, let's assume that each logger uses a single file to record logs. --YINGJUN
   // SILO uses multiple files only to simplify the process of log truncation.
-  std::string filename = GetLogFileFullPath(0);
+  std::string filename = GetLogFileFullPath(next_file_id_);
 
   // Create a new file
   if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle_) == false) {

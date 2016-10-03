@@ -167,10 +167,25 @@ void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   WriteRecordToBuffer(record);
 }
 
+void PhyLogLogManager::DoRecovery(){
+  // TODO: Get the checkpoint eid
+  // TODO: Get the pepoch eid
+  // TODO: Get the number of logger -- Better be the same as the last run
+  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
+    LOG_TRACE("Start logger %d for recovery", (int) logger_id);
+    // TODO: properly set this two eid
+    loggers_[logger_id]->StartRecover(START_EPOCH_ID, MAX_EPOCH_ID);
+  }
+
+  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
+    loggers_[logger_id]->WaitForRecovery();
+  }
+}
+
 void PhyLogLogManager::StartLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d", (int) logger_id);
-    loggers_[logger_id]->Start();
+    loggers_[logger_id]->StartLogging();
   }
   is_running_ = true;
   pepoch_thread_.reset(new std::thread(&PhyLogLogManager::RunPepochLogger, this));
@@ -178,7 +193,7 @@ void PhyLogLogManager::StartLoggers() {
 
 void PhyLogLogManager::StopLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
-    loggers_[logger_id]->Stop();
+    loggers_[logger_id]->StopLogging();
   }
   is_running_ = false;
   pepoch_thread_->join();
@@ -210,6 +225,7 @@ void PhyLogLogManager::RunPepochLogger() {
       }
     }
     if (curr_persist_epoch_id > global_persist_epoch_id_) {
+      // TODO: I think we should post the pepoch id after the fsync
       global_persist_epoch_id_ = curr_persist_epoch_id;
 
       fwrite((const void *) (&global_persist_epoch_id_), sizeof(global_persist_epoch_id_), 1, file_handle.file);
