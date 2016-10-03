@@ -172,12 +172,59 @@ void PhyLogLogManager::StartLoggers() {
     LOG_TRACE("Start logger %d", (int) logger_id);
     loggers_[logger_id]->Start();
   }
+  is_running_ = true;
+  pepoch_thread_.reset(new std::thread(&PhyLogLogManager::RunPepochLogger, this));
 }
 
 void PhyLogLogManager::StopLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     loggers_[logger_id]->Stop();
   }
+  is_running_ = false;
+  pepoch_thread_->join();
+}
+
+void PhyLogLogManager::RunPepochLogger() {
+  
+  FileHandle file_handle;
+  std::string filename = "/tmp/pepoch";
+  // Create a new file
+  if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle) == false) {
+    LOG_ERROR("Unable to create pepoch file %s\n", filename.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+
+  while (true) {
+    if (is_running_ == false) {
+      break;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
+    size_t curr_persist_epoch_id = INVALID_EPOCH_ID;
+    for (auto &logger : loggers_) {
+      size_t logger_pepoch_id = logger->GetPersistEpochId();
+      if (curr_persist_epoch_id == INVALID_EPOCH_ID || curr_persist_epoch_id > logger_pepoch_id) {
+        curr_persist_epoch_id = logger_pepoch_id;
+      }
+    }
+    if (curr_persist_epoch_id > global_persist_epoch_id_) {
+      global_persist_epoch_id_ = curr_persist_epoch_id;
+
+      fwrite((const void *) (&global_persist_epoch_id_), sizeof(global_persist_epoch_id_), 1, file_handle.file);
+      // Call fsync
+      LoggingUtil::FFlushFsync(file_handle);
+    }
+  }
+
+  // Safely close the file
+  bool res = LoggingUtil::CloseFile(file_handle);
+  if (res == false) {
+    LOG_ERROR("Can not close pepoch file");
+    exit(EXIT_FAILURE);
+  }
+
 }
 
 }

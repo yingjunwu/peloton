@@ -69,8 +69,8 @@ protected:
 
   PhyLogLogManager()
     : worker_count_(0),
-      global_committed_eid_(INVALID_EPOCH_ID){
-  }
+      is_running_(false),
+      global_persist_epoch_id_(INVALID_EPOCH_ID){}
 
 public:
   static PhyLogLogManager &GetInstance() {
@@ -113,8 +113,7 @@ public:
   virtual void StartLoggers() override ;
   virtual void StopLoggers() override ;
 
-  // TODO: See if we can move some of this to the base class
-  // static const uint64_t uint64_place_holder;
+  void RunPepochLogger();
 
 private:
 
@@ -149,9 +148,12 @@ private:
 private:
   std::atomic<oid_t> worker_count_;
 
-  size_t global_committed_eid_;
-
   std::vector<std::shared_ptr<PhyLogLogger>> loggers_;
+
+  std::unique_ptr<std::thread> pepoch_thread_;
+  volatile bool is_running_;
+
+  size_t global_persist_epoch_id_;
 };
 
 }

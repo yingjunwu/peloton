@@ -72,6 +72,10 @@ namespace logging {
     void RegisterWorker(WorkerLogContext *worker_log_ctx);
     void DeregisterWorker(WorkerLogContext *worker_log_ctx);
 
+    size_t GetPersistEpochId() const {
+      return persist_epoch_id_;
+    }
+
 private:
   void Run();
   void RunRecovery(size_t checkpoint_eid, size_t persist_eid);
