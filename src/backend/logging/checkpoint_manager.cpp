@@ -81,7 +81,7 @@ namespace logging {
         std::string file_name = GetCheckpointFileFullPath(0, database_idx, table_idx, begin_cid);
        
         bool success =
-            LoggingUtil::CreateFile(file_name.c_str(), "ab", file_handles[database_idx][table_idx]);
+            LoggingUtil::OpenFile(file_name.c_str(), "ab", file_handles[database_idx][table_idx]);
         
         PL_ASSERT(success == true);
         if (success != true) {

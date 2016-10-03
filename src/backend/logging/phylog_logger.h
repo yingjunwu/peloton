@@ -28,9 +28,15 @@
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
 #include "backend/common/logger.h"
+#include "backend/common/pool.h"
 
 
 namespace peloton {
+  
+namespace storage {
+  class TileGroupHeader;
+}
+
 namespace logging {
 
   class PhyLogLogger {

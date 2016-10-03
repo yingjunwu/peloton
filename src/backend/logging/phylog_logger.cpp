@@ -68,7 +68,7 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
   return file_ids;
 }
 
-void PhyLogLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
+void PhyLogLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
   while (tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_) == false)) {
     _mm_pause();
   }
@@ -78,7 +78,7 @@ void PhyLogLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_
   tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), INITIAL_TXN_ID);
 }
 
-bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
+bool PhyLogLogger::InstallTupleRecord(LogRecordType type UNUSED_ATTRIBUTE, storage::Tuple *tuple UNUSED_ATTRIBUTE, storage::DataTable *table UNUSED_ATTRIBUTE, cid_t cur_cid UNUSED_ATTRIBUTE) {
   // First do an index look up, if current version is newer, skip this record
   auto pindex = table->GetIndexWithOid(table->GetPrimaryIndexOid());
   auto pindex_schema = pindex->GetKeySchema();
@@ -148,12 +148,12 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
       LOG_TRACE("Reach the end of the log file");
       break;
     }
-    CopySerializeInput length_decode((const void *) &length_buf, 4);
+    CopySerializeInputBE length_decode((const void *) &length_buf, 4);
     int length = length_decode.ReadInt();
 
     // Adjust the buffer
-    if (length > buf_size) {
-      buffer.reset(new char[length * 1.2]);
+    if ((size_t) length > buf_size) {
+      buffer.reset(new char[(int)(length * 1.2)]);
       buf_size = (size_t) length;
     }
 
@@ -162,7 +162,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
       // TODO: How to handle damaged log file?
       return false;
     }
-    CopySerializeInput record_decode((const void *) buffer.get(), length);
+    CopySerializeInputBE record_decode((const void *) buffer.get(), length);
 
     // Check if we can skip this epoch
     if (current_eid != INVALID_EPOCH_ID && (current_eid < checkpoint_eid || current_eid > pepoch_eid)) {
