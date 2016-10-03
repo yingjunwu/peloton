@@ -22,28 +22,33 @@ namespace logging {
   std::unique_ptr<LogBuffer> LogBufferPool::GetBuffer() {
     size_t head_idx = head_ % buffer_queue_size_;
     while (true) {
-      if (head_.load() < tail_.load()) {
+      if (head_.load() < tail_.load() - 1) {
         if (local_buffer_queue_[head_idx] == false) {
           // Not any buffer allocated now
-          local_buffer_queue_[head_idx].reset(new LogBuffer(backend_logger_id_));
+          local_buffer_queue_[head_idx].reset(new LogBuffer(worker_id_));
         }
         break;
       }
 
       // sleep a while, and try to get a new buffer
       _mm_pause();
-      LOG_TRACE("Worker %d uses up its buffer", (int) backend_logger_id_);
+      LOG_TRACE("Worker %d uses up its buffer", (int) worker_id_);
     }
 
-    head_++;
+    head_.fetch_add(1, std::memory_order_relaxed);
+
     return std::move(local_buffer_queue_[head_idx]);
   }
 
+  // This function is called only by the corresponding logger.
   void LogBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {
-    PL_ASSERT(buf);
-    PL_ASSERT(buf->GetWorkerId() == backend_logger_id_);
+    PL_ASSERT(buf.get() != nullptr);
+    PL_ASSERT(buf->GetWorkerId() == worker_id_);
 
     size_t tail_idx = tail_ % buffer_queue_size_;
+    if (tail_idx == head_ % buffer_queue_size_) {
+      printf("tail = %d, head = %d\n", (int) tail_.load(), (int) head_.load());
+    }
     // The buffer pool must not be full
     PL_ASSERT(tail_idx != head_ % buffer_queue_size_);
     // The tail pos must be null
@@ -51,7 +56,8 @@ namespace logging {
     // The returned buffer must be empty
     PL_ASSERT(buf->Empty() == true);
     local_buffer_queue_[tail_idx].reset(buf.release());
-    tail_++;
+    
+    tail_.fetch_add(1, std::memory_order_relaxed);
   }
 
 }

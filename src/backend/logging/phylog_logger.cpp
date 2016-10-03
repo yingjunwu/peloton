@@ -123,7 +123,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type UNUSED_ATTRIBUTE, stora
   // Check if we have a newer version of that tuple
   auto old_cid = tg_header->GetBeginCommitId(itemptr.offset);
   if (old_cid < cur_cid) {
-    // TODO: Overwrite the old version, delte/re-insert all secondary indexes
+    // TODO: Overwrite the old version, delete/re-insert all secondary indexes
   }
 
   // Release the ownership

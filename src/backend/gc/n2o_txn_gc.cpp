@@ -100,7 +100,6 @@ namespace peloton {
       std::this_thread::sleep_for(
         std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
       while (true) {
-
         size_t max_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
 
         assert(max_eid != MAX_EPOCH_ID);

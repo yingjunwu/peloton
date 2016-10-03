@@ -60,12 +60,17 @@ class EpochManager {
  public:
   EpochManager(const int epoch_length)
  : epoch_length_(epoch_length),
-   epoch_queue_(epoch_queue_size_),
-   queue_tail_(0), reclaim_tail_(0), current_epoch_(0),
-   queue_tail_token_(true), reclaim_tail_token_(true), finish_(false) {
-    //ts_thread_.reset(new std::thread(&EpochManager::Start, this));
-    //ts_thread_->detach();
+   epoch_queue_(epoch_queue_size_) {
+    
+    InitEpochQueue();
+    
+    finish_ = false;
     ts_thread_ = std::thread(&EpochManager::Start, this);
+  }
+
+  ~EpochManager() {
+    finish_ = true;
+    ts_thread_.join();
   }
 
   void Reset() {
@@ -74,16 +79,21 @@ class EpochManager {
 
     InitEpochQueue();
 
-    queue_tail_token_ = true;
-    reclaim_tail_token_ = true;
-
     finish_ = false;
     ts_thread_ = std::thread(&EpochManager::Start, this);
   }
 
-  ~EpochManager() {
-    finish_ = true;
-    ts_thread_.join();
+  inline void InitEpochQueue() {
+    for (int i = 0; i < epoch_length_; ++i) {
+      epoch_queue_[i].Init();
+    }
+
+    queue_tail_token_ = true;
+    reclaim_tail_token_ = true;
+
+    current_epoch_ = START_EPOCH_ID + 2; // 2
+    queue_tail_ = START_EPOCH_ID + 1;    // 1
+    reclaim_tail_ = START_EPOCH_ID;      // 0
   }
 
   static size_t GetEpochQueueCapacity() { return epoch_queue_size_; }
@@ -282,21 +292,11 @@ class EpochManager {
     return;
   }
 
-  inline void InitEpochQueue() {
-    for (int i = 0; i < 5; ++i) {
-      epoch_queue_[i].Init();
-    }
-
-    current_epoch_ = START_EPOCH_ID + 2; // 2
-    queue_tail_ = START_EPOCH_ID + 1;    // 1
-    reclaim_tail_ = START_EPOCH_ID;      // 0
-  }
-
 private:
   // queue size
   static const size_t epoch_queue_size_ = 4096;
 
-  static const int safety_interval_ = 0;
+  static const int safety_interval_ = 2;
   static const size_t low_32_bit_mask_ = 0xffffffff;
   const int epoch_length_;
 

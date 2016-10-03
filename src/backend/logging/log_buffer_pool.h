@@ -29,24 +29,26 @@ namespace logging {
     LogBufferPool &operator=(const LogBufferPool &&) = delete;
 
   public:
-    LogBufferPool(size_t backend_id) : 
+    LogBufferPool(size_t worker_id) : 
       head_(0), 
       tail_(buffer_queue_size_),
-      backend_logger_id_(backend_id),
+      worker_id_(worker_id),
       local_buffer_queue_(buffer_queue_size_) {}
 
     std::unique_ptr<LogBuffer> GetBuffer();
 
     void PutBuffer(std::unique_ptr<LogBuffer> buf);
 
-    inline size_t GetBackendLoggerId() { return backend_logger_id_; }
+    inline size_t GetWorkerId() { return worker_id_; }
+
+
 
   private:
     static const size_t buffer_queue_size_ = 16;
     std::atomic<size_t> head_;
     std::atomic<size_t> tail_;
     
-    size_t backend_logger_id_;
+    size_t worker_id_;
 
     std::vector<std::unique_ptr<LogBuffer>> local_buffer_queue_;
 };
