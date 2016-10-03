@@ -23,19 +23,6 @@ namespace peloton {
 namespace logging {
 
   void CheckpointManager::StartCheckpointing() {
-    // bool res = true;
-    // res = LoggingUtil::RemoveDirectory(checkpoint_dir_.c_str(), false);
-    // PL_ASSERT(res == true);
-    // if (res != true) {
-    //   LOG_ERROR("remove directory failed!");
-    //   exit(-1);
-    // }
-    // res = LoggingUtil::CreateDirectory(checkpoint_dir_.c_str(), 0700);
-    // PL_ASSERT(res == true);
-    // if (res != true) {
-    //   LOG_ERROR("create directory failed!");
-    //   exit(-1);
-    // }
     is_running_ = true;
     checkpoint_thread_.reset(new std::thread(&CheckpointManager::Running, this));
   }
@@ -69,6 +56,7 @@ namespace logging {
     // first of all, we should get a snapshot txn id.
     auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
     cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
+    size_t epoch_id = begin_cid >> 32;
 
     // creating files
     FileHandle **file_handles = new FileHandle*[database_count];
@@ -78,10 +66,10 @@ namespace logging {
       
       file_handles[database_idx] = new FileHandle[table_count];
       for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
-        std::string file_name = GetCheckpointFileFullPath(0, database_idx, table_idx, begin_cid);
+        std::string file_name = GetCheckpointFileFullPath(0, database_idx, table_idx, epoch_id);
        
         bool success =
-            LoggingUtil::OpenFile(file_name.c_str(), "ab", file_handles[database_idx][table_idx]);
+            LoggingUtil::OpenFile(file_name.c_str(), "wb", file_handles[database_idx][table_idx]);
         
         PL_ASSERT(success == true);
         if (success != true) {
@@ -91,7 +79,6 @@ namespace logging {
 
       }
     }
-
 
     // loop all databases
     for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
@@ -105,7 +92,7 @@ namespace logging {
         PL_ASSERT(target_table);
         LOG_TRACE("SeqScan: database idx %u table idx %u: %s", database_idx,
                  table_idx, target_table->GetName().c_str());
-        CheckpointTable(begin_cid, target_table);
+        CheckpointTable(target_table, begin_cid, file_handles[database_idx][table_idx]);
       }
     }
 
@@ -129,12 +116,14 @@ namespace logging {
     delete[] file_handles;
   }
 
-  void CheckpointManager::CheckpointTable(cid_t begin_cid UNUSED_ATTRIBUTE, storage::DataTable *target_table) {
+  void CheckpointManager::CheckpointTable(storage::DataTable *target_table, const cid_t &begin_cid, FileHandle &file_handle) {
 
     LOG_TRACE("perform checkpoint cid = %lu", begin_cid);
 
     oid_t tile_group_count = target_table->GetTileGroupCount();
     oid_t current_tile_group_offset = 0;
+    
+    CopySerializeOutput output_buffer;
 
     while (current_tile_group_offset < tile_group_count) {
       auto tile_group =
@@ -146,29 +135,37 @@ namespace logging {
       for (oid_t tuple_id = 0; tuple_id < active_tuple_count; tuple_id++) {
 
         // check tuple version visibility
-        if (IsVisible(tile_group_header, tuple_id) == true) {
+        if (IsVisible(tile_group_header, tuple_id, begin_cid) == true) {
           // persist this version.
           //PersistTuple(tile_group_header, tuple_id);
 
-          CopySerializeOutput output_buffer;
+          expression::ContainerTuple<storage::TileGroup> container_tuple(
+            tile_group.get(), tuple_id);
+          
+          output_buffer.Reset();
 
-          expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group.get(), tuple_id);
           container_tuple.SerializeTo(output_buffer);
+
+          fwrite((const void *) (output_buffer.Data()), output_buffer.Size(), 1, file_handle.file);
 
         } // end if isvisible
       }   // end for
     }     // end while
+
+    // Call fsync
+    LoggingUtil::FFlushFsync(file_handle);
+
   }
 
 
   // Visibility check
-  bool CheckpointManager::IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id) {
+  bool CheckpointManager::IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &begin_cid) {
     txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
     cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
-    bool activated = (concurrency::current_txn->GetBeginCommitId() >= tuple_begin_cid);
-    bool invalidated = (concurrency::current_txn->GetBeginCommitId() >= tuple_end_cid);
+    bool activated = (begin_cid >= tuple_begin_cid);
+    bool invalidated = (begin_cid >= tuple_end_cid);
 
     if (tuple_txn_id == INVALID_TXN_ID) {
       // the tuple is not available.
