@@ -97,7 +97,7 @@ void LoggingUtil::FFlushFsync(FileHandle &file_handle) {
   }
 }
 
-bool LoggingUtil::CreateFile(const char *name, const char *mode, FileHandle &file_handle) {
+bool LoggingUtil::OpenFile(const char *name, const char *mode, FileHandle &file_handle) {
   auto file = fopen(name, mode);
   if (file == NULL) {
     LOG_ERROR("Checkpoint File is NULL");
@@ -114,7 +114,8 @@ bool LoggingUtil::CreateFile(const char *name, const char *mode, FileHandle &fil
   } else {
     file_handle.fd = fd;
   }
-  file_handle.size = 0;
+
+  file_handle.size_at_open = GetFileSize(file_handle);
   return true;
 }
 
@@ -139,7 +140,7 @@ bool LoggingUtil::IsFileTruncated(FileHandle &file_handle,
 
   // Check if the actual file size is less than the expected file size
   // Current position + frame length
-  if (current_position + size_to_read <= file_handle.size) {
+  if (current_position + size_to_read <= file_handle.size_at_open) {
     return false;
   } else {
     fseek(file_handle.file, 0, SEEK_END);
@@ -147,11 +148,18 @@ bool LoggingUtil::IsFileTruncated(FileHandle &file_handle,
   }
 }
 
-//size_t LoggingUtil::GetFileSize(FileHandle &file_handle) {
-//  struct stat file_stats;
-//  fstat(file_handle.fd, &file_stats);
-//  return file_stats.st_size;
-//}
+size_t LoggingUtil::GetFileSize(FileHandle &file_handle) {
+  struct stat file_stats;
+  fstat(file_handle.fd, &file_stats);
+  return file_stats.st_size;
+}
+
+bool LoggingUtil::ReadNBytesFromFile(FileHandle &file_handle, void *bytes_read, size_t n) {
+  PL_ASSERT(file_handle.fd != INVALID_FILE_DESCRIPTOR && file_handle.file != nullptr);
+  int res = fread(bytes_read, n, 1, file_handle.file);
+  return res == 1;
+}
+
 //
 //size_t LoggingUtil::GetNextFrameSize(FileHandle &file_handle) {
 //  size_t frame_size;

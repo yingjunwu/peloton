@@ -159,6 +159,10 @@ class DataTable : public AbstractTable {
 
   bool HasPrimaryKey() { return has_primary_key_; }
 
+  inline oid_t GetPrimaryIndexOid() {
+    return primary_idx_oid_;
+  }
+
   bool HasUniqueConstraints() { return (unique_constraint_count_ > 0); }
 
   bool HasForeignKeys() { return (GetForeignKeyCount() > 0); }
@@ -240,6 +244,8 @@ class DataTable : public AbstractTable {
 
   // adapt table
   bool adapt_table_ = true;
+
+  oid_t primary_idx_oid_ = INVALID_OID;
 
 };
 

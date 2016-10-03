@@ -58,6 +58,10 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   // Reset the output buffer
   output.Reset();
 
+  // Reserve for the frame length
+  size_t start = output.Position();
+  output.WriteInt(0);
+
   LogRecordType type = record.GetType();
   output.WriteEnumInSingleByte(type);
 
@@ -96,12 +100,15 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
     }
   }
 
-  // Copy the output buffer into current buffer
   PL_ASSERT(ctx->per_epoch_buffer_ptrs[ctx->current_eid].empty() == false);
-
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[ctx->current_eid].top().get();
   PL_ASSERT(buffer_ptr);
 
+  // Add the frame length
+  // XXX: We rely on the fact that the serializer treat a int32_t as 4 bytes
+  output.WriteIntAt(start, (int32_t) (output.Position() - start - sizeof(int32_t)));
+
+  // Copy the output buffer into current buffer
   bool is_success = buffer_ptr->WriteData(output.Data(), output.Size());
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger

@@ -42,7 +42,10 @@ namespace logging {
       logger_thread_(nullptr),
       is_running_(false),
       logger_output_buffer_(), 
-      file_handle_(), 
+      file_handle_(),
+      next_file_id_(0),
+      recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)),
+      temp_pool_(new VarlenPool(BACKEND_TYPE_MM)),
       persist_epoch_id_(INVALID_EPOCH_ID), 
       worker_map_lock_(), 
       worker_map_()
@@ -65,6 +68,7 @@ namespace logging {
 
 private:
   void Run();
+  void RunRecovery(size_t checkpoint_eid, size_t persist_eid);
 
   void PersistEpochBegin(const size_t epoch_id);
   void PersistEpochEnd(const size_t epoch_id);
@@ -73,6 +77,12 @@ private:
   std::string GetLogFileFullPath(size_t epoch_id) {
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
   }
+
+  std::vector<int> GetSortedLogFileIdList();
+  bool ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
+  bool InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid);
+  void AcquireOwnershipBlocking(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
+  void YieldOwnership(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
 
   private:
     size_t logger_id_;
@@ -85,6 +95,11 @@ private:
     /* File system related */
     CopySerializeOutput logger_output_buffer_;
     FileHandle file_handle_;
+    size_t next_file_id_;
+
+    /* Recovery */
+    std::unique_ptr<VarlenPool> recovery_pool_;
+    std::unique_ptr<VarlenPool> temp_pool_;
 
     /* Log buffers */
     size_t persist_epoch_id_;

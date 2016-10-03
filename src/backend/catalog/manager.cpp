@@ -111,7 +111,7 @@ void Manager::DropDatabaseWithOid(const oid_t database_oid) {
       }
       database_offset++;
     }
-    assert(database_offset < databases.size());
+    PL_ASSERT(database_offset < databases.size());
 
     // Drop the database
     databases.erase(databases.begin() + database_offset);
@@ -119,7 +119,7 @@ void Manager::DropDatabaseWithOid(const oid_t database_oid) {
 }
 
 storage::Database *Manager::GetDatabase(const oid_t database_offset) const {
-  assert(database_offset < databases.size());
+  PL_ASSERT(database_offset < databases.size());
   auto database = databases.at(database_offset);
   return database;
 }

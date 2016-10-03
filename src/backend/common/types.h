@@ -836,12 +836,12 @@ struct FileHandle {
   int fd;
 
   // Size of the file
-  size_t size;
+  size_t size_at_open;
 
-  FileHandle() : file(nullptr), fd(INVALID_FILE_DESCRIPTOR), size(0) {}
+  FileHandle() : file(nullptr), fd(INVALID_FILE_DESCRIPTOR), size_at_open(0) {}
 
   FileHandle(FILE *file, int fd, size_t size)
-      : file(file), fd(fd), size(size) {}
+      : file(file), fd(fd), size_at_open(size) {}
 };
 extern FileHandle INVALID_FILE_HANDLE;
 
