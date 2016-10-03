@@ -81,8 +81,8 @@ private:
   std::vector<int> GetSortedLogFileIdList();
   bool ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
   bool InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid);
-  void AcquireOwnershipBlocking(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
-  void YieldOwnership(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
+  void LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
+  void UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
 
   private:
     size_t logger_id_;

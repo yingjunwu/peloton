@@ -68,13 +68,13 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
   return file_ids;
 }
 
-void PhyLogLogger::AcquireOwnershipBlocking(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
+void PhyLogLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
   while (tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_) == false)) {
     _mm_pause();
   }
 }
 
-void PhyLogLogger::YieldOwnership(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
+void PhyLogLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
   tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), INITIAL_TXN_ID);
 }
 
@@ -118,7 +118,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   auto tg_header = tg->GetHeader();
 
   // Acquire the ownership of the tuple
-  AcquireOwnershipBlocking(tg_header, itemptr.offset);
+  UnlockTuple(tg_header, itemptr.offset);
 
   // Check if we have a newer version of that tuple
   auto old_cid = tg_header->GetBeginCommitId(itemptr.offset);
@@ -127,7 +127,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   }
 
   // Release the ownership
-  YieldOwnership(tg_header, itemptr.offset);
+  UnlockTuple(tg_header, itemptr.offset);
   return true;
 }
 
