@@ -14,6 +14,7 @@
 
 #include <string>
 
+#include "backend/common/macros.h"
 #include "backend/concurrency/transaction.h"
 
 namespace peloton {
@@ -33,14 +34,44 @@ public:
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
 
-  virtual void RegisterWorkerToLogger() = 0;
-  virtual void DeregisterWorkerFromLogger() = 0;
+  virtual void RegisterWorkerToLogger() {
+    PL_ASSERT(false);
+  }
+  virtual void DeregisterWorkerFromLogger() {
+    PL_ASSERT(false);
+  }
 
-  virtual void LogInsert(const ItemPointer &tuple_pos) = 0;
-  virtual void LogUpdate(const ItemPointer &tuple_pos) = 0;
-  virtual void LogDelete(const ItemPointer &tuple_pos_deleted) = 0;
-  virtual void StartTxn(concurrency::Transaction *txn) = 0;
-  virtual void CommitCurrentTxn() = 0;
+  virtual void LogInsert(UNUSED_ATTRIBUTE const size_t &, 
+                         UNUSED_ATTRIBUTE const ItemPointer &, 
+                         UNUSED_ATTRIBUTE const ItemPointer &) {
+    PL_ASSERT(false);
+  }
+  virtual void LogUpdate(UNUSED_ATTRIBUTE const size_t &, 
+                         UNUSED_ATTRIBUTE const ItemPointer &,
+                         UNUSED_ATTRIBUTE const ItemPointer &) {
+    PL_ASSERT(false);
+  }
+  virtual void LogDelete(UNUSED_ATTRIBUTE const size_t &, 
+                         UNUSED_ATTRIBUTE const ItemPointer &,
+                         UNUSED_ATTRIBUTE const ItemPointer &) {
+    PL_ASSERT(false);
+  }
+
+  virtual void LogInsert(UNUSED_ATTRIBUTE const ItemPointer &) {
+    PL_ASSERT(false);
+  }
+  virtual void LogUpdate(UNUSED_ATTRIBUTE const ItemPointer &) {
+    PL_ASSERT(false);
+  }
+  virtual void LogDelete(UNUSED_ATTRIBUTE const ItemPointer &) {
+    PL_ASSERT(false);
+  }
+  virtual void StartTxn(UNUSED_ATTRIBUTE concurrency::Transaction *) {
+    PL_ASSERT(false);
+  }
+  virtual void CommitCurrentTxn() {
+    PL_ASSERT(false);
+  }
 
   virtual void DoRecovery() = 0;
 

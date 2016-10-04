@@ -44,17 +44,6 @@ class LoggingUtil {
   static size_t GetFileSize(FileHandle &file_handle);
 
   static bool ReadNBytesFromFile(FileHandle &file_handle, void *bytes_read, size_t n);
-//
-//
-//  // TUPLE TO LOG TRANSFORMATIONS
-//  static bool SerializeTuple();
-//
-//  static bool DeserializeTuple();
-
-  static void CompressData() {}
-
-  static void DecompressData() {}
-
 
   // LOGGING/CHECKPOINTING SPECIFIC OPERATIONS
 
@@ -75,44 +64,6 @@ class LoggingUtil {
    * NOTE: tuple length can be obtained from the table schema.
    *
    */
-
-  /**
-   * logging file name layout :
-   * 
-   * dir_name + "/" + prefix + "_" + epoch_id
-   *
-   *
-   * logging file layout :
-   *
-   *  -----------------------------------------------------------------------------
-   *  | epoch_id | database_id | table_id | operation_type | column_count | columns | data | ... | epoch_end_flag
-   *  -----------------------------------------------------------------------------
-   *
-   * NOTE: this layout is designed for epoch logging.
-   *
-   * NOTE: tuple length can be obtained from the table schema.
-   *
-   */
-
-
-//    static GetLoggingFileFullPath();
-
-
-
-//
-//  static size_t GetNextFrameSize(FileHandle &file_handle);
-//
-//  static LogRecordType GetNextLogRecordType(FileHandle &file_handle);
-//
-//  static int ExtractNumberFromFileName(const char *name);
-//
-//  static storage::Tuple *ReadTupleRecordBody(catalog::Schema *schema,
-//                                             VarlenPool *pool,
-//                                             FileHandle &file_handle);
-//
-//  static void SkipTupleRecordBody(FileHandle &file_handle);
-//
-//  static int GetFileSizeFromFileName(const char *);
 
 };
 

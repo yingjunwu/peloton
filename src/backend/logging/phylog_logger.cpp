@@ -22,9 +22,10 @@
 #include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/expression/container_tuple.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/phylog_log_manager.h"
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
+
+#include "backend/logging/phylog_logger.h"
 
 namespace peloton {
 namespace logging {
