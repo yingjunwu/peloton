@@ -54,7 +54,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, off\n"
+          "   -L --log_type          :  log type could be phylog, epoch, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -T --timer_on          :  enable timer\n"
   );
@@ -363,6 +363,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "phylog") == 0) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
+        } else if (strcmp(logging_proto, "epoch") == 0) {
+          state.logging_type = LOGGING_TYPE_EPOCH;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);
