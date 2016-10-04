@@ -55,6 +55,9 @@ namespace logging {
  *
  */
 
+/* Per worker thread local context */
+extern thread_local PhylogWorkerContext* tl_phylog_worker_ctx;
+
 class PhyLogLogManager : public LogManager {
   PhyLogLogManager(const PhyLogLogManager &) = delete;
   PhyLogLogManager &operator=(const PhyLogLogManager &) = delete;
@@ -96,8 +99,8 @@ public:
   }
 
   // Worker side logic
-  void RegisterWorkerToLogger();
-  void DeregisterWorkerFromLogger();
+  virtual void RegisterWorkerToLogger() override;
+  virtual void DeregisterWorkerFromLogger() override;
 
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);
@@ -108,8 +111,8 @@ public:
 
   // Logger side logic
   virtual void DoRecovery() override;
-  virtual void StartLoggers() override ;
-  virtual void StopLoggers() override ;
+  virtual void StartLoggers() override;
+  virtual void StopLoggers() override;
 
 
   void RunPepochLogger();

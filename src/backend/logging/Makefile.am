@@ -9,7 +9,6 @@ logging_FILES = \
 			   backend/logging/durability_factory.cpp \
 			   backend/logging/log_buffer.cpp \
 			   backend/logging/log_buffer_pool.cpp \
-			   backend/logging/log_manager.cpp \
 			   backend/logging/log_record.cpp \
 			   backend/logging/logging_util.cpp \
 			   backend/logging/phylog_logger.cpp \

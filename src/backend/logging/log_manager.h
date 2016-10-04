@@ -21,9 +21,6 @@
 namespace peloton {
 namespace logging {
 
-/* Per worker thread local context */
-extern thread_local PhylogWorkerContext* tl_phylog_worker_ctx;
-
 // loggers are created before workers.
 class LogManager {
   LogManager(const LogManager &) = delete;
@@ -37,6 +34,10 @@ public:
   virtual ~LogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
+
+
+  virtual void RegisterWorkerToLogger() = 0;
+  virtual void DeregisterWorkerFromLogger() = 0;
 
   virtual void DoRecovery() = 0;
 

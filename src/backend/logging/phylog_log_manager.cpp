@@ -23,6 +23,8 @@
 namespace peloton {
 namespace logging {
 
+thread_local PhylogWorkerContext* tl_phylog_worker_ctx = nullptr;
+
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
