@@ -16,9 +16,13 @@
 
 #include "backend/common/macros.h"
 #include "backend/concurrency/transaction.h"
+#include "backend/logging/worker_log_context.h"
 
 namespace peloton {
 namespace logging {
+
+/* Per worker thread local context */
+extern thread_local WorkerLogContext* tl_worker_log_ctx;
 
 // loggers are created before workers.
 class LogManager {
@@ -41,7 +45,7 @@ public:
     PL_ASSERT(false);
   }
 
-  virtual void LogInsert(UNUSED_ATTRIBUTE const size_t &, 
+  virtual void LogInsert(UNUSED_ATTRIBUTE const size_t &,
                          UNUSED_ATTRIBUTE const ItemPointer &, 
                          UNUSED_ATTRIBUTE const ItemPointer &) {
     PL_ASSERT(false);
@@ -70,6 +74,10 @@ public:
     PL_ASSERT(false);
   }
   virtual void CommitCurrentTxn() {
+    PL_ASSERT(false);
+  }
+
+  virtual void FinishPendingTxn() {
     PL_ASSERT(false);
   }
 

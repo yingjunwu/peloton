@@ -138,6 +138,9 @@ class configuration {
 
   int epoch_length;
 
+  double avg_txn_lat;
+
+  double avg_ro_txn_lat;
 };
 
 extern configuration state;

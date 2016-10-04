@@ -37,10 +37,6 @@
 namespace peloton {
 namespace logging {
 
-/* Per worker thread local context */
-extern thread_local WorkerLogContext* tl_worker_log_ctx;
-
-
 /**
  * logging file name layout :
  * 
@@ -108,11 +104,13 @@ public:
   virtual void LogDelete(const ItemPointer &tuple_pos_deleted) override ;
   virtual void StartTxn(concurrency::Transaction *txn) override ;
   virtual void CommitCurrentTxn() override ;
+  virtual void FinishPendingTxn() override ;
 
   // Logger side logic
   virtual void DoRecovery() override;
   virtual void StartLoggers() override ;
   virtual void StopLoggers() override ;
+
 
   void RunPepochLogger();
 
@@ -154,7 +152,7 @@ private:
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;
 
-  size_t global_persist_epoch_id_;
+  std::atomic<size_t> global_persist_epoch_id_;
 };
 
 }

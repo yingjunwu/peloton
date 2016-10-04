@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <backend/logging/durability_factory.h>
 #include "backend/concurrency/transaction_manager.h"
 #include "backend/storage/tile_group.h"
 
@@ -84,6 +85,9 @@ class TsOrderN2OTxnManager : public TransactionManager {
     current_txn = txn;
 
     gc::GCManagerFactory::GetInstance().CreateGCContext(current_txn->GetEpochId());
+
+    // Deal with pending txns
+    logging::DurabilityFactory::GetLoggerInstance().FinishPendingTxn();
 
     return txn;
   }

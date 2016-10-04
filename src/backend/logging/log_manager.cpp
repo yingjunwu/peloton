@@ -11,9 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "backend/logging/log_manager.h"
+#include "backend/logging/durability_factory.h"
 
 namespace peloton {
 namespace logging {
+
+thread_local WorkerLogContext* tl_worker_log_ctx = nullptr;
 
 
 }

@@ -14,6 +14,7 @@
 
 #include "backend/concurrency/transaction_manager.h"
 #include "backend/storage/tile_group.h"
+#include "backend/logging/durability_factory.h"
 
 namespace peloton {
 namespace concurrency {
@@ -90,6 +91,8 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
     txn->lower_bound_cid_ = 0;
     txn->upper_bound_cid_ = begin_cid;
+
+    logging::DurabilityFactory::GetLoggerInstance().FinishPendingTxn();
 
     return txn;
   }

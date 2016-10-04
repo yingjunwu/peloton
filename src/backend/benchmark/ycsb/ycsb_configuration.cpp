@@ -617,6 +617,9 @@ void WriteOutput() {
   out << state.scan_latency << " ";
 
   out << total_snapshot_memory <<"\n";
+
+  out << "avg common txn lat = " << state.avg_txn_lat << "\n";
+  out << "avg ro txn lat = " << state.avg_ro_txn_lat << "\n";
   out.flush();
   out.close();
 }

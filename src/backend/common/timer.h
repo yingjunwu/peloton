@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <sys/time.h>
 
 //===--------------------------------------------------------------------===//
 // Timer

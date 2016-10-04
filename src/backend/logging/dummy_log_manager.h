@@ -41,6 +41,7 @@ public:
   virtual void LogDelete(const ItemPointer &tuple_pos_deleted UNUSED_ATTRIBUTE) final {};
   virtual void StartTxn(concurrency::Transaction *txn UNUSED_ATTRIBUTE) final {};
   virtual void CommitCurrentTxn() final {};
+  virtual void FinishPendingTxn() final {};
 
   virtual void DoRecovery() final {};
 

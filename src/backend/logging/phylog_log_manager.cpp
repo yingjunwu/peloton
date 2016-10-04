@@ -11,9 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include <cstdio>
-#include <backend/concurrency/epoch_manager_factory.h>
 
+#include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/logging/phylog_log_manager.h"
+#include "backend/logging/durability_factory.h"
 #include "backend/catalog/manager.h"
 #include "backend/expression/container_tuple.h"
 #include "backend/logging/logging_util.h"
@@ -21,8 +22,6 @@
 
 namespace peloton {
 namespace logging {
-
-thread_local WorkerLogContext* tl_worker_log_ctx = nullptr;
 
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
@@ -124,6 +123,9 @@ void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
   PL_ASSERT(tl_worker_log_ctx);
   size_t txn_eid = txn->GetEpochId();
 
+  // Record the txn timer
+  DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_log_ctx);
+
   PL_ASSERT(tl_worker_log_ctx->current_eid == INVALID_EPOCH_ID || tl_worker_log_ctx->current_eid <= txn_eid);
 
   // Handle the epoch id
@@ -150,6 +152,11 @@ void PhyLogLogManager::CommitCurrentTxn() {
   WriteRecordToBuffer(record);
 }
 
+void PhyLogLogManager::FinishPendingTxn() {
+  PL_ASSERT(tl_worker_log_ctx);
+  size_t glob_peid = global_persist_epoch_id_.load();
+  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_worker_log_ctx);
+}
 
 void PhyLogLogManager::LogInsert(const ItemPointer &tuple_pos) {
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos);
@@ -224,11 +231,11 @@ void PhyLogLogManager::RunPepochLogger() {
         curr_persist_epoch_id = logger_pepoch_id;
       }
     }
-    if (curr_persist_epoch_id > global_persist_epoch_id_) {
-      // TODO: I think we should post the pepoch id after the fsync
+    size_t glob_peid = global_persist_epoch_id_.load();
+    if (curr_persist_epoch_id > glob_peid) {
+      // we should post the pepoch id after the fsync -- Jiexi
+      fwrite((const void *) (&curr_persist_epoch_id), sizeof(curr_persist_epoch_id), 1, file_handle.file);
       global_persist_epoch_id_ = curr_persist_epoch_id;
-
-      fwrite((const void *) (&global_persist_epoch_id_), sizeof(global_persist_epoch_id_), 1, file_handle.file);
       // Call fsync
       LoggingUtil::FFlushFsync(file_handle);
     }

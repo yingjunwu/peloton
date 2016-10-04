@@ -35,20 +35,34 @@ class DurabilityFactory {
     return CheckpointManager::GetInstance();
   }
 
-  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type) {
+  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, bool timer_on = false) {
     logging_type_ = logging_type;
     checkpoint_type_ = checkpoint_type;
+    timer_flag = timer_on;
   }
 
-  static LoggingType GetLoggingType() { return logging_type_; }
+  inline static LoggingType GetLoggingType() { return logging_type_; }
 
-  static CheckpointType GetCheckpointType() { return checkpoint_type_; }
+  inline static CheckpointType GetCheckpointType() { return checkpoint_type_; }
+
+  inline static bool GetTimerFlag() { return timer_flag; }
+
+
+  /* Statistics */
+  static void StartTxnTimer(size_t eid, WorkerLogContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, WorkerLogContext *worker_ctx);
 
  private:
-  // GC type
-  static LoggingType logging_type_;
+  static uint64_t GetCurrentTimeInUsec() {
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return ((uint64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+  }
 
+  static LoggingType logging_type_;
   static CheckpointType checkpoint_type_;
+  static bool timer_flag;
+
 };
 } // namespace gc
 } // namespace peloton
