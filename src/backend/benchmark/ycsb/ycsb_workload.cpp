@@ -93,10 +93,8 @@ double scan_avg_latency;
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
-  }
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.RegisterWorkerToLogger();
 
   auto update_ratio = state.update_ratio;
   auto operation_count = state.operation_count;
@@ -143,10 +141,10 @@ void RunBackend(oid_t thread_id) {
 
   if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
     commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
-
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
   }
+  
+  log_manager.DeregisterWorkerFromLogger();
+
 }
 
 void RunReadOnlyBackend(oid_t thread_id) {

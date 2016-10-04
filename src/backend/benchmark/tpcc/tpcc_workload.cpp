@@ -162,10 +162,8 @@ void RunScanBackend(oid_t thread_id) {
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
-  }
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.RegisterWorkerToLogger();
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -338,10 +336,12 @@ void RunBackend(oid_t thread_id) {
     transaction_count_ref++;
 
   }
+
   if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
+    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
   }
+
+  log_manager.DeregisterWorkerFromLogger();
 }
 
 void RunWorkload() {
