@@ -132,11 +132,6 @@ size_t GenerateWarehouseId(const size_t &thread_id) {
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
-  }
-
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
 
@@ -160,10 +155,6 @@ void RunScanBackend(oid_t thread_id) {
       scan_stock_avg_latency = (scan_stock_avg_latency * scan_stock_count + diff) / (scan_stock_count + 1);
       scan_stock_count++;
     }
-  }
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
   }
 }
 

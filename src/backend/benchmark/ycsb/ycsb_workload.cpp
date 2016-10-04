@@ -152,11 +152,6 @@ void RunBackend(oid_t thread_id) {
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
-  }
-
   double update_ratio = 0;
   auto operation_count = state.operation_count;
   bool is_read_only = state.declared;
@@ -204,19 +199,10 @@ void RunReadOnlyBackend(oid_t thread_id) {
     ro_transaction_count_ref++;
   }
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
-  }
 }
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
-
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
-  }
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -261,10 +247,6 @@ void RunScanBackend(oid_t thread_id) {
     backoff_shifts >>= 1;
   }
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
-  }
 }
 
 
