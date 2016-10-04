@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "durability_factory.h"
+#include "backend/logging/durability_factory.h"
+#include "backend/logging/worker_log_context.h"
 
 namespace peloton {
 namespace logging {

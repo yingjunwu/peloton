@@ -108,6 +108,9 @@ class configuration {
   // use secondary index to scan
   bool sindex_scan;
 
+  // Timer on
+  bool timer_on;
+
   // protocol type
   ConcurrencyType protocol;
 

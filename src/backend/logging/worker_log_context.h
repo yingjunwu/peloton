@@ -54,7 +54,7 @@ namespace logging {
         }
     }
 
-    double GetAverageLatencyInUs() {
+    double GetAverageLatencyInMs() {
       double avg_sum = 0.0;
       for (uint64_t lat_10k : per_10k_txn_lat) {
         avg_sum += (lat_10k) * 1.0 / batch_size;
@@ -63,7 +63,7 @@ namespace logging {
       double last_avg = 0.0;
       if (last_count != 0) last_avg = last_total_usec * 1.0 / last_count;
 
-      return (avg_sum + last_avg) / (per_10k_txn_lat.size() + last_count * 1.0 / batch_size);
+      return ((avg_sum + last_avg) / (per_10k_txn_lat.size() + last_count * 1.0 / batch_size)) / 1000;
     }
   };
 

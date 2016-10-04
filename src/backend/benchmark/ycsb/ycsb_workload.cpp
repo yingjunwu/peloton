@@ -140,7 +140,8 @@ void RunBackend(oid_t thread_id) {
     transaction_count_ref++;
   }
 
-  avg_latency_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInUs();
+  avg_latency_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInMs();
+
   log_manager.DeregisterWorkerFromLogger();
 }
 
@@ -198,7 +199,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
     ro_transaction_count_ref++;
   }
 
-  ro_lat_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInUs();
+  ro_lat_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInMs();
   log_manager.DeregisterWorkerFromLogger();
 }
 

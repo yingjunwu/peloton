@@ -56,6 +56,7 @@ void Usage(FILE *out) {
           "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
+          "   -T --timer_on          :  enable timer\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -87,6 +88,7 @@ static struct option opts[] = {
     {"epoch_length", optional_argument, NULL, 'f'},
     {"log_type", optional_argument, NULL, 'L'},
     {"log_directories", optional_argument, NULL, 'D'},
+    {"timer_on", optional_argument, NULL, 'T'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -282,15 +284,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_length = 40;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
+  state.timer_on = false;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:", opts, &idx);
+    int c = getopt_long(argc, argv, "Thaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'T':
+        state.timer_on = true;
+        break;
       case 'a':
         state.declared = true;
         break;
@@ -528,6 +534,8 @@ void WriteOutput() {
 
   LOG_INFO("%lf tps, %lf; %lf tps, %lf; %lf ms; %d",
              state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, total_snapshot_memory);
+
+  LOG_INFO("avg_common_lat %lf ms, avg_ro_lat %lf ms", state.avg_txn_lat, state.avg_ro_txn_lat);
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
        ++round_id) {

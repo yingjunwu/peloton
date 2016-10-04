@@ -210,7 +210,7 @@ void RunBenchmark() {
   // log_manager.DeregisterWorkerFromLogger();
 
   // XXX: Change the logging type from INVALID to the logging type we want
-  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, true);
+  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_on);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
