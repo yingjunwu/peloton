@@ -82,11 +82,10 @@ volatile bool is_running = true;
 
 oid_t *abort_counts;
 oid_t *commit_counts;
-double *avg_latencies;
+double *commit_latencies;
 
 oid_t *ro_abort_counts;
 oid_t *ro_commit_counts;
-double *ro_avg_latencies;
 
 oid_t scan_count;
 double scan_avg_latency;
@@ -94,15 +93,17 @@ double scan_avg_latency;
 void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.RegisterWorkerToLogger();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
+  }
 
   auto update_ratio = state.update_ratio;
   auto operation_count = state.operation_count;
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
-  double &avg_latency_ref = avg_latencies[thread_id];
+  double &commit_latency_ref = commit_latencies[thread_id];
 
   ZipfDistribution zipf(state.scale_factor * 1000 - 1,
                         state.zipf_theta);
@@ -140,16 +141,21 @@ void RunBackend(oid_t thread_id) {
     transaction_count_ref++;
   }
 
-  avg_latency_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInMs();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    commit_latency_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInMs();
 
-  log_manager.DeregisterWorkerFromLogger();
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
+  }
 }
 
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.RegisterWorkerToLogger();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
+  }
 
   double update_ratio = 0;
   auto operation_count = state.operation_count;
@@ -162,7 +168,6 @@ void RunReadOnlyBackend(oid_t thread_id) {
 
   oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
   oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
-  double &ro_lat_ref = ro_avg_latencies[thread_id];
 
   ZipfDistribution zipf(state.scale_factor * 1000 - 1,
                         state.zipf_theta);
@@ -199,15 +204,19 @@ void RunReadOnlyBackend(oid_t thread_id) {
     ro_transaction_count_ref++;
   }
 
-  ro_lat_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInMs();
-  log_manager.DeregisterWorkerFromLogger();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
+  }
 }
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
-  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.RegisterWorkerToLogger();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    ((logging::PhyLogLogManager*)(&log_manager))->RegisterWorkerToLogger();
+  }
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -252,7 +261,10 @@ void RunScanBackend(oid_t thread_id) {
     backoff_shifts >>= 1;
   }
 
-  log_manager.DeregisterWorkerFromLogger();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
+  }
 }
 
 
@@ -269,17 +281,14 @@ void RunWorkload() {
   commit_counts = new oid_t[num_threads];
   memset(commit_counts, 0, sizeof(oid_t) * num_threads);
 
-  avg_latencies = new double[num_threads];
-  memset(avg_latencies, 0, sizeof(double) * num_threads);
+  commit_latencies = new double[num_threads];
+  memset(commit_latencies, 0, sizeof(double) * num_threads);
 
   ro_abort_counts = new oid_t[num_threads];
   memset(ro_abort_counts, 0, sizeof(oid_t) * num_threads);
 
   ro_commit_counts = new oid_t[num_threads];
   memset(ro_commit_counts, 0, sizeof(oid_t) * num_threads);
-
-  ro_avg_latencies = new double[num_threads];
-  memset(ro_avg_latencies, 0, sizeof(double) * num_threads);
 
   scan_count = 0;
   scan_avg_latency = 0.0;
@@ -329,12 +338,10 @@ void RunWorkload() {
   state.snapshot_memory.push_back(state.snapshot_memory.at(state.snapshot_memory.size() - 1));
 
   is_running = false;
-
   // Join the threads with the main thread
   for (oid_t thread_itr = 0; thread_itr < num_threads; ++thread_itr) {
     thread_group[thread_itr].join();
   }
-
   // calculate the throughput and abort rate for the first round.
   oid_t total_commit_count = 0;
   for (size_t i = 0; i < num_threads; ++i) {
@@ -409,16 +416,10 @@ void RunWorkload() {
 
   //////////////////////////////////////////////////
 
-  state.avg_txn_lat = 0.0;
+  state.commit_latency = 0.0;
   for (size_t i = 0; i < num_threads; ++i) {
     // Weighted avg
-    state.avg_txn_lat += (avg_latencies[i] * (commit_counts_snapshots[snapshot_round - 1][i] * 1.0 / total_commit_count));
-  }
-
-  state.avg_ro_txn_lat = 0.0;
-  for (size_t i = 0; i < num_ro_threads; ++i) {
-    // Weighted avg
-    state.avg_ro_txn_lat += (ro_avg_latencies[i] * (ro_commit_counts[i] * 1.0 / total_ro_commit_count));
+    state.commit_latency += (commit_latencies[i] * (commit_counts_snapshots[snapshot_round - 1][i] * 1.0 / total_commit_count));
   }
 
   //////////////////////////////////////////////////
@@ -443,15 +444,13 @@ void RunWorkload() {
   abort_counts = nullptr;
   delete[] commit_counts;
   commit_counts = nullptr;
-  delete[] avg_latencies;
-  avg_latencies = nullptr;
+  delete[] commit_latencies;
+  commit_latencies = nullptr;
 
   delete[] ro_abort_counts;
   ro_abort_counts = nullptr;
   delete[] ro_commit_counts;
   ro_commit_counts = nullptr;
-  delete[] ro_avg_latencies;
-  ro_avg_latencies = nullptr;
 }
 
 

@@ -33,16 +33,6 @@ public:
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs UNUSED_ATTRIBUTE) final {}
 
-  virtual void RegisterWorkerToLogger() final {};
-  virtual void DeregisterWorkerFromLogger() final {};
-
-  virtual void LogInsert(const ItemPointer &tuple_pos UNUSED_ATTRIBUTE) final {};
-  virtual void LogUpdate(const ItemPointer &tuple_pos UNUSED_ATTRIBUTE) final {};
-  virtual void LogDelete(const ItemPointer &tuple_pos_deleted UNUSED_ATTRIBUTE) final {};
-  virtual void StartTxn(concurrency::Transaction *txn UNUSED_ATTRIBUTE) final {};
-  virtual void CommitCurrentTxn() final {};
-  virtual void FinishPendingTxn() final {};
-
   virtual void DoRecovery() final {};
 
   virtual void StartLoggers() final {};

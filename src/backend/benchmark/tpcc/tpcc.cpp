@@ -45,7 +45,7 @@ void RunBenchmark() {
   log_manager.StartLoggers();
 
   // Create log worker for loading the database
-  log_manager.RegisterWorkerToLogger();
+  // log_manager.RegisterWorkerToLogger();
 
   // Create the database
   CreateTPCCDatabase();
@@ -53,7 +53,7 @@ void RunBenchmark() {
   // Load the database
   LoadTPCCDatabase();
 
-  log_manager.DeregisterWorkerFromLogger();
+  // log_manager.DeregisterWorkerFromLogger();
 
   // Run the workload
   RunWorkload();

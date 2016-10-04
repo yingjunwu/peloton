@@ -502,7 +502,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   cid_t end_commit_id = current_txn->GetBeginCommitId();
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.StartTxn(current_txn);
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    ((logging::PhyLogLogManager*)(&log_manager))->StartTxn(current_txn);
+  }
   
   auto &rw_set = current_txn->GetRWSet();
 
@@ -546,7 +548,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
         // add to log manager
-        log_manager.LogUpdate(new_version);
+        if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+          ((logging::PhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
+        }        
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
@@ -574,7 +578,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
         // add to log manager
-        log_manager.LogDelete(ItemPointer(tile_group_id, tuple_slot));
+        if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+          ((logging::PhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
+        }
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         PL_ASSERT(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -588,7 +594,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
         
         // add to log manager
-        log_manager.LogInsert(ItemPointer(tile_group_id, tuple_slot));
+        if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+          ((logging::PhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
+        }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
         PL_ASSERT(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -609,7 +617,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 
   gc::GCManagerFactory::GetInstance().EndGCContext(current_txn->GetEpochId());
 
-  log_manager.CommitCurrentTxn();
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    ((logging::PhyLogLogManager*)(&log_manager))->CommitCurrentTxn();
+  }
 
   EndTransaction();
 

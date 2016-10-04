@@ -12,7 +12,7 @@
 
 #pragma once
 
-#include <backend/logging/durability_factory.h>
+#include "backend/logging/durability_factory.h"
 #include "backend/concurrency/transaction_manager.h"
 #include "backend/storage/tile_group.h"
 
@@ -87,7 +87,10 @@ class TsOrderN2OTxnManager : public TransactionManager {
     gc::GCManagerFactory::GetInstance().CreateGCContext(current_txn->GetEpochId());
 
     // Deal with pending txns
-    logging::DurabilityFactory::GetLoggerInstance().FinishPendingTxn();
+    if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+      auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+      ((logging::PhyLogLogManager*)(&log_manager))->FinishPendingTxn();
+    }
 
     return txn;
   }

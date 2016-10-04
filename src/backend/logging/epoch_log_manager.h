@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.h
+// epoch_log_manager.h
 //
-// Identification: src/backend/logging/loggers/phylog_log_manager.h
+// Identification: src/backend/logging/epoch_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -94,9 +94,9 @@ public:
 
   // Worker side logic
 
-  virtual void LogInsert(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos) override ;
-  virtual void LogUpdate(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos) override ;
-  virtual void LogDelete(const size_t &epoch_id, const ItemPointer & master_entry, const ItemPointer &tuple_pos_deleted) override ;
+  void LogInsert(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos);
+  void LogUpdate(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos);
+  void LogDelete(const size_t &epoch_id, const ItemPointer & master_entry, const ItemPointer &tuple_pos_deleted);
 
   virtual void DoRecovery() override {}
 

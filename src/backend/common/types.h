@@ -26,15 +26,10 @@
 //===--------------------------------------------------------------------===//
 
 // Logging type
-// LOGGING_TYPE_AAA_BBB
-// Data stored in AAA
-// Log stored in BBB
 enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
-
-  // Based on write ahead logging
-  LOGGING_TYPE_PHYLOG = 1,
-
+  LOGGING_TYPE_PHYLOG = 1, // physiological logging
+  LOGGING_TYPE_EPOCH = 2,
 };
 
 enum CheckpointType {

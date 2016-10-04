@@ -38,49 +38,6 @@ public:
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
 
-  virtual void RegisterWorkerToLogger() {
-    PL_ASSERT(false);
-  }
-  virtual void DeregisterWorkerFromLogger() {
-    PL_ASSERT(false);
-  }
-
-  virtual void LogInsert(UNUSED_ATTRIBUTE const size_t &,
-                         UNUSED_ATTRIBUTE const ItemPointer &, 
-                         UNUSED_ATTRIBUTE const ItemPointer &) {
-    PL_ASSERT(false);
-  }
-  virtual void LogUpdate(UNUSED_ATTRIBUTE const size_t &, 
-                         UNUSED_ATTRIBUTE const ItemPointer &,
-                         UNUSED_ATTRIBUTE const ItemPointer &) {
-    PL_ASSERT(false);
-  }
-  virtual void LogDelete(UNUSED_ATTRIBUTE const size_t &, 
-                         UNUSED_ATTRIBUTE const ItemPointer &,
-                         UNUSED_ATTRIBUTE const ItemPointer &) {
-    PL_ASSERT(false);
-  }
-
-  virtual void LogInsert(UNUSED_ATTRIBUTE const ItemPointer &) {
-    PL_ASSERT(false);
-  }
-  virtual void LogUpdate(UNUSED_ATTRIBUTE const ItemPointer &) {
-    PL_ASSERT(false);
-  }
-  virtual void LogDelete(UNUSED_ATTRIBUTE const ItemPointer &) {
-    PL_ASSERT(false);
-  }
-  virtual void StartTxn(UNUSED_ATTRIBUTE concurrency::Transaction *) {
-    PL_ASSERT(false);
-  }
-  virtual void CommitCurrentTxn() {
-    PL_ASSERT(false);
-  }
-
-  virtual void FinishPendingTxn() {
-    PL_ASSERT(false);
-  }
-
   virtual void DoRecovery() = 0;
 
   virtual void StartLoggers() = 0;

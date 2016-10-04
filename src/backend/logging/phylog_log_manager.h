@@ -4,7 +4,7 @@
 //
 // phylog_log_manager.h
 //
-// Identification: src/backend/logging/loggers/phylog_log_manager.h
+// Identification: src/backend/logging/phylog_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -96,15 +96,15 @@ public:
   }
 
   // Worker side logic
-  virtual void RegisterWorkerToLogger() override ;
-  virtual void DeregisterWorkerFromLogger() override ;
+  void RegisterWorkerToLogger();
+  void DeregisterWorkerFromLogger();
 
-  virtual void LogInsert(const ItemPointer &tuple_pos) override ;
-  virtual void LogUpdate(const ItemPointer &tuple_pos) override ;
-  virtual void LogDelete(const ItemPointer &tuple_pos_deleted) override ;
-  virtual void StartTxn(concurrency::Transaction *txn) override ;
-  virtual void CommitCurrentTxn() override ;
-  virtual void FinishPendingTxn() override ;
+  void LogInsert(const ItemPointer &tuple_pos);
+  void LogUpdate(const ItemPointer &tuple_pos);
+  void LogDelete(const ItemPointer &tuple_pos_deleted);
+  void StartTxn(concurrency::Transaction *txn);
+  void CommitCurrentTxn();
+  void FinishPendingTxn();
 
   // Logger side logic
   virtual void DoRecovery() override;
@@ -115,10 +115,6 @@ public:
   void RunPepochLogger();
 
 private:
-
-   /*
-    *   Worker utils
-    */
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
@@ -135,14 +131,6 @@ private:
   }
 
   void WriteRecordToBuffer(LogRecord &record);
-
-
-  /*
-   * Log file layout:
-   *  Header: 8 bytes, for integrity validation
-   *  Body:  actual log records
-   *  Tail:   8 bytes, for integrity validation
-   */
 
 private:
   std::atomic<oid_t> worker_count_;

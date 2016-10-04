@@ -535,7 +535,7 @@ void WriteOutput() {
   LOG_INFO("%lf tps, %lf; %lf tps, %lf; %lf ms; %d",
              state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, total_snapshot_memory);
 
-  LOG_INFO("avg_common_lat %lf ms, avg_ro_lat %lf ms", state.avg_txn_lat, state.avg_ro_txn_lat);
+  LOG_INFO("average commit latency: %lf ms", state.commit_latency);
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
        ++round_id) {
@@ -626,8 +626,7 @@ void WriteOutput() {
 
   out << total_snapshot_memory <<"\n";
 
-  out << "avg common txn lat = " << state.avg_txn_lat << "\n";
-  out << "avg ro txn lat = " << state.avg_ro_txn_lat << "\n";
+  out << "average commit latency = " << state.commit_latency << "\n";
   out.flush();
   out.close();
 }
