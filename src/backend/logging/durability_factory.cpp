@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "backend/logging/durability_factory.h"
-#include "backend/logging/worker_log_context.h"
+#include "backend/logging/phylog_worker_context.h"
 
 namespace peloton {
 namespace logging {
@@ -23,7 +23,7 @@ namespace logging {
   bool DurabilityFactory::timer_flag = false;
 
 
-  void DurabilityFactory::StartTxnTimer(size_t eid, WorkerLogContext *worker_ctx) {
+  void DurabilityFactory::StartTxnTimer(size_t eid, PhylogWorkerContext *worker_ctx) {
     if (DurabilityFactory::GetTimerFlag() == false) return;
 
     uint64_t cur_time_usec = GetCurrentTimeInUsec();
@@ -35,7 +35,7 @@ namespace logging {
     itr->second.emplace_back(cur_time_usec);
   }
 
-  void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, WorkerLogContext *worker_ctx) {
+  void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, PhylogWorkerContext *worker_ctx) {
     if (DurabilityFactory::GetTimerFlag() == false) return;
 
     uint64_t commit_time_usec = GetCurrentTimeInUsec();

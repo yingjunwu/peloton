@@ -16,13 +16,13 @@
 
 #include "backend/common/macros.h"
 #include "backend/concurrency/transaction.h"
-#include "backend/logging/worker_log_context.h"
+#include "backend/logging/phylog_worker_context.h"
 
 namespace peloton {
 namespace logging {
 
 /* Per worker thread local context */
-extern thread_local WorkerLogContext* tl_worker_log_ctx;
+extern thread_local PhylogWorkerContext* tl_phylog_worker_ctx;
 
 // loggers are created before workers.
 class LogManager {

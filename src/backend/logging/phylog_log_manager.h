@@ -26,7 +26,7 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/worker_log_context.h"
+#include "backend/logging/phylog_worker_context.h"
 #include "backend/logging/phylog_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
@@ -118,11 +118,11 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_worker_log_ctx->worker_id, (int) tl_worker_log_ctx->current_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_worker_ctx->worker_id, (int) tl_phylog_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_worker_log_ctx);
-    tl_worker_log_ctx->per_epoch_buffer_ptrs[tl_worker_log_ctx->current_eid].push(std::move(log_buffer_ptr));
-    return tl_worker_log_ctx->per_epoch_buffer_ptrs[tl_worker_log_ctx->current_eid].top().get();
+    PL_ASSERT(tl_phylog_worker_ctx);
+    tl_phylog_worker_ctx->per_epoch_buffer_ptrs[tl_phylog_worker_ctx->current_eid].push(std::move(log_buffer_ptr));
+    return tl_phylog_worker_ctx->per_epoch_buffer_ptrs[tl_phylog_worker_ctx->current_eid].top().get();
   }
 
 

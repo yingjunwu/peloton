@@ -14,6 +14,7 @@
 
 #include "backend/logging/checkpoint_manager.h"
 #include "backend/logging/phylog_log_manager.h"
+#include "backend/logging/epoch_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 
 namespace peloton {
@@ -26,6 +27,8 @@ class DurabilityFactory {
     switch (logging_type_) {
       case LOGGING_TYPE_PHYLOG:
         return PhyLogLogManager::GetInstance();
+      case LOGGING_TYPE_EPOCH:
+        return EpochLogManager::GetInstance();
       default:
         return DummyLogManager::GetInstance();
     }
@@ -49,8 +52,8 @@ class DurabilityFactory {
 
 
   /* Statistics */
-  static void StartTxnTimer(size_t eid, WorkerLogContext *worker_ctx);
-  static void StopTimersByPepoch(size_t persist_eid, WorkerLogContext *worker_ctx);
+  static void StartTxnTimer(size_t eid, PhylogWorkerContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, PhylogWorkerContext *worker_ctx);
 
  private:
   static uint64_t GetCurrentTimeInUsec() {

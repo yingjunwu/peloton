@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// worker_log_context.h
+// phylog_worker_context.h
 //
-// Identification: src/backend/logging/loggers/worker_log_context.h
+// Identification: src/backend/logging/loggers/phylog_worker_context.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -68,9 +68,9 @@ namespace logging {
   };
 
   // the worker context is constructed when registering the worker to the logger.
-  struct WorkerLogContext {
+  struct PhylogWorkerContext {
 
-    WorkerLogContext(oid_t id)
+    PhylogWorkerContext(oid_t id)
       : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
         buffer_pool(id), 
         output_buffer(),
@@ -84,7 +84,7 @@ namespace logging {
       LOG_TRACE("Create worker %d", (int) worker_id);
     }
 
-    ~WorkerLogContext() {
+    ~PhylogWorkerContext() {
       LOG_TRACE("Destroy worker %d", (int) worker_id);
     }
 

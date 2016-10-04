@@ -24,7 +24,7 @@
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
-#include "backend/logging/worker_log_context.h"
+#include "backend/logging/phylog_worker_context.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -78,8 +78,8 @@ namespace logging {
       logger_thread_->join();
     }
 
-    void RegisterWorker(WorkerLogContext *worker_log_ctx);
-    void DeregisterWorker(WorkerLogContext *worker_log_ctx);
+    void RegisterWorker(PhylogWorkerContext *phylog_worker_ctx);
+    void DeregisterWorker(PhylogWorkerContext *phylog_worker_ctx);
 
     size_t GetPersistEpochId() const {
       return persist_epoch_id_;
@@ -131,7 +131,7 @@ private:
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
-    std::unordered_map<oid_t, std::shared_ptr<WorkerLogContext>> worker_map_;
+    std::unordered_map<oid_t, std::shared_ptr<PhylogWorkerContext>> worker_map_;
   
     const std::string logging_filename_prefix_ = "log";
 

@@ -16,7 +16,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local WorkerLogContext* tl_worker_log_ctx = nullptr;
+thread_local PhylogWorkerContext* tl_phylog_worker_ctx = nullptr;
 
 
 }

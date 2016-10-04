@@ -58,7 +58,7 @@
 #include "backend/index/index_factory.h"
 
 #include "backend/logging/durability_factory.h"
-#include "backend/logging/worker_log_context.h"
+#include "backend/logging/phylog_worker_context.h"
 
 #include "backend/planner/abstract_plan.h"
 #include "backend/planner/materialization_plan.h"
@@ -142,7 +142,7 @@ void RunBackend(oid_t thread_id) {
   }
 
   if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    commit_latency_ref = logging::tl_worker_log_ctx->txn_summary.GetAverageLatencyInMs();
+    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
 
     auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
     ((logging::PhyLogLogManager*)(&log_manager))->DeregisterWorkerFromLogger();
