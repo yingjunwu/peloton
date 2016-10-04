@@ -83,19 +83,18 @@ bool LoggingUtil::RemoveDirectory(const char *dir_name, bool only_remove_file) {
 }
 
 void LoggingUtil::FFlushFsync(FileHandle &file_handle) {
-  (void) file_handle;
-//  // First, flush
-//  PL_ASSERT(file_handle.fd != INVALID_FILE_DESCRIPTOR);
-//  if (file_handle.fd == INVALID_FILE_DESCRIPTOR) return;
-//  int ret = fflush(file_handle.file);
-//  if (ret != 0) {
-//    LOG_ERROR("Error occured in fflush(%d)", ret);
-//  }
-//  // Finally, sync
-//  ret = fsync(file_handle.fd);
-//  if (ret != 0) {
-//    LOG_ERROR("Error occured in fsync(%d)", ret);
-//  }
+  // First, flush
+  PL_ASSERT(file_handle.fd != INVALID_FILE_DESCRIPTOR);
+  if (file_handle.fd == INVALID_FILE_DESCRIPTOR) return;
+  int ret = fflush(file_handle.file);
+  if (ret != 0) {
+    LOG_ERROR("Error occured in fflush(%d)", ret);
+  }
+  // Finally, sync
+  ret = fsync(file_handle.fd);
+  if (ret != 0) {
+    LOG_ERROR("Error occured in fsync(%d)", ret);
+  }
 }
 
 bool LoggingUtil::OpenFile(const char *name, const char *mode, FileHandle &file_handle) {
