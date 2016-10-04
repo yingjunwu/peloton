@@ -341,7 +341,8 @@ void PhyLogLogger::Run() {
   while (true) {
     if (is_running_ == false) { break; }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(
+       std::chrono::milliseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMiliSec() / 4));
     
     // Pull log records from workers per epoch buffer
     {

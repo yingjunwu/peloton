@@ -59,7 +59,7 @@ class EpochManager {
 
  public:
   EpochManager(const int epoch_length)
- : epoch_length_(epoch_length),
+ : epoch_duration_milisec_(epoch_length),
    epoch_queue_(epoch_queue_size_) {
     
     InitEpochQueue();
@@ -84,7 +84,7 @@ class EpochManager {
   }
 
   inline void InitEpochQueue() {
-    for (int i = 0; i < epoch_length_; ++i) {
+    for (size_t i = 0; i < epoch_queue_size_; ++i) {
       epoch_queue_[i].Init();
     }
 
@@ -182,6 +182,10 @@ class EpochManager {
     return queue_tail_.load();
   }
 
+  int GetEpochLengthInMiliSec() const {
+    return epoch_duration_milisec_;
+  }
+
   static size_t GetEidFromCid(cid_t cid) {
     return (cid >> 32);
   }
@@ -190,7 +194,7 @@ class EpochManager {
   void Start() {
     while (!finish_) {
       // the epoch advances every 40 milliseconds.
-      std::this_thread::sleep_for(std::chrono::milliseconds(epoch_length_));
+      std::this_thread::sleep_for(std::chrono::milliseconds(epoch_duration_milisec_));
 
       auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
       auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
@@ -298,7 +302,7 @@ private:
 
   static const int safety_interval_ = 2;
   static const size_t low_32_bit_mask_ = 0xffffffff;
-  const int epoch_length_;
+  const int epoch_duration_milisec_;
 
   // Epoch vector
   std::vector<Epoch> epoch_queue_;
