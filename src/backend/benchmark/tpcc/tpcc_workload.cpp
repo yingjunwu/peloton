@@ -337,9 +337,9 @@ void RunBackend(oid_t thread_id) {
 
   }
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
-  }
+  // if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+  //   commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
+  // }
 
   log_manager.DeregisterWorkerFromLogger();
 }
