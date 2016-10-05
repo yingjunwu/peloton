@@ -46,7 +46,7 @@ namespace logging {
  * logging file layout :
  *
  *  -----------------------------------------------------------------------------
- *  | epoch_id | database_id | table_id | operation_type | column_count | columns | data | ... | epoch_end_flag
+ *  | epoch_id | database_id | table_id | operation_type | data | ... | epoch_end_flag
  *  -----------------------------------------------------------------------------
  *
  * NOTE: this layout is designed for epoch logging.
@@ -66,7 +66,10 @@ class EpochLogManager : public LogManager {
 
 protected:
 
-  EpochLogManager(){}
+  EpochLogManager()
+    : worker_count_(0),
+      is_running_(false),
+      global_persist_epoch_id_(INVALID_EPOCH_ID){}
 
 public:
   static EpochLogManager &GetInstance() {
@@ -76,7 +79,9 @@ public:
   virtual ~EpochLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
-    
+    if (logging_dirs.size() > 0) {
+      pepoch_dir_ = logging_dirs.at(0);
+    }
     // check the existence of logging directories.
     // if not exists, then create the directory.
     for (auto logging_dir : logging_dirs) {
@@ -96,8 +101,8 @@ public:
   }
 
   // Worker side logic
-  virtual void RegisterWorker() final {};
-  virtual void DeregisterWorker() final {};
+  virtual void RegisterWorker() override;
+  virtual void DeregisterWorker() override;
 
 
   void StartTxn(concurrency::Transaction *txn);
@@ -105,16 +110,34 @@ public:
   void LogInsert(ItemPointer *master_ptr, const ItemPointer &tuple_pos);
   void LogUpdate(ItemPointer *master_ptr, const ItemPointer &tuple_pos);
   void LogDelete(ItemPointer *master_ptr);
-
-  virtual void DoRecovery() override {}
+  void FinishPendingTxn();
 
   // Logger side logic
+  virtual void DoRecovery() override {}
   virtual void StartLoggers() override ;
   virtual void StopLoggers() override ;
 
+  void RunPepochLogger();
+
+
 private:
+  inline size_t HashToLogger(oid_t worker_id) {
+    return ((size_t) worker_id) % logger_count_;
+  }
+
+private:
+  std::atomic<oid_t> worker_count_;
 
   std::vector<std::shared_ptr<EpochLogger>> loggers_;
+
+  std::unique_ptr<std::thread> pepoch_thread_;
+  volatile bool is_running_;
+
+  std::atomic<size_t> global_persist_epoch_id_;
+
+  std::string pepoch_dir_;
+
+  const std::string pepoch_filename_ = "pepoch";
 
 };
 

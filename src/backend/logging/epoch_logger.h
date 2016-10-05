@@ -49,7 +49,10 @@ namespace logging {
       is_running_(false),
       logger_output_buffer_(), 
       file_handle_(),
-      next_file_id_(0)
+      next_file_id_(0),
+      persist_epoch_id_(INVALID_EPOCH_ID),
+      worker_map_lock_(), 
+      worker_map_()
     {}
 
     ~EpochLogger() {}
@@ -62,6 +65,13 @@ namespace logging {
     void StopLogging() {
       is_running_ = false;
       logger_thread_->join();
+    }
+
+    void RegisterWorker(EpochWorkerContext *phylog_worker_ctx);
+    void DeregisterWorker(EpochWorkerContext *phylog_worker_ctx);
+
+    size_t GetPersistEpochId() const {
+      return persist_epoch_id_;
     }
 
 
@@ -90,6 +100,13 @@ private:
     size_t next_file_id_;
 
     /* Log buffers */
+    size_t persist_epoch_id_;
+
+    // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
+    Spinlock worker_map_lock_;
+    // map from worker id to the worker's context.
+    std::unordered_map<oid_t, std::shared_ptr<EpochWorkerContext>> worker_map_;
+
     const std::string logging_filename_prefix_ = "log";
 
     const size_t sleep_period_us_ = 40000;

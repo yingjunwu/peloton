@@ -36,6 +36,7 @@ namespace logging {
       : per_epoch_snapshot_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
         snapshot_pool(id), 
         current_eid(START_EPOCH_ID), 
+        persist_eid(INVALID_EPOCH_ID),
         worker_id(id),
         cur_txn_start_time(0),
         pending_txn_timers(),
@@ -54,6 +55,8 @@ namespace logging {
 
     // current epoch id
     size_t current_eid;
+    // persisted epoch id
+    size_t persist_eid;
     
     // worker thread id
     oid_t worker_id;

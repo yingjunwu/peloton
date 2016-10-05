@@ -30,6 +30,18 @@
 namespace peloton {
 namespace logging {
 
+void EpochLogger::RegisterWorker(EpochWorkerContext *phylog_worker_ctx) {
+  worker_map_lock_.Lock();
+  worker_map_[phylog_worker_ctx->worker_id].reset(phylog_worker_ctx);
+  worker_map_lock_.Unlock();
+}
+
+void EpochLogger::DeregisterWorker(EpochWorkerContext *phylog_worker_ctx) {
+  worker_map_lock_.Lock();
+  worker_map_.erase(phylog_worker_ctx->worker_id);
+  worker_map_lock_.Unlock();
+}
+
 void EpochLogger::Run() {
   // TODO: Ensure that we have called run recovery before
 
@@ -50,8 +62,86 @@ void EpochLogger::Run() {
   while (true) {
     if (is_running_ == false) { break; }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(
+       std::chrono::milliseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMiliSec() / 4));
     
+    // Pull log records from workers per epoch buffer
+    {
+      worker_map_lock_.Lock();
+
+      size_t max_workers_persist_eid = INVALID_EPOCH_ID;
+      for (auto &worker_entry : worker_map_) {
+        // For every alive worker, move its buffer to the logger's local buffer
+        auto worker_ctx_ptr = worker_entry.second.get();
+
+        size_t max_persist_eid = worker_ctx_ptr->current_eid - 1;
+        size_t current_persist_eid = worker_ctx_ptr->persist_eid;
+
+        PL_ASSERT(current_persist_eid <= max_persist_eid);
+
+        if (current_persist_eid == max_persist_eid) {
+          continue;
+        }
+        for (size_t epoch_id = current_persist_eid + 1; epoch_id <= max_persist_eid; ++epoch_id) {
+          size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
+          // get all the snapshot associated with the epoch.
+          std::unique_ptr<DeltaSnapshot> snapshot(std::move(worker_ctx_ptr->per_epoch_snapshot_ptrs[epoch_idx]));
+
+          // if (buffers.empty() == true) {
+          //   // no transaction log is generated within this epoch.
+          //   // it's fine. simply ignore it.
+          //   continue;
+          // }
+          PersistEpochBegin(epoch_id);
+          
+          // auto itr = worker_map_.find(snapshot->worker_id_);
+          // if (itr != worker_map_.end()) {
+          //   // In this case, the worker is already terminated and removed
+          //   // itr->second->snapshot_pool.PutSnapshot(std::move(snapshot));
+          // } else {
+          //   // Release the snapshot
+          //   // snapshot.reset(nullptr);
+          // }
+
+
+          // // persist all the buffers.
+          // while (buffers.empty() == false) {
+          //   // Check if the buffer is empty
+          //   // TODO: is it possible to have an empty buffer??? --YINGJUN
+          //   if (buffers.top()->Empty()) {
+          //     worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
+          //   } else {
+          //     PersistLogBuffer(std::move(buffers.top()));
+          //   }
+          //   PL_ASSERT(buffers.top() == nullptr);
+          //   buffers.pop();
+          // }
+
+          PersistEpochEnd(epoch_id);
+          // Call fsync
+          LoggingUtil::FFlushFsync(file_handle_);
+        } // end for
+
+        worker_ctx_ptr->persist_eid = max_persist_eid;
+
+        if (max_workers_persist_eid == INVALID_EPOCH_ID || max_workers_persist_eid > max_persist_eid) {
+          max_workers_persist_eid = max_persist_eid;
+        }
+
+      } // end for
+
+      if (max_workers_persist_eid == INVALID_EPOCH_ID) {
+        // in this case, it is likely that there's no registered worker or there's nothing to persist.
+        worker_map_lock_.Unlock();
+        continue;
+      }
+
+      PL_ASSERT(max_workers_persist_eid >= persist_epoch_id_);
+
+      persist_epoch_id_ = max_workers_persist_eid;
+
+      worker_map_lock_.Unlock();
+    }
   }
 
   // Close the log file
