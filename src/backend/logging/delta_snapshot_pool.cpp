@@ -2,30 +2,30 @@
 //
 //                         Peloton
 //
-// log_manager.cpp
+// delta_snapshot_pool.cpp
 //
-// Identification: src/backend/logging/loggers/log_buffer_pool.h
+// Identification: src/backend/logging/delta_snapshot_pool.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
 #include "backend/common/logger.h"
-#include "log_buffer_pool.h"
+#include "backend/logging/delta_snapshot_pool.h"
 
 namespace peloton {
 namespace logging {
 
-  // Acquire a log buffer from the buffer pool.
-  // This function will be blocked until there is an available buffer.
+  // Acquire a snapshot from the snapshot pool.
+  // This function will be blocked until there is an available snapshot.
   // Note that only the corresponding worker thread can call this function.
-  std::unique_ptr<LogBuffer> LogBufferPool::GetBuffer() {
-    size_t head_idx = head_ % buffer_queue_size_;
+  std::unique_ptr<DeltaSnapshot> DeltaSnapshotPool::GetSnapshot() {
+    size_t head_idx = head_ % snapshot_queue_size_;
     while (true) {
       if (head_.load() < tail_.load() - 1) {
-        if (local_buffer_queue_[head_idx] == false) {
+        if (snapshot_queue_[head_idx] == false) {
           // Not any buffer allocated now
-          local_buffer_queue_[head_idx].reset(new LogBuffer(worker_id_));
+          snapshot_queue_[head_idx].reset(new DeltaSnapshot(worker_id_));
         }
         break;
       }
@@ -37,23 +37,23 @@ namespace logging {
 
     head_.fetch_add(1, std::memory_order_relaxed);
 
-    return std::move(local_buffer_queue_[head_idx]);
+    return std::move(snapshot_queue_[head_idx]);
   }
 
   // This function is called only by the corresponding logger.
-  void LogBufferPool::PutBuffer(std::unique_ptr<LogBuffer> buf) {
-    PL_ASSERT(buf.get() != nullptr);
-    PL_ASSERT(buf->GetWorkerId() == worker_id_);
+  void DeltaSnapshotPool::PutSnapshot(std::unique_ptr<DeltaSnapshot> snapshot) {
+    PL_ASSERT(snapshot.get() != nullptr);
+    PL_ASSERT(snapshot->GetWorkerId() == worker_id_);
 
-    size_t tail_idx = tail_ % buffer_queue_size_;
+    size_t tail_idx = tail_ % snapshot_queue_size_;
     
     // The buffer pool must not be full
-    PL_ASSERT(tail_idx != head_ % buffer_queue_size_);
+    PL_ASSERT(tail_idx != head_ % snapshot_queue_size_);
     // The tail pos must be null
-    PL_ASSERT(local_buffer_queue_[tail_idx] == false);
+    PL_ASSERT(snapshot_queue_[tail_idx] == false);
     // The returned buffer must be empty
     PL_ASSERT(buf->Empty() == true);
-    local_buffer_queue_[tail_idx].reset(buf.release());
+    snapshot_queue_[tail_idx].reset(buf.release());
     
     tail_.fetch_add(1, std::memory_order_relaxed);
   }

@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// log_manager.cpp
+// log_buffer.h
 //
-// Identification: src/backend/logging/loggers/log_buffer.cpp
+// Identification: src/backend/logging/log_buffer.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //

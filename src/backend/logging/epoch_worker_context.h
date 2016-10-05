@@ -18,28 +18,24 @@
 #include <stack>
 #include <map>
 
-#include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
 #include "backend/concurrency/epoch_manager.h"
-#include "backend/logging/log_buffer.h"
-#include "backend/logging/log_record.h"
-#include "backend/logging/log_buffer_pool.h"
-#include "backend/logging/log_manager.h"
+#include "backend/logging/delta_snapshot_pool.h"
 #include "backend/logging/worker_context.h"
 #include "backend/common/types.h"
-#include "backend/common/serializer.h"
-#include "backend/common/lockfree_queue.h"
 #include "backend/common/logger.h"
 #include "backend/common/timer.h"
 
 namespace peloton {
 namespace logging {
 
-  // the worker context is constructed when registering the worker to the logger.
+  // the worker context is constructed when registering the worker.
   struct EpochWorkerContext {
 
     EpochWorkerContext(oid_t id)
-      : current_eid(START_EPOCH_ID), 
+      : per_epoch_snapshot_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
+        snapshot_pool(id), 
+        current_eid(START_EPOCH_ID), 
         worker_id(id),
         cur_txn_start_time(0),
         pending_txn_timers(),
@@ -51,8 +47,10 @@ namespace logging {
       LOG_TRACE("Destroy worker %d", (int) worker_id);
     }
 
+    // Every epoch has a snapshot pointer
+    std::vector<std::unique_ptr<DeltaSnapshot>> per_epoch_snapshot_ptrs;
     
-    std::unordered_map<oid_t, std::unordered_map<oid_t, ItemPointer>> delta_snapshot_;
+    DeltaSnapshotPool snapshot_pool;
 
     // current epoch id
     size_t current_eid;
