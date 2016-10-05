@@ -28,7 +28,7 @@ thread_local PhylogWorkerContext* tl_phylog_worker_ctx = nullptr;
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
-void PhyLogLogManager::RegisterWorkerToLogger() {
+void PhyLogLogManager::RegisterWorker() {
   PL_ASSERT(tl_phylog_worker_ctx == nullptr);
   // shuffle worker to logger
   tl_phylog_worker_ctx = new PhylogWorkerContext(worker_count_++);
@@ -38,7 +38,7 @@ void PhyLogLogManager::RegisterWorkerToLogger() {
 }
 
 // deregister worker threads.
-void PhyLogLogManager::DeregisterWorkerFromLogger() {
+void PhyLogLogManager::DeregisterWorker() {
   PL_ASSERT(tl_phylog_worker_ctx != nullptr);
 
   size_t logger_id = HashToLogger(tl_phylog_worker_ctx->worker_id);
@@ -139,8 +139,7 @@ void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
   }
 
   // Handle the commit id
-  // TODO: we should pass the end transaction id when using OCC protocol.
-  cid_t txn_cid = txn->GetBeginCommitId();
+  cid_t txn_cid = txn->GetEndCommitId();
   tl_phylog_worker_ctx->current_cid = txn_cid;
 
   // Log down the begin of a transaction

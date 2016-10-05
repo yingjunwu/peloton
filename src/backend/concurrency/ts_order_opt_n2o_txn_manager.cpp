@@ -563,6 +563,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
   // generate transaction id.
   // cid_t end_commit_id = current_txn->GetBeginCommitId();
   cid_t end_commit_id = current_txn->lower_bound_cid_;
+  current_txn->SetEndCommitId(end_commit_id);
 
   // TODO: make the end_commit_id to be the transaction's begin cid for the usage of backend loggers
   

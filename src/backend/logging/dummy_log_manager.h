@@ -34,8 +34,8 @@ public:
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs UNUSED_ATTRIBUTE) final {}
 
   // Worker side logic
-  virtual void RegisterWorkerToLogger() final {};
-  virtual void DeregisterWorkerFromLogger() final {};
+  virtual void RegisterWorker() final {};
+  virtual void DeregisterWorker() final {};
 
   virtual void DoRecovery() final {};
 

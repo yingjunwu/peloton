@@ -26,7 +26,7 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/phylog_worker_context.h"
+#include "backend/logging/epoch_worker_context.h"
 #include "backend/logging/epoch_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
@@ -54,6 +54,9 @@ namespace logging {
  * NOTE: tuple length can be obtained from the table schema.
  *
  */
+
+/* Per worker thread local context */
+extern thread_local EpochWorkerContext* tl_epoch_worker_ctx;
 
 class EpochLogManager : public LogManager {
   EpochLogManager(const EpochLogManager &) = delete;
@@ -93,12 +96,15 @@ public:
   }
 
   // Worker side logic
-  virtual void RegisterWorkerToLogger() final {};
-  virtual void DeregisterWorkerFromLogger() final {};
+  virtual void RegisterWorker() final {};
+  virtual void DeregisterWorker() final {};
 
-  void LogInsert(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos);
-  void LogUpdate(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos);
-  void LogDelete(const size_t &epoch_id, const ItemPointer & master_entry, const ItemPointer &tuple_pos_deleted);
+
+  void StartTxn(concurrency::Transaction *txn);
+
+  void LogInsert(const ItemPointer &master_entry, const ItemPointer &tuple_pos);
+  void LogUpdate(const ItemPointer &master_entry, const ItemPointer &tuple_pos);
+  void LogDelete(const ItemPointer &master_entry, const ItemPointer &tuple_pos_deleted);
 
   virtual void DoRecovery() override {}
 
@@ -109,8 +115,6 @@ public:
 private:
 
   std::vector<std::shared_ptr<EpochLogger>> loggers_;
-
-  std::unordered_map<oid_t, std::unordered_map<oid_t, ItemPointer>> delta_snapshots_[16];
 
 };
 

@@ -164,7 +164,7 @@ void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.RegisterWorkerToLogger();
+  log_manager.RegisterWorker();
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -342,7 +342,7 @@ void RunBackend(oid_t thread_id) {
     commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
   }
 
-  log_manager.DeregisterWorkerFromLogger();
+  log_manager.DeregisterWorker();
 }
 
 void RunWorkload() {

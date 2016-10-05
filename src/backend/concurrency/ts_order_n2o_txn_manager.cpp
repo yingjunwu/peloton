@@ -500,11 +500,14 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 
   // generate transaction id.
   cid_t end_commit_id = current_txn->GetBeginCommitId();
+  current_txn->SetEndCommitId(end_commit_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   auto logging_type = logging::DurabilityFactory::GetLoggingType();
   if (logging_type == LOGGING_TYPE_PHYLOG) {
     ((logging::PhyLogLogManager*)(&log_manager))->StartTxn(current_txn);
+  } else if (logging_type == LOGGING_TYPE_EPOCH) {
+    ((logging::EpochLogManager*)(&log_manager))->StartTxn(current_txn);
   }
   
   auto &rw_set = current_txn->GetRWSet();

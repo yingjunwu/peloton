@@ -22,16 +22,24 @@
 namespace peloton {
 namespace logging {
 
-void EpochLogManager::LogInsert(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos) {
-  delta_snapshots_[epoch_id % 16][master_entry.block][master_entry.offset] = tuple_pos;
+thread_local EpochWorkerContext* tl_epoch_worker_ctx = nullptr;
+
+void EpochLogManager::StartTxn(concurrency::Transaction *txn) {
+  PL_ASSERT(tl_epoch_worker_ctx);
+  size_t txn_eid = txn->GetEpochId();
+  tl_epoch_worker_ctx->current_eid = txn_eid;
 }
 
-void EpochLogManager::LogUpdate(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos) {
-  delta_snapshots_[epoch_id % 16][master_entry.block][master_entry.offset] = tuple_pos;
+void EpochLogManager::LogInsert(const ItemPointer &master_entry, const ItemPointer &tuple_pos) {
+  tl_epoch_worker_ctx->delta_snapshot_[master_entry.block][master_entry.offset] = tuple_pos;
 }
 
-void EpochLogManager::LogDelete(const size_t &epoch_id, const ItemPointer &master_entry, const ItemPointer &tuple_pos_deleted) {
-  delta_snapshots_[epoch_id % 16][master_entry.block][master_entry.offset] = tuple_pos_deleted;
+void EpochLogManager::LogUpdate(const ItemPointer &master_entry, const ItemPointer &tuple_pos) {
+  tl_epoch_worker_ctx->delta_snapshot_[master_entry.block][master_entry.offset] = tuple_pos;
+}
+
+void EpochLogManager::LogDelete(const ItemPointer &master_entry, const ItemPointer &tuple_pos_deleted) {
+  tl_epoch_worker_ctx->delta_snapshot_[master_entry.block][master_entry.offset] = tuple_pos_deleted;
 }
 
 void EpochLogManager::StartLoggers() {

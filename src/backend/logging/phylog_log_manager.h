@@ -101,8 +101,8 @@ public:
   }
 
   // Worker side logic
-  virtual void RegisterWorkerToLogger() override;
-  virtual void DeregisterWorkerFromLogger() override;
+  virtual void RegisterWorker() override;
+  virtual void DeregisterWorker() override;
 
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);

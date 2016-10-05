@@ -36,8 +36,8 @@ public:
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
 
 
-  virtual void RegisterWorkerToLogger() = 0;
-  virtual void DeregisterWorkerFromLogger() = 0;
+  virtual void RegisterWorker() = 0;
+  virtual void DeregisterWorker() = 0;
 
   virtual void DoRecovery() = 0;
 

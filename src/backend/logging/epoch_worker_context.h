@@ -39,12 +39,7 @@ namespace logging {
   struct EpochWorkerContext {
 
     EpochWorkerContext(oid_t id)
-      : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
-        buffer_pool(id), 
-        output_buffer(),
-        current_eid(START_EPOCH_ID), 
-        persist_eid(INVALID_EPOCH_ID),
-        current_cid(INVALID_CID), 
+      : current_eid(START_EPOCH_ID), 
         worker_id(id),
         cur_txn_start_time(0),
         pending_txn_timers(),
@@ -56,22 +51,12 @@ namespace logging {
       LOG_TRACE("Destroy worker %d", (int) worker_id);
     }
 
-
-    // Every epoch has a buffer stack
-    std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
-    // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
-    LogBufferPool buffer_pool;
-    // serialize each tuple to string.
-    CopySerializeOutput output_buffer;
+    
+    std::unordered_map<oid_t, std::unordered_map<oid_t, ItemPointer>> delta_snapshot_;
 
     // current epoch id
     size_t current_eid;
-    // persisted epoch id
-    size_t persist_eid;
-
-    // current transaction id
-    cid_t current_cid;
-
+    
     // worker thread id
     oid_t worker_id;
 
