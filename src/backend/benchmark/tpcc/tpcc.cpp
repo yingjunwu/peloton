@@ -38,22 +38,15 @@ void RunBenchmark() {
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
+  // Create and load the database
+  CreateTPCCDatabase();
+  LoadTPCCDatabase();
+
   logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
   log_manager.StartLoggers();
-
-  // Create log worker for loading the database
-  // log_manager.RegisterWorkerToLogger();
-
-  // Create the database
-  CreateTPCCDatabase();
-
-  // Load the database
-  LoadTPCCDatabase();
-
-  // log_manager.DeregisterWorkerFromLogger();
 
   // Run the workload
   RunWorkload();
