@@ -42,7 +42,7 @@ void RunBenchmark() {
   CreateTPCCDatabase();
   LoadTPCCDatabase();
 
-  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID);
+  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_on);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
