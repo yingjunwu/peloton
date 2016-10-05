@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "backend/common/types.h"
 
 namespace peloton {

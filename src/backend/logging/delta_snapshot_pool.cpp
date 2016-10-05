@@ -52,8 +52,8 @@ namespace logging {
     // The tail pos must be null
     PL_ASSERT(snapshot_queue_[tail_idx] == false);
     // The returned buffer must be empty
-    PL_ASSERT(buf->Empty() == true);
-    snapshot_queue_[tail_idx].reset(buf.release());
+    PL_ASSERT(snapshot->data_.size() == 0);
+    snapshot_queue_[tail_idx].reset(snapshot.release());
     
     tail_.fetch_add(1, std::memory_order_relaxed);
   }

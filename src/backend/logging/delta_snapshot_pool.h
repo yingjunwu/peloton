@@ -37,7 +37,7 @@ namespace logging {
 
     std::unique_ptr<DeltaSnapshot> GetSnapshot();
 
-    void PutSnapshot(std::unique_ptr<LogBuffer> buf);
+    void PutSnapshot(std::unique_ptr<DeltaSnapshot> snapshot);
 
     inline size_t GetWorkerId() { return worker_id_; }
 
