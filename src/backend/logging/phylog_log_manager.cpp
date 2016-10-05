@@ -211,7 +211,7 @@ void PhyLogLogManager::StopLoggers() {
 void PhyLogLogManager::RunPepochLogger() {
   
   FileHandle file_handle;
-  std::string filename = "/tmp/pepoch";
+  std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
   // Create a new file
   if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle) == false) {
     LOG_ERROR("Unable to create pepoch file %s\n", filename.c_str());

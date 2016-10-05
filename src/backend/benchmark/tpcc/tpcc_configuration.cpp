@@ -45,6 +45,7 @@ void Usage(FILE *out) {
           "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
+          "   -T --timer_on          :  enable timer\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -67,6 +68,7 @@ static struct option opts[] = {
   { "epoch_length", optional_argument, NULL, 'f'},
   { "log_type", optional_argument, NULL, 'L'},
   { "log_directories", optional_argument, NULL, 'D'},
+    {"timer_on", optional_argument, NULL, 'T'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -191,15 +193,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_length = 40;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
+  state.timer_on = false;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aeh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:", opts, &idx);
+    int c = getopt_long(argc, argv, "Taeh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'T':
+        state.timer_on = true;
+        break;
       case 't':
         state.gc_thread_count = atoi(optarg);
         break;
@@ -421,6 +427,8 @@ void WriteOutput() {
   LOG_INFO("order_status: %lf tps, %lf, %lf us", state.order_status_throughput, state.order_status_abort_rate, state.order_status_latency);
   LOG_INFO("scan_stock latency: %lf us", state.scan_stock_latency);
 
+  LOG_INFO("average commit latency: %lf ms", state.commit_latency);
+
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
        ++round_id) {
     out << "[" << std::setw(3) << std::left
@@ -508,6 +516,8 @@ void WriteOutput() {
   out << state.scan_stock_latency << " ";
 
   out << total_snapshot_memory <<"\n";
+
+  out << "average commit latency = " << state.commit_latency << "\n";
   out.flush();
   out.close();
 }

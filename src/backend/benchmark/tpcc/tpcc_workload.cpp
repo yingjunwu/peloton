@@ -88,6 +88,7 @@ volatile bool is_running = true;
 
 oid_t *abort_counts;
 oid_t *commit_counts;
+double *commit_latencies;
 
 oid_t *payment_abort_counts;
 oid_t *payment_commit_counts;
@@ -167,7 +168,7 @@ void RunBackend(oid_t thread_id) {
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
-
+  double &commit_latency_ref = commit_latencies[thread_id];
 
   NewOrderPlans new_order_plans = PrepareNewOrderPlan();
   PaymentPlans payment_plans = PreparePaymentPlan();
@@ -337,9 +338,9 @@ void RunBackend(oid_t thread_id) {
 
   }
 
-  // if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-  //   commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
-  // }
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
+  }
 
   log_manager.DeregisterWorkerFromLogger();
 }
@@ -356,6 +357,9 @@ void RunWorkload() {
 
   commit_counts = new oid_t[num_threads];
   memset(commit_counts, 0, sizeof(oid_t) * num_threads);
+
+  commit_latencies = new double[num_threads];
+  memset(commit_latencies, 0, sizeof(double) * num_threads);
 
   payment_abort_counts = new oid_t[num_threads];
   memset(payment_abort_counts, 0, sizeof(oid_t) * num_threads);
@@ -565,6 +569,12 @@ void RunWorkload() {
   state.order_status_latency = order_status_avg_latency;
   state.scan_stock_latency = scan_stock_avg_latency;
 
+  state.commit_latency = 0.0;
+  for (size_t i = 0; i < num_threads; ++i) {
+    // Weighted avg
+    state.commit_latency += (commit_latencies[i] * (commit_counts_snapshots[snapshot_round - 1][i] * 1.0 / total_commit_count));
+  }
+
   // cleanup everything.
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
     delete[] abort_counts_snapshots[round_id];
@@ -584,6 +594,8 @@ void RunWorkload() {
   abort_counts = nullptr;
   delete[] commit_counts;
   commit_counts = nullptr;
+  delete[] commit_latencies;
+  commit_latencies = nullptr;
 
   delete[] payment_abort_counts;
   payment_abort_counts = nullptr;

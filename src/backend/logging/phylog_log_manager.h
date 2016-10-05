@@ -79,7 +79,9 @@ public:
   virtual ~PhyLogLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
-    
+    if (logging_dirs.size() > 0) {
+      pepoch_dir_ = logging_dirs.at(0);
+    }
     // check the existence of logging directories.
     // if not exists, then create the directory.
     for (auto logging_dir : logging_dirs) {
@@ -144,6 +146,10 @@ private:
   volatile bool is_running_;
 
   std::atomic<size_t> global_persist_epoch_id_;
+
+  std::string pepoch_dir_;
+
+  const std::string pepoch_filename_ = "pepoch";
 };
 
 }

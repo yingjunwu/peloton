@@ -199,15 +199,10 @@ void RunBenchmark() {
   index::IndexFactory::Configure(state.sindex);
 
 
-  // Create and load the user table
-
   // for now, we do not perform logging when loading tables. --Yingjun
-  // log_manager.RegisterWorkerToLogger();
-  
+  // Create and load the user table
   CreateYCSBDatabase();
   LoadYCSBDatabase();
-
-  // log_manager.DeregisterWorkerFromLogger();
 
   // XXX: Change the logging type from INVALID to the logging type we want
   logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_on);

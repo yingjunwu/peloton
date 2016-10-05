@@ -163,6 +163,11 @@ class configuration {
 
   int epoch_length;
 
+  double commit_latency;
+
+  // Timer on
+  bool timer_on;
+
 };
 
 extern configuration state;
