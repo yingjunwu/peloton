@@ -217,7 +217,7 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
   // First, do integrity checks and claim a slot
   ItemPointer *temp_ptr = nullptr;
 
-  // Upper layer don't want to know infomation about index
+  // Upper layer don't want to know information about index
   if (itemptr_ptr == nullptr) {
     itemptr_ptr = &temp_ptr;
   }
@@ -247,7 +247,9 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
   auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
   tg_hdr->SetMasterPointer(location.offset, *itemptr_ptr);
 
-  PL_ASSERT((*itemptr_ptr)->block == location.block && (*itemptr_ptr)->offset == location.offset);
+  if (indexes_.size() != 0) {
+    PL_ASSERT((*itemptr_ptr)->block == location.block && (*itemptr_ptr)->offset == location.offset);
+  }
 
   // Increase the table's number of tuples by 1
   IncreaseNumberOfTuplesBy(1);
