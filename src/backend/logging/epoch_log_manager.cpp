@@ -30,16 +30,16 @@ void EpochLogManager::StartTxn(concurrency::Transaction *txn) {
   tl_epoch_worker_ctx->current_eid = txn_eid;
 }
 
-void EpochLogManager::LogInsert(UNUSED_ATTRIBUTE const ItemPointer &master_entry, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos) {
-  // tl_epoch_worker_ctx->delta_snapshot_[master_entry.block][master_entry.offset] = tuple_pos;
+void EpochLogManager::LogInsert(UNUSED_ATTRIBUTE ItemPointer *master_ptr, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos) {
+  // tl_epoch_worker_ctx->delta_snapshot_[master_ptr.block][master_ptr.offset] = tuple_pos;
 }
 
-void EpochLogManager::LogUpdate(UNUSED_ATTRIBUTE const ItemPointer &master_entry, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos) {
-  // tl_epoch_worker_ctx->delta_snapshot_[master_entry.block][master_entry.offset] = tuple_pos;
+void EpochLogManager::LogUpdate(UNUSED_ATTRIBUTE ItemPointer *master_ptr, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos) {
+  // tl_epoch_worker_ctx->delta_snapshot_[master_ptr.block][master_ptr.offset] = tuple_pos;
 }
 
-void EpochLogManager::LogDelete(UNUSED_ATTRIBUTE const ItemPointer &master_entry, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos_deleted) {
-  // tl_epoch_worker_ctx->delta_snapshot_[master_entry.block][master_entry.offset] = tuple_pos_deleted;
+void EpochLogManager::LogDelete(UNUSED_ATTRIBUTE ItemPointer *master_ptr) {
+  // tl_epoch_worker_ctx->delta_snapshot_[master_ptr.block][master_ptr.offset] = tuple_pos_deleted;
 }
 
 void EpochLogManager::StartLoggers() {

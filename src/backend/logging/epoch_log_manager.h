@@ -102,9 +102,9 @@ public:
 
   void StartTxn(concurrency::Transaction *txn);
 
-  void LogInsert(const ItemPointer &master_entry, const ItemPointer &tuple_pos);
-  void LogUpdate(const ItemPointer &master_entry, const ItemPointer &tuple_pos);
-  void LogDelete(const ItemPointer &master_entry, const ItemPointer &tuple_pos_deleted);
+  void LogInsert(ItemPointer *master_ptr, const ItemPointer &tuple_pos);
+  void LogUpdate(ItemPointer *master_ptr, const ItemPointer &tuple_pos);
+  void LogDelete(ItemPointer *master_ptr);
 
   virtual void DoRecovery() override {}
 

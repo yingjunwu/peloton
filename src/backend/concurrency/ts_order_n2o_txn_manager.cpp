@@ -555,7 +555,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
         } else if (logging_type == LOGGING_TYPE_EPOCH) {
-          
+          auto head_ptr = GetHeadPtr(tile_group_header, tuple_slot);
+          PL_ASSERT(head_ptr != nullptr);
+          ((logging::EpochLogManager*)(&log_manager))->LogUpdate(head_ptr, new_version);
         }
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
@@ -587,7 +589,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_EPOCH) {
-
+          auto head_ptr = GetHeadPtr(tile_group_header, tuple_slot);
+          PL_ASSERT(head_ptr != nullptr);
+          ((logging::EpochLogManager*)(&log_manager))->LogDelete(head_ptr);
         }
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
@@ -605,7 +609,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_EPOCH) {
-
+          auto head_ptr = GetHeadPtr(tile_group_header, tuple_slot);
+          PL_ASSERT(head_ptr != nullptr);
+          ((logging::EpochLogManager*)(&log_manager))->LogInsert(head_ptr, ItemPointer(tile_group_id, tuple_slot));
         }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
