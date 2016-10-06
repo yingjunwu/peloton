@@ -16,6 +16,8 @@
 #include "backend/gc/n2o_txn_gc.h"
 #include "backend/gc/n2o_epoch_gc.h"
 
+#include "backend/concurrency/epoch_manager.h"
+
 namespace peloton {
 namespace gc {
 
@@ -34,7 +36,7 @@ class GCManagerFactory {
     }
   }
 
-  static void Configure(GCType gc_type, int thread_count = default_gc_thread_count_) {
+  static void Configure( GCType gc_type, int thread_count = default_gc_thread_count_) {
     if (gc_type != GC_TYPE_OFF && gc_type != GC_TYPE_N2O_TXN && gc_type != GC_TYPE_N2O_EPOCH) {
       // Enforce the default
       gc_type = GC_TYPE_OFF;

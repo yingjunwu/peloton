@@ -47,6 +47,11 @@ enum GCType {
   GC_TYPE_N2O_EPOCH
 };
 
+enum EpochType {
+  EPOCH_SINGLE_QUEUE = 0,
+  EPOCH_SNAPSHOT,
+};
+
 //===--------------------------------------------------------------------===//
 // Filesystem directories
 //===--------------------------------------------------------------------===//

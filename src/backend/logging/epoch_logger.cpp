@@ -15,8 +15,9 @@
 #include <algorithm>
 #include <dirent.h>
 #include <cstdio>
-#include <backend/gc/gc_manager_factory.h>
-#include <backend/concurrency/transaction_manager_factory.h>
+
+#include "backend/gc/gc_manager_factory.h"
+#include "backend/concurrency/transaction_manager_factory.h"
 
 #include "backend/catalog/manager.h"
 #include "backend/concurrency/epoch_manager_factory.h"

@@ -55,7 +55,9 @@ namespace peloton {
         StartGC();
       }
 
-      ~N2OTxn_GCManager() { StopGC(); }
+      ~N2OTxn_GCManager() {
+        StopGC();
+      }
 
       static N2OTxn_GCManager& GetInstance(int thread_count = 1) {
         static N2OTxn_GCManager gcManager(thread_count);
