@@ -18,11 +18,17 @@
 #include <stack>
 #include <map>
 
+#include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
 #include "backend/concurrency/epoch_manager.h"
-#include "backend/logging/delta_snapshot_pool.h"
+#include "backend/logging/log_buffer.h"
+#include "backend/logging/log_record.h"
+#include "backend/logging/log_buffer_pool.h"
+#include "backend/logging/log_manager.h"
 #include "backend/logging/worker_context.h"
 #include "backend/common/types.h"
+#include "backend/common/serializer.h"
+#include "backend/common/lockfree_queue.h"
 #include "backend/common/logger.h"
 #include "backend/common/timer.h"
 
@@ -33,8 +39,10 @@ namespace logging {
   struct EpochWorkerContext {
 
     EpochWorkerContext(oid_t id)
-      : per_epoch_snapshot_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
-        snapshot_pool(id), 
+      : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
+        buffer_pool(id), 
+        output_buffer(),
+        // snapshot_pool(id), 
         current_eid(START_EPOCH_ID), 
         persist_eid(INVALID_EPOCH_ID),
         current_cid(INVALID_CID),
@@ -50,9 +58,19 @@ namespace logging {
     }
 
     // Every epoch has a snapshot pointer
-    std::vector<std::unique_ptr<DeltaSnapshot>> per_epoch_snapshot_ptrs;
+    //std::vector<std::unique_ptr<DeltaSnapshot>> per_epoch_snapshot_ptrs;
     
-    DeltaSnapshotPool snapshot_pool;
+    //DeltaSnapshotPool snapshot_pool;
+
+    // Every epoch has a buffer stack
+    std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
+    // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
+    LogBufferPool buffer_pool;
+    // serialize each tuple to string.
+    CopySerializeOutput output_buffer;
+
+    //DeltaSnapshot delta_snapshot;
+    std::unordered_map<ItemPointer*, std::pair<ItemPointer, cid_t>> delta_snapshot;
 
     // current epoch id
     size_t current_eid;

@@ -80,6 +80,7 @@ private:
 
   void PersistEpochBegin(const size_t epoch_id);
   void PersistEpochEnd(const size_t epoch_id);
+  void PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer);
 
   std::string GetLogFileFullPath(size_t epoch_id) {
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);

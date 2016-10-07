@@ -73,6 +73,7 @@ void EpochLogger::Run() {
       for (auto &worker_entry : worker_map_) {
         // For every alive worker, move its buffer to the logger's local buffer
         auto worker_ctx_ptr = worker_entry.second.get();
+
         size_t max_persist_eid = worker_ctx_ptr->current_eid - 1;
         size_t current_persist_eid = worker_ctx_ptr->persist_eid;
 
@@ -83,49 +84,27 @@ void EpochLogger::Run() {
         }
         for (size_t epoch_id = current_persist_eid + 1; epoch_id <= max_persist_eid; ++epoch_id) {
           size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
-          // get all the snapshot associated with the epoch.
-          std::unique_ptr<DeltaSnapshot> snapshot(std::move(worker_ctx_ptr->per_epoch_snapshot_ptrs[epoch_idx]));
+          // get all the buffers that are associated with the epoch.
+          auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
 
-          if (snapshot.get() == nullptr) {
-            // this snapshot is not initiated or
+          if (buffers.empty() == true) {
             // no transaction log is generated within this epoch.
             // it's fine. simply ignore it.
             continue;
           }
           PersistEpochBegin(epoch_id);
-          auto itr = worker_map_.find(snapshot->worker_id_);
-          if (itr != worker_map_.end()) {
-            
-            auto &manager = catalog::Manager::GetInstance();
-            
-            // persist all the data
-            for (auto &entry : snapshot->data_) {
-              ItemPointer persist_pos = entry.second.first;
-              if (persist_pos.IsNull() == true) {
-                // currently, we do not handle delete.
-                continue;
-              } else {
-
-                auto tile_group = manager.GetTileGroup(persist_pos.block);
-                
-                expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group.get(), persist_pos.offset);
-          
-                logger_output_buffer_.Reset();
-
-                container_tuple.SerializeTo(logger_output_buffer_);
-
-                fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
-              }
+          // persist all the buffers.
+          while (buffers.empty() == false) {
+            // Check if the buffer is empty
+            // TODO: is it possible to have an empty buffer??? --YINGJUN
+            if (buffers.top()->Empty()) {
+              worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
+            } else {
+              PersistLogBuffer(std::move(buffers.top()));
             }
-
-            snapshot->data_.clear();
-            itr->second->snapshot_pool.PutSnapshot(std::move(snapshot));
-          } else {
-            // In this case, the worker is already terminated and removed
-            // Release the snapshot
-            snapshot.reset(nullptr);
+            PL_ASSERT(buffers.top() == nullptr);
+            buffers.pop();
           }
-
           PersistEpochEnd(epoch_id);
           // Call fsync
           LoggingUtil::FFlushFsync(file_handle_);
@@ -181,6 +160,22 @@ void EpochLogger::PersistEpochEnd(const size_t epoch_id) {
   record.Serialize(logger_output_buffer_);
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
 
+}
+
+void EpochLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
+
+  fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle_.file);
+
+  // Return the buffer to the worker
+  log_buffer->Reset();
+  auto itr = worker_map_.find(log_buffer->GetWorkerId());
+  if (itr != worker_map_.end()) {
+    itr->second->buffer_pool.PutBuffer(std::move(log_buffer));
+  } else {
+    // In this case, the worker is already terminated and removed
+    // Release the buffer
+    log_buffer.reset(nullptr);
+  }
 }
 
 

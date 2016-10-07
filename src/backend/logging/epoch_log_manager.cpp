@@ -58,12 +58,53 @@ void EpochLogManager::StartTxn(concurrency::Transaction *txn) {
   if (tl_epoch_worker_ctx->current_eid == INVALID_EPOCH_ID 
     || tl_epoch_worker_ctx->current_eid != txn_eid) {
     // if this is a new epoch, then write to a new buffer
-    tl_epoch_worker_ctx->current_eid = txn_eid;
-    std::unique_ptr<DeltaSnapshot> snapshot_ptr(std::move(tl_epoch_worker_ctx->snapshot_pool.GetSnapshot()));
 
-    PL_ASSERT(snapshot_ptr.get() != nullptr);
+    if (tl_epoch_worker_ctx->current_eid != INVALID_EPOCH_ID) {
+      
+      RegisterNewBufferToEpoch(std::move(tl_epoch_worker_ctx->buffer_pool.GetBuffer()));
+      
+      
+      auto &manager = catalog::Manager::GetInstance();    
+      for (auto &entry : tl_epoch_worker_ctx->delta_snapshot) {
+        ItemPointer persist_pos = entry.second.first;
+        if (persist_pos.IsNull() == true) {
+          // currently, we do not handle delete.
+          continue;
+        } else {
+
+          auto tile_group = manager.GetTileGroup(persist_pos.block);
+          
+          expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group.get(), persist_pos.offset);
     
-    tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid] = std::move(snapshot_ptr);
+          auto &output = tl_epoch_worker_ctx->output_buffer;
+
+          output.Reset();
+
+          container_tuple.SerializeTo(output);
+
+
+          PL_ASSERT(tl_epoch_worker_ctx->per_epoch_buffer_ptrs[tl_epoch_worker_ctx->current_eid].empty() == false);
+          LogBuffer* buffer_ptr = tl_epoch_worker_ctx->per_epoch_buffer_ptrs[tl_epoch_worker_ctx->current_eid].top().get();
+          PL_ASSERT(buffer_ptr);
+
+          // Copy the output buffer into current buffer
+          bool is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+          if (is_success == false) {
+            // A buffer is full, pass it to the front end logger
+            // Get a new buffer and register it to current epoch
+            buffer_ptr = RegisterNewBufferToEpoch(std::move((tl_epoch_worker_ctx->buffer_pool.GetBuffer())));
+            // Write it again
+            is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+            PL_ASSERT(is_success);
+          }
+        }
+      }
+
+    }
+
+    tl_epoch_worker_ctx->delta_snapshot.clear();
+    tl_epoch_worker_ctx->current_eid = txn_eid;
+    
   }
 
   // Handle the commit id
@@ -78,21 +119,16 @@ void EpochLogManager::FinishPendingTxn() {
 }
 
 void EpochLogManager::LogInsert(ItemPointer *master_ptr, const ItemPointer &tuple_pos) {
-  DeltaSnapshot *snapshot_ptr = tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid].get();
-  PL_ASSERT(snapshot_ptr);
-  snapshot_ptr->data_[master_ptr] = std::make_pair(tuple_pos, tl_epoch_worker_ctx->current_cid);
+  
+  tl_epoch_worker_ctx->delta_snapshot[master_ptr] = std::make_pair(tuple_pos, tl_epoch_worker_ctx->current_cid);
 }
 
 void EpochLogManager::LogUpdate(ItemPointer *master_ptr, const ItemPointer &tuple_pos) {
-  DeltaSnapshot *snapshot_ptr = tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid].get();
-  PL_ASSERT(snapshot_ptr);
-  snapshot_ptr->data_[master_ptr] = std::make_pair(tuple_pos, tl_epoch_worker_ctx->current_cid);
+  tl_epoch_worker_ctx->delta_snapshot[master_ptr] = std::make_pair(tuple_pos, tl_epoch_worker_ctx->current_cid);
 }
 
-void EpochLogManager::LogDelete(UNUSED_ATTRIBUTE ItemPointer *master_ptr) {
-  DeltaSnapshot *snapshot_ptr = tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid].get();
-  PL_ASSERT(snapshot_ptr);
-  snapshot_ptr->data_[master_ptr] = std::make_pair(INVALID_ITEMPOINTER, tl_epoch_worker_ctx->current_cid);
+void EpochLogManager::LogDelete(ItemPointer *master_ptr) {
+  tl_epoch_worker_ctx->delta_snapshot[master_ptr] = std::make_pair(INVALID_ITEMPOINTER, tl_epoch_worker_ctx->current_cid);
 }
 
 void EpochLogManager::StartLoggers() {

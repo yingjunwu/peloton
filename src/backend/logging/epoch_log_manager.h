@@ -121,6 +121,16 @@ public:
 
 
 private:
+  
+  // Don't delete the returned pointer
+  inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_epoch_worker_ctx->worker_id, (int) tl_epoch_worker_ctx->current_eid);
+    PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
+    PL_ASSERT(tl_epoch_worker_ctx);
+    tl_epoch_worker_ctx->per_epoch_buffer_ptrs[tl_epoch_worker_ctx->current_eid].push(std::move(log_buffer_ptr));
+    return tl_epoch_worker_ctx->per_epoch_buffer_ptrs[tl_epoch_worker_ctx->current_eid].top().get();
+  }
+
   inline size_t HashToLogger(oid_t worker_id) {
     return ((size_t) worker_id) % logger_count_;
   }
