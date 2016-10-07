@@ -73,7 +73,6 @@ void EpochLogger::Run() {
       for (auto &worker_entry : worker_map_) {
         // For every alive worker, move its buffer to the logger's local buffer
         auto worker_ctx_ptr = worker_entry.second.get();
-
         size_t max_persist_eid = worker_ctx_ptr->current_eid - 1;
         size_t current_persist_eid = worker_ctx_ptr->persist_eid;
 
@@ -87,35 +86,21 @@ void EpochLogger::Run() {
           // get all the snapshot associated with the epoch.
           std::unique_ptr<DeltaSnapshot> snapshot(std::move(worker_ctx_ptr->per_epoch_snapshot_ptrs[epoch_idx]));
 
-          // if (buffers.empty() == true) {
-          //   // no transaction log is generated within this epoch.
-          //   // it's fine. simply ignore it.
-          //   continue;
-          // }
+          if (snapshot.get() == nullptr) { //|| snapshot->data_.size() == 0) {
+            // this snapshot is not initiated or
+            // no transaction log is generated within this epoch.
+            // it's fine. simply ignore it.
+            continue;
+          }
           PersistEpochBegin(epoch_id);
-          
-          // auto itr = worker_map_.find(snapshot->worker_id_);
-          // if (itr != worker_map_.end()) {
-          //   // In this case, the worker is already terminated and removed
-          //   // itr->second->snapshot_pool.PutSnapshot(std::move(snapshot));
-          // } else {
-          //   // Release the snapshot
-          //   // snapshot.reset(nullptr);
-          // }
-
-
-          // // persist all the buffers.
-          // while (buffers.empty() == false) {
-          //   // Check if the buffer is empty
-          //   // TODO: is it possible to have an empty buffer??? --YINGJUN
-          //   if (buffers.top()->Empty()) {
-          //     worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
-          //   } else {
-          //     PersistLogBuffer(std::move(buffers.top()));
-          //   }
-          //   PL_ASSERT(buffers.top() == nullptr);
-          //   buffers.pop();
-          // }
+          auto itr = worker_map_.find(snapshot->worker_id_);
+          if (itr != worker_map_.end()) {
+            // In this case, the worker is already terminated and removed
+            itr->second->snapshot_pool.PutSnapshot(std::move(snapshot));
+          } else {
+            // Release the snapshot
+            snapshot.reset(nullptr);
+          }
 
           PersistEpochEnd(epoch_id);
           // Call fsync
@@ -171,12 +156,6 @@ void EpochLogger::PersistEpochEnd(const size_t epoch_id) {
   logger_output_buffer_.Reset();
   record.Serialize(logger_output_buffer_);
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
-
-}
-
-void EpochLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
-
-  fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle_.file);
 
 }
 
