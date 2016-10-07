@@ -122,7 +122,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
       // Already inserted by others (concurrently), fall back to the override approach
       delete itemptr_ptr;
       UnlockTuple(insert_tg_header, insert_location.offset, old_txn_id);
-      gc::GCManagerFactory::GetInstance().RecycleInvalidTupleSlot(table->GetOid(), insert_location.block, insert_location.offset);
+      gc::GCManagerFactory::GetInstance().RecycleInvalidTupleSlot(<#initializer#>);
 
       // Redo the scan so that we have the correct item pointer
       pindex->ScanKey(key.get(), itemptr_ptrs);

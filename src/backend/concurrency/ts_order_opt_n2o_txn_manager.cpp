@@ -347,6 +347,7 @@ bool TsOrderOptN2OTxnManager::PerformInsert(const ItemPointer &location, ItemPoi
   PL_ASSERT(tile_group_header->GetTransactionId(tuple_id) == INVALID_TXN_ID);
   PL_ASSERT(tile_group_header->GetBeginCommitId(tuple_id) == MAX_CID);
   PL_ASSERT(tile_group_header->GetEndCommitId(tuple_id) == MAX_CID);
+  PL_ASSERT(tile_group_header->GetNextSnapshotItemPointer(tuple_id) == INVALID_ITEMPOINTER);
 
   tile_group_header->SetTransactionId(tuple_id, transaction_id);
 
@@ -385,6 +386,8 @@ void TsOrderOptN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
          MAX_CID);
   PL_ASSERT(new_tile_group_header->GetEndCommitId(new_location.offset) == MAX_CID);
 
+  PL_ASSERT(new_tile_group_header->GetNextSnapshotItemPointer(new_location.offset) == INVALID_ITEMPOINTER);
+
   // Notice: if the executor doesn't call PerformUpdate after AcquireOwnership,
   // no
   // one will possibly release the write lock acquired by this txn.
@@ -400,6 +403,22 @@ void TsOrderOptN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
   new_tile_group_header->SetNextItemPointer(new_location.offset, old_location);
 
   new_tile_group_header->SetTransactionId(new_location.offset, transaction_id);
+
+  // Set up the snapshot chain pointer, do it before we change the item ptr ptr (chain head)
+  if (EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+    PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+    cid_t nearest_snapshot_cid =
+      EpochManager::GetReadonlyCidFromEid(SnapshotEpochManager::GetNearestSnapshotEpochId(current_txn->GetEpochId()));
+    if (nearest_snapshot_cid >= tile_group_header->GetBeginCommitId(old_location.offset)
+        && nearest_snapshot_cid < tile_group_header->GetEndCommitId(old_location.offset)) {
+      // The before image is a snapshot, chain it in the chain
+      new_tile_group_header->SetNextItemPointer(new_location.offset, old_location);
+    } else {
+      // Chain the previous snapshot into the new version
+      new_tile_group_header->SetNextItemPointer(new_location.offset,
+                                                tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
+    }
+  }
 
 
   if (old_prev.IsNull() == false){
@@ -480,6 +499,8 @@ void TsOrderOptN2OTxnManager::PerformDelete(const ItemPointer &old_location,
          MAX_CID);
   PL_ASSERT(new_tile_group_header->GetEndCommitId(new_location.offset) == MAX_CID);
 
+  PL_ASSERT(new_tile_group_header->GetNextSnapshotItemPointer(new_location.offset) == INVALID_ITEMPOINTER);
+
   // Set up double linked list
   
   auto old_prev = tile_group_header->GetPrevItemPointer(old_location.offset);
@@ -493,6 +514,23 @@ void TsOrderOptN2OTxnManager::PerformDelete(const ItemPointer &old_location,
   new_tile_group_header->SetTransactionId(new_location.offset, transaction_id);
 
   new_tile_group_header->SetEndCommitId(new_location.offset, INVALID_CID);
+
+  // Set up the snapshot chain pointer, do it before we change the item ptr ptr (chain head)
+  if (EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+    PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+    cid_t nearest_snapshot_cid =
+      EpochManager::GetReadonlyCidFromEid(SnapshotEpochManager::GetNearestSnapshotEpochId(current_txn->GetEpochId()));
+    if (nearest_snapshot_cid >= tile_group_header->GetBeginCommitId(old_location.offset)
+        && nearest_snapshot_cid < tile_group_header->GetEndCommitId(old_location.offset)) {
+      // The before image is a snapshot, chain it in the chain
+      new_tile_group_header->SetNextItemPointer(new_location.offset, old_location);
+    } else {
+      // Chain the previous snapshot into the new version
+      new_tile_group_header->SetNextItemPointer(new_location.offset,
+                                                tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
+    }
+  }
+
 
 
   if (old_prev.IsNull() == false){
@@ -672,7 +710,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
 
   Result ret = current_txn->GetResult();
 
-  gc::GCManagerFactory::GetInstance().EndGCContext(end_commit_id);
+  gc::GCManagerFactory::GetInstance().EndGCContext();
   EndTransaction();
 
   return ret;
@@ -854,7 +892,7 @@ Result TsOrderOptN2OTxnManager::AbortTransaction() {
   }
 
   // Need to change next_commit_id to INVALID_CID if disable the recycle of aborted version
-  gc::GCManagerFactory::GetInstance().EndGCContext(next_eid);
+  gc::GCManagerFactory::GetInstance().EndGCContext();
   EndTransaction();
   return Result::RESULT_ABORTED;
 }

@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// single_queue_epoch_manager.h
+// snapshot_epoch_manager.h
 //
-// Identification: src/backend/concurrency/single_queue_epoch_manager.h
+// Identification: src/backend/concurrency/snapshot_epoch_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -18,6 +18,7 @@
 #include "backend/common/types.h"
 #include "backend/common/platform.h"
 #include "backend/concurrency/epoch_manager.h"
+#include "libcuckoo/cuckoohash_map.hh"
 
 namespace peloton {
 namespace concurrency {
@@ -38,38 +39,37 @@ Note:
 4) Queue tail is at least 2 turns older than the head epoch
 */
 
-class SingleQueueEpochManager : public EpochManager {
-  SingleQueueEpochManager(const SingleQueueEpochManager&) = delete;
+class SnapshotEpochManager : public EpochManager {
+  SnapshotEpochManager(const SnapshotEpochManager&) = delete;
 
   struct Epoch {
-    std::atomic<int> ro_txn_ref_count_;
-    std::atomic<int> rw_txn_ref_count_;
+    std::atomic<int> txn_ref_count_;
     std::atomic<size_t> id_generator_;
 
     Epoch()
-      :ro_txn_ref_count_(0), rw_txn_ref_count_(0), id_generator_(0) {}
+      :txn_ref_count_(0), id_generator_(0) {}
 
     void Init() {
-      ro_txn_ref_count_ = 0;
-      rw_txn_ref_count_ = 0;
+      txn_ref_count_ = 0;
       id_generator_ = 0;
     }
   };
 
 public:
-  static SingleQueueEpochManager& GetInstance(const int epoch_length) {
-    static SingleQueueEpochManager epochManager(epoch_length);
+  static SnapshotEpochManager& GetInstance(const int epoch_length) {
+    static SnapshotEpochManager epochManager(epoch_length);
     return epochManager;
   }
 
-  SingleQueueEpochManager(const int epoch_length)
+  SnapshotEpochManager(const int epoch_length)
     : EpochManager(epoch_length),
-      epoch_queue_(epoch_queue_size_) {
+      epoch_queue_(epoch_queue_size_),
+      repoch_queue_(epoch_queue_size_) {
     InitEpochQueue();
     StartEpochManager();
   }
 
-  virtual ~SingleQueueEpochManager() override {
+  virtual ~SnapshotEpochManager() override {
     finish_ = true;
     if (ts_thread_ != nullptr) {
       ts_thread_->join();
@@ -78,7 +78,7 @@ public:
 
   virtual void StartEpochManager() override {
     finish_ = false;
-    ts_thread_.reset(new std::thread(&SingleQueueEpochManager::Start, this));
+    ts_thread_.reset(new std::thread(&SnapshotEpochManager::Start, this));
   }
 
   virtual void Reset() override {
@@ -88,7 +88,7 @@ public:
     InitEpochQueue();
 
     finish_ = false;
-    ts_thread_.reset(new std::thread(&SingleQueueEpochManager::Start, this));
+    ts_thread_.reset(new std::thread(&SnapshotEpochManager::Start, this));
   }
 
 
@@ -110,22 +110,22 @@ public:
   }
 
   virtual cid_t EnterReadOnlyEpoch() override {
-    auto epoch = queue_tail_.load();
+    auto repoch = CalaulateCurrentReid();
+    size_t repoch_idx = repoch % epoch_queue_size_;
 
-    size_t epoch_idx = epoch % epoch_queue_size_;
-    epoch_queue_[epoch_idx].ro_txn_ref_count_++;
+    repoch_queue_[repoch_idx].txn_ref_count_++;
 
     // Validation
-    auto epoch_validate = queue_tail_.load();
-    while (epoch != epoch_validate) {
-      epoch_queue_[epoch_idx].ro_txn_ref_count_--;
-      epoch = epoch_validate;
-      epoch_idx = epoch % epoch_queue_size_;
-      epoch_queue_[epoch_idx].ro_txn_ref_count_++;
-      epoch_validate = queue_tail_.load();
+    auto repoch_validate = CalaulateCurrentReid();
+    while (repoch != repoch_validate) {
+      repoch_queue_[repoch_idx].txn_ref_count_--;
+      repoch = repoch_validate;
+      repoch_idx = repoch % epoch_queue_size_;
+      repoch_queue_[repoch_idx].txn_ref_count_++;
+      repoch_validate = CalaulateCurrentReid();
     }
 
-    return GetReadonlyCidFromEid(epoch);
+    return GetReadonlyCidFromEid(repoch * ro_epoch_frequency_); // Lower 32 bits are all 1
   }
 
   // Return a timestamp, higher 32 bits are eid and lower 32 bits are tid within epoch
@@ -133,15 +133,15 @@ public:
     auto epoch = current_epoch_.load();
 
     size_t epoch_idx = epoch % epoch_queue_size_;
-    epoch_queue_[epoch_idx].rw_txn_ref_count_++;
+    epoch_queue_[epoch_idx].txn_ref_count_++;
 
     // Validation
     auto epoch_validate = current_epoch_.load();
     while (epoch_validate != epoch) {
-      epoch_queue_[epoch_idx].rw_txn_ref_count_--;
+      epoch_queue_[epoch_idx].txn_ref_count_--;
       epoch = epoch_validate;
       epoch_idx = epoch % epoch_queue_size_;
-      epoch_queue_[epoch_idx].rw_txn_ref_count_++;
+      epoch_queue_[epoch_idx].txn_ref_count_++;
       epoch_validate = current_epoch_.load();
     }
 
@@ -151,11 +151,13 @@ public:
   }
 
   virtual void ExitReadOnlyEpoch(size_t epoch) override {
-    PL_ASSERT(epoch >= reclaim_tail_);
+    PL_ASSERT(epoch % ro_epoch_frequency_ == 0);
     PL_ASSERT(epoch <= queue_tail_);
+    PL_ASSERT(epoch >= ro_queue_tail_ * ro_epoch_frequency_);
 
-    auto epoch_idx = epoch % epoch_queue_size_;
-    epoch_queue_[epoch_idx].ro_txn_ref_count_--;
+    auto repoch_idx = (epoch / ro_epoch_frequency_) % epoch_queue_size_;
+    PL_ASSERT(repoch_queue_[repoch_idx].txn_ref_count_ > 0);
+    repoch_queue_[repoch_idx].txn_ref_count_--;
   }
 
   virtual void ExitEpoch(size_t epoch) override {
@@ -163,21 +165,32 @@ public:
     PL_ASSERT(epoch <= current_epoch_);
 
     auto epoch_idx = epoch % epoch_queue_size_;
-    epoch_queue_[epoch_idx].rw_txn_ref_count_--;
+    epoch_queue_[epoch_idx].txn_ref_count_--;
   }
 
   // assume we store epoch_store max_store previously
-  virtual size_t GetMaxDeadEid() override {
+  virtual size_t GetMaxDeadEid() override { PL_ASSERT(false); }
+
+  size_t GetMaxDeadEidForRwGC() {
     IncreaseQueueTail();
-    IncreaseReclaimTail();
-    return reclaim_tail_.load();
-  }
+    return queue_tail_.load();
+  };
+
+  size_t GetMaxDeadEidForSnapshotGC() {
+    // It is unnecessary to also call IncreaseQueueTail() here. -- Jiexi
+    IncreaseReadonlyQueueTail();
+    return ro_queue_tail_.load() * ro_epoch_frequency_; // Transform from reid to eid
+  };
 
   virtual size_t GetReadonlyEid() override {
     IncreaseQueueTail();
-    return queue_tail_.load();
+    return CalaulateCurrentReid() * ro_epoch_frequency_;
   }
 
+  // Round the eid down by ro_epoch_frequency
+  static size_t GetNearestSnapshotEpochId(size_t eid) {
+    return (eid / ro_epoch_frequency_) * ro_epoch_frequency_;
+  }
 
 private:
   void Start() {
@@ -186,14 +199,13 @@ private:
       std::this_thread::sleep_for(std::chrono::milliseconds(epoch_duration_milisec_));
 
       auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
-      auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
+      auto tail_idx = queue_tail_.load() % epoch_queue_size_;
 
 
       if(next_idx  == tail_idx) {
         // overflow
         // in this case, just increase tail
         IncreaseQueueTail();
-        IncreaseReclaimTail();
         continue;
       }
 
@@ -203,59 +215,28 @@ private:
       current_epoch_++;
 
       IncreaseQueueTail();
-      IncreaseReclaimTail();
+      IncreaseReadonlyQueueTail();
     }
   }
 
   inline void InitEpochQueue() {
     for (size_t i = 0; i < epoch_queue_size_; ++i) {
       epoch_queue_[i].Init();
+      repoch_queue_[i].Init();
     }
 
     queue_tail_token_ = true;
-    reclaim_tail_token_ = true;
+    ro_queue_tail_token_ = true;
 
-    current_epoch_ = START_EPOCH_ID + 2; // 2
-    queue_tail_ = START_EPOCH_ID + 1;    // 1
-    reclaim_tail_ = START_EPOCH_ID;      // 0
-  }
+    current_epoch_ = START_EPOCH_ID + ro_epoch_frequency_ + 1; // 41
+    queue_tail_ = START_EPOCH_ID + ro_epoch_frequency_;    // 40
 
-  void IncreaseReclaimTail() {
-    bool expect = true, desired = false;
-    if(!reclaim_tail_token_.compare_exchange_weak(expect, desired)){
-      // someone now is increasing tail
-      return;
-    }
-
-    auto current = queue_tail_.load();
-    auto tail = reclaim_tail_.load();
-
-    while(true) {
-      auto idx = tail % epoch_queue_size_;
-
-      // inc tail until we find an epoch that has running txn
-      if(epoch_queue_[idx].ro_txn_ref_count_ > 0) {
-        break;
-      }
-
-      tail++;
-
-      if(tail + safety_interval_ >= current) {
-        tail = current - 1;
-        break;
-      }
-    }
-
-    reclaim_tail_ = tail;
-
-    expect = false;
-    desired = true;
-
-    reclaim_tail_token_.compare_exchange_weak(expect, desired);
-    return;
+    // current reid = 1
+    ro_queue_tail_ = START_EPOCH_ID; // 0
   }
 
   void IncreaseQueueTail() {
+    // Lock
     bool expect = true, desired = false;
     if(!queue_tail_token_.compare_exchange_weak(expect, desired)){
       // someone now is increasing tail
@@ -269,7 +250,7 @@ private:
       auto idx = tail % epoch_queue_size_;
 
       // inc tail until we find an epoch that has running txn
-      if(epoch_queue_[idx].rw_txn_ref_count_ > 0) {
+      if(epoch_queue_[idx].txn_ref_count_ > 0) {
         break;
       }
 
@@ -283,24 +264,74 @@ private:
 
     queue_tail_ = tail;
 
+    // Unlock
     expect = false;
     desired = true;
-
     queue_tail_token_.compare_exchange_weak(expect, desired);
     return;
   }
 
-private:
 
-  // Epoch vector
+  void IncreaseReadonlyQueueTail() {
+    // Lock
+    bool expect = true, desired = false;
+    if(!ro_queue_tail_token_.compare_exchange_weak(expect, desired)){
+      // someone now is increasing tail
+      return;
+    }
+
+    auto current = CalaulateCurrentReid();
+    auto tail = ro_queue_tail_.load();
+
+    while(true) {
+      auto idx = tail  % epoch_queue_size_;
+
+      // inc tail until we find an epoch that has running txn
+      if(repoch_queue_[idx].txn_ref_count_ > 0) {
+        break;
+      }
+
+      tail++;
+
+      if(tail + safety_interval_ >= current) {
+        tail = current - 1;
+        break;
+      }
+    }
+
+    ro_queue_tail_ = tail;
+
+    // Unlock
+    expect = false;
+    desired = true;
+    ro_queue_tail_token_.compare_exchange_weak(expect, desired);
+    return;
+  }
+
+  // reid grows 40 times slower than rw id
+  size_t CalaulateCurrentReid() {
+    size_t tail_eid = queue_tail_.load();
+    return (tail_eid / ro_epoch_frequency_);
+  }
+
+private:
+  // Queue tail token
+  std::atomic<bool> queue_tail_token_;
+  std::atomic<bool> ro_queue_tail_token_;
+
+  // Read write epoch vector
   std::vector<Epoch> epoch_queue_;
   std::atomic<size_t> queue_tail_;
-  std::atomic<size_t> reclaim_tail_;
   std::atomic<size_t> current_epoch_;
-  std::atomic<bool> queue_tail_token_;
-  std::atomic<bool> reclaim_tail_token_;
-  bool finish_;
 
+  // Read only epoch frequenct
+  static const int ro_epoch_frequency_ = 40;
+
+  // Read only epoch vector
+  std::vector<Epoch> repoch_queue_;
+  std::atomic<size_t> ro_queue_tail_;
+
+  bool finish_;
   std::unique_ptr<std::thread> ts_thread_;
 };
 

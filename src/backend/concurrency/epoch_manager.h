@@ -38,22 +38,6 @@ struct Epoch {
   }
 };
 
-/*
-  Epoch queue layout:
-     current epoch               queue tail                reclaim tail
-    /                           /                          /
-    +--------+--------+--------+--------+--------+--------+--------+-------
-    | head   | safety |  ....  |readonly| safety |  ....  |gc usage|  ....
-    +--------+--------+--------+--------+--------+--------+--------+-------
-    New                                                   Old
-
-  Note:
-    1) Queue tail epoch and epochs which is older than it have 0 rw txn ref count
-    2) Reclaim tail epoch and epochs which is older than it have 0 ro txn ref count
-    3) Reclaim tail is at least 2 turns older than the queue tail epoch
-    4) Queue tail is at least 2 turns older than the head epoch
-*/
-
 class EpochManager {
   EpochManager(const EpochManager&) = delete;
 
@@ -70,6 +54,10 @@ class EpochManager {
   static inline size_t GetEpochQueueCapacity() { return epoch_queue_size_; }
   static inline size_t GetEidFromCid(cid_t cid) {
     return (cid >> 32);
+  }
+
+  static inline cid_t GetReadonlyCidFromEid(size_t eid) {
+    return (eid << 32) | low_32_bit_mask_;
   }
 
   int GetEpochLengthInMiliSec() const {

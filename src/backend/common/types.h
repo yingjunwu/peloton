@@ -44,7 +44,8 @@ enum GCType {
   GC_TYPE_N2O,
   GC_TYPE_N2O_TXN,
   GC_TYPE_SV,
-  GC_TYPE_N2O_EPOCH
+  GC_TYPE_N2O_EPOCH,
+  GC_TYPE_N2O_SNAPSHOT,
 };
 
 enum EpochType {

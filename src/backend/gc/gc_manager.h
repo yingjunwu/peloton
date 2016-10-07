@@ -50,7 +50,7 @@ class GCManager {
   virtual void CreateGCContext(size_t eid __attribute__((unused))) {};
 
   // WARNING: This function must be called before the current_txn is distructed
-  virtual void EndGCContext(size_t eid __attribute__((unused))) {};
+  virtual void EndGCContext() {};
 
   // Get status of whether GC thread is running or not
   virtual bool GetStatus() = 0;
@@ -64,11 +64,16 @@ class GCManager {
                         const oid_t &tuple_id, const size_t epoch_id) = 0;
 
   // recycle invalid version
-  virtual void RecycleInvalidTupleSlot(const oid_t &table_id, const oid_t &tile_group_id, const oid_t &tuple_id) = 0;
+  virtual void RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) = 0;
 
   virtual ItemPointer ReturnFreeSlot(const oid_t &table_id) = 0;
 
   virtual void RegisterTable(oid_t table_id) = 0;
+
+  // Called by the data_table when an insert is aborted by index constraint.
+  // This function should be called before the garbage version is chained into the version chain. It directly reset
+  // the version and put it into the recycled queue for future reuse.
+  virtual void DirectRecycleTuple(oid_t table_id, ItemPointer garbage_tuple) = 0;
 
 protected:
   void DeleteInvalidTupleFromIndex(const TupleMetadata &tuple_metadata) {

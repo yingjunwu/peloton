@@ -65,32 +65,28 @@ namespace peloton {
       }
 
       // Get status of whether GC thread is running or not
-      virtual bool GetStatus() { return this->is_running_; }
+      virtual bool GetStatus() override { return this->is_running_; }
 
-      virtual void StartGC() {
+      virtual void StartGC() override {
         for (int i = 0; i < gc_thread_count_; ++i) {
           StartGC(i);
         }
       };
 
-      virtual void StopGC() {
+      virtual void StopGC() override {
         for (int i = 0; i < gc_thread_count_; ++i) {
           StopGC(i);
         }
       }
 
       virtual void RecycleOldTupleSlot(const oid_t &table_id, const oid_t &tile_group_id,
-                                       const oid_t &tuple_id, const size_t epoch_id);
+                                       const oid_t &tuple_id, const size_t epoch_id) override ;
 
-      virtual void RecycleInvalidTupleSlot(const oid_t &table_id __attribute__((unused)),
-                                           const oid_t &tile_group_id __attribute__((unused)),
-                                           const oid_t &tuple_id __attribute__((unused))) {
-        assert(false);
-      }
+      virtual void RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) override ;
 
-      virtual ItemPointer ReturnFreeSlot(const oid_t &table_id);
+      virtual ItemPointer ReturnFreeSlot(const oid_t &table_id) override ;
 
-      virtual void RegisterTable(oid_t table_id) {
+      virtual void RegisterTable(oid_t table_id) override {
         // Insert a new entry for the table
         if (recycle_queue_map_.find(table_id) == recycle_queue_map_.end()) {
           LOG_TRACE("register table %d to garbage collector", (int)table_id);
@@ -99,9 +95,11 @@ namespace peloton {
         }
       }
 
-      virtual void CreateGCContext(size_t eid);
+      virtual void DirectRecycleTuple(oid_t table_id, ItemPointer garbage_tuple) override ;
 
-      virtual void EndGCContext(size_t eid);
+      virtual void CreateGCContext(size_t eid) override ;
+
+      virtual void EndGCContext() override ;
 
     private:
       void StartGC(int thread_id);
@@ -120,7 +118,9 @@ namespace peloton {
 
       void Unlink(int thread_id, const size_t max_eid);
 
-      void AddToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx);
+      void AddGarbageCtxToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx);
+
+      void AddTupleToRecycleMap(TupleMetadata &tuple_metadata);
 
       bool ResetTuple(const TupleMetadata &);
 

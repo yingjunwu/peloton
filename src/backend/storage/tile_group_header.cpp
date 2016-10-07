@@ -54,6 +54,7 @@ TileGroupHeader::TileGroupHeader(const BackendType &backend_type,
     SetEndCommitId(tuple_slot_id, MAX_CID);
     SetNextItemPointer(tuple_slot_id, INVALID_ITEMPOINTER);
     SetPrevItemPointer(tuple_slot_id, INVALID_ITEMPOINTER);
+    SetNextSnapshotItemPointer(tuple_slot_id, INVALID_ITEMPOINTER);
 
     SetInsertCommit(tuple_slot_id, false);  // unused
     SetDeleteCommit(tuple_slot_id, false);  // unused

@@ -46,9 +46,7 @@ public:
                                    const size_t __attribute__((unused)) epoch_id) {}
 
   // recycle invalid version
-  virtual void RecycleInvalidTupleSlot(const oid_t __attribute__((unused))&table_id,
-                                       const oid_t __attribute__((unused))&tile_group_id,
-                                       const oid_t __attribute__((unused))&tuple_id) {}
+  virtual void RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) {}
 
   virtual ItemPointer ReturnFreeSlot(const oid_t __attribute__((unused))&table_id) {
     return INVALID_ITEMPOINTER;
