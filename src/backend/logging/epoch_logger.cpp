@@ -86,7 +86,7 @@ void EpochLogger::Run() {
           // get all the snapshot associated with the epoch.
           std::unique_ptr<DeltaSnapshot> snapshot(std::move(worker_ctx_ptr->per_epoch_snapshot_ptrs[epoch_idx]));
 
-          if (snapshot.get() == nullptr) { //|| snapshot->data_.size() == 0) {
+          if (snapshot.get() == nullptr) {
             // this snapshot is not initiated or
             // no transaction log is generated within this epoch.
             // it's fine. simply ignore it.
@@ -95,9 +95,33 @@ void EpochLogger::Run() {
           PersistEpochBegin(epoch_id);
           auto itr = worker_map_.find(snapshot->worker_id_);
           if (itr != worker_map_.end()) {
-            // In this case, the worker is already terminated and removed
+            
+            auto &manager = catalog::Manager::GetInstance();
+            
+            // persist all the data
+            for (auto &entry : snapshot->data_) {
+              ItemPointer persist_pos = entry.second.first;
+              if (persist_pos.IsNull() == true) {
+                // currently, we do not handle delete.
+                continue;
+              } else {
+
+                auto tile_group = manager.GetTileGroup(persist_pos.block);
+                
+                expression::ContainerTuple<storage::TileGroup> container_tuple(tile_group.get(), persist_pos.offset);
+          
+                logger_output_buffer_.Reset();
+
+                container_tuple.SerializeTo(logger_output_buffer_);
+
+                fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
+              }
+            }
+
+            snapshot->data_.clear();
             itr->second->snapshot_pool.PutSnapshot(std::move(snapshot));
           } else {
+            // In this case, the worker is already terminated and removed
             // Release the snapshot
             snapshot.reset(nullptr);
           }

@@ -417,7 +417,7 @@ void PhyLogLogger::Run() {
   // Safely close the file
   bool res = LoggingUtil::CloseFile(file_handle_);
   if (res == false) {
-    LOG_ERROR("Can not close log file under directory %s", log_dir_.c_str());
+    LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
     exit(EXIT_FAILURE);
   }
 }
@@ -449,9 +449,9 @@ void PhyLogLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
   log_buffer->Reset();
   auto itr = worker_map_.find(log_buffer->GetWorkerId());
   if (itr != worker_map_.end()) {
-    // In this case, the worker is already terminated and removed
     itr->second->buffer_pool.PutBuffer(std::move(log_buffer));
   } else {
+    // In this case, the worker is already terminated and removed
     // Release the buffer
     log_buffer.reset(nullptr);
   }

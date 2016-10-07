@@ -44,6 +44,7 @@ namespace logging {
 
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
+        // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
         worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us);
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
@@ -73,6 +74,7 @@ namespace logging {
 
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
+        // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
         worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us);
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);

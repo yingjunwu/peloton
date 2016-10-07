@@ -65,6 +65,10 @@ void EpochLogManager::StartTxn(concurrency::Transaction *txn) {
     
     tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid] = std::move(snapshot_ptr);
   }
+
+  // Handle the commit id
+  cid_t txn_cid = txn->GetEndCommitId();
+  tl_epoch_worker_ctx->current_cid = txn_cid;
 }
 
 void EpochLogManager::FinishPendingTxn() {
@@ -73,16 +77,22 @@ void EpochLogManager::FinishPendingTxn() {
   DurabilityFactory::StopTimersByPepoch(glob_peid, tl_epoch_worker_ctx);
 }
 
-void EpochLogManager::LogInsert(UNUSED_ATTRIBUTE ItemPointer *master_ptr, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos) {
-  // tl_epoch_worker_ctx->delta_snapshot_[master_ptr.block][master_ptr.offset] = tuple_pos;
+void EpochLogManager::LogInsert(ItemPointer *master_ptr, const ItemPointer &tuple_pos) {
+  DeltaSnapshot *snapshot_ptr = tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid].get();
+  PL_ASSERT(snapshot_ptr);
+  snapshot_ptr->data_[master_ptr] = std::make_pair(tuple_pos, tl_epoch_worker_ctx->current_cid);
 }
 
-void EpochLogManager::LogUpdate(UNUSED_ATTRIBUTE ItemPointer *master_ptr, UNUSED_ATTRIBUTE const ItemPointer &tuple_pos) {
-  // tl_epoch_worker_ctx->delta_snapshot_[master_ptr.block][master_ptr.offset] = tuple_pos;
+void EpochLogManager::LogUpdate(ItemPointer *master_ptr, const ItemPointer &tuple_pos) {
+  DeltaSnapshot *snapshot_ptr = tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid].get();
+  PL_ASSERT(snapshot_ptr);
+  snapshot_ptr->data_[master_ptr] = std::make_pair(tuple_pos, tl_epoch_worker_ctx->current_cid);
 }
 
 void EpochLogManager::LogDelete(UNUSED_ATTRIBUTE ItemPointer *master_ptr) {
-  // tl_epoch_worker_ctx->delta_snapshot_[master_ptr.block][master_ptr.offset] = tuple_pos_deleted;
+  DeltaSnapshot *snapshot_ptr = tl_epoch_worker_ctx->per_epoch_snapshot_ptrs[tl_epoch_worker_ctx->current_eid].get();
+  PL_ASSERT(snapshot_ptr);
+  snapshot_ptr->data_[master_ptr] = std::make_pair(INVALID_ITEMPOINTER, tl_epoch_worker_ctx->current_cid);
 }
 
 void EpochLogManager::StartLoggers() {
@@ -143,7 +153,7 @@ void EpochLogManager::RunPepochLogger() {
   // Safely close the file
   bool res = LoggingUtil::CloseFile(file_handle);
   if (res == false) {
-    LOG_ERROR("Can not close pepoch file");
+    LOG_ERROR("Cannot close pepoch file");
     exit(EXIT_FAILURE);
   }
 

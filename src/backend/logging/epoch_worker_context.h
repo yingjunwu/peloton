@@ -37,6 +37,7 @@ namespace logging {
         snapshot_pool(id), 
         current_eid(START_EPOCH_ID), 
         persist_eid(INVALID_EPOCH_ID),
+        current_cid(INVALID_CID),
         worker_id(id),
         cur_txn_start_time(0),
         pending_txn_timers(),
@@ -58,6 +59,9 @@ namespace logging {
     // persisted epoch id
     size_t persist_eid;
     
+    // current transaction id
+    cid_t current_cid;
+
     // worker thread id
     oid_t worker_id;
 

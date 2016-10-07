@@ -25,7 +25,7 @@ struct DeltaSnapshot {
   	worker_id_ = worker_id;
   }
 
-  std::unordered_map<ItemPointer*, ItemPointer> data_;
+  std::unordered_map<ItemPointer*, std::pair<ItemPointer, cid_t>> data_;
 
   size_t worker_id_;
 };

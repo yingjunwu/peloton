@@ -247,7 +247,7 @@ void PhyLogLogManager::RunPepochLogger() {
   // Safely close the file
   bool res = LoggingUtil::CloseFile(file_handle);
   if (res == false) {
-    LOG_ERROR("Can not close pepoch file");
+    LOG_ERROR("Cannot close pepoch file");
     exit(EXIT_FAILURE);
   }
 
