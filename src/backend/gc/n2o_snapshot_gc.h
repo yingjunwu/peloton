@@ -22,6 +22,7 @@
 #include "backend/common/lockfree_queue.h"
 #include "backend/common/logger.h"
 #include "backend/gc/gc_manager.h"
+#include "backend/storage/tile_group_header.h"
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/gc/n2o_epoch_gc.h"
 
@@ -77,12 +78,17 @@ namespace gc {
       rw_gc_manager.DirectRecycleTuple(table_id, garbage_tuple);
     }
 
-    void RecycleRWOldTupleSlot(const oid_t &table_id, const oid_t &tg_id, const oid_t &tuple_id) {
-      rw_gc_manager.RecycleOldTupleSlot(table_id, tg_id, tuple_id, current_epoch_garbage_context);
-    }
-
-    void RecycleSnapshotTupleSlot(const oid_t &table_id, const oid_t &tg_id, const oid_t &tuple_id) {
-      snapshot_gc_manager.RecycleOldTupleSlot(table_id, tg_id, tuple_id, current_snapshot_epoch_garbage_context);
+    void RecycleOldTupleSlot(storage::TileGroup *tg, const oid_t &tuple_id, const size_t &eid) {
+      size_t snapshot_eid = concurrency::SnapshotEpochManager::GetNearestSnapshotEpochId(eid);
+      cid_t snapshot_cid = concurrency::EpochManager::GetReadonlyCidFromEid(snapshot_eid);
+      auto tg_header = tg->GetHeader();
+      cid_t begin_cid = tg_header->GetBeginCommitId(tuple_id);
+      cid_t end_cid = tg_header->GetEndCommitId(tuple_id);
+      if (snapshot_cid >= begin_cid && snapshot_cid < end_cid) {
+        RecycleSnapshotTupleSlot(tg->GetTableId(), tg->GetTileGroupId(), tuple_id);
+      } else {
+        RecycleRWOldTupleSlot(tg->GetTableId(), tg->GetTileGroupId(), tuple_id);
+      }
     }
 
     virtual ItemPointer ReturnFreeSlot(const oid_t &table_id) override {
@@ -127,6 +133,15 @@ namespace gc {
     }
 
     void Running(int thread_id);
+
+    void RecycleRWOldTupleSlot(const oid_t &table_id, const oid_t &tg_id, const oid_t &tuple_id) {
+      rw_gc_manager.RecycleOldTupleSlot(table_id, tg_id, tuple_id, current_epoch_garbage_context);
+    }
+
+    void RecycleSnapshotTupleSlot(const oid_t &table_id, const oid_t &tg_id, const oid_t &tuple_id) {
+      snapshot_gc_manager.RecycleOldTupleSlot(table_id, tg_id, tuple_id, current_snapshot_epoch_garbage_context);
+    }
+
 
   private:
     //===--------------------------------------------------------------------===//
