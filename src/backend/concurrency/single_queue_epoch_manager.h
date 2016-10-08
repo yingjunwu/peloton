@@ -215,9 +215,10 @@ private:
     queue_tail_token_ = true;
     reclaim_tail_token_ = true;
 
-    current_epoch_ = START_EPOCH_ID + 2; // 2
-    queue_tail_ = START_EPOCH_ID + 1;    // 1
-    reclaim_tail_ = START_EPOCH_ID;      // 0
+    // Propely init the significant epochs with safe interval
+    reclaim_tail_ = START_EPOCH_ID;
+    queue_tail_ = reclaim_tail_ + 1 + safety_interval_;
+    current_epoch_ = queue_tail_ + 1 + safety_interval_;
   }
 
   void IncreaseReclaimTail() {
@@ -241,7 +242,8 @@ private:
       tail++;
 
       if(tail + safety_interval_ >= current) {
-        tail = current - 1;
+        // Reset the tail when tail overlaps the head (including the safety interval)
+        tail = current - 1 - safety_interval_;
         break;
       }
     }
@@ -276,7 +278,8 @@ private:
       tail++;
 
       if(tail + safety_interval_ >= current) {
-        tail = current - 1;
+        // Reset the tail when tail overlaps the head (including the safety interval)
+        tail = current - 1 - safety_interval_;
         break;
       }
     }

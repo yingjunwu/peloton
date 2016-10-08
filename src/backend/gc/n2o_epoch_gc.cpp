@@ -26,8 +26,12 @@ namespace peloton {
         return;
       }
       // Add the garbage context to the lockfree queue
-      std::shared_ptr<EpochGarbageContext> gc_context(garbage_ctx);
-      unlink_queues_[HashToThread(gc_context->epoch_id)]->Enqueue(gc_context);
+      if (garbage_ctx->garbages.empty() == true) {
+        delete garbage_ctx;
+      } else {
+        std::shared_ptr<EpochGarbageContext> gc_context(garbage_ctx);
+        unlink_queues_[HashToThread(gc_context->epoch_id)]->Enqueue(gc_context);
+      }
       // Reset the GC context (not necessary...)
       garbage_ctx = nullptr;
 
@@ -230,6 +234,9 @@ namespace peloton {
     }
 
     void N2OEpochGCManager::RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) {
+      if (invalid_tuples.empty() == true) {
+        return;
+      }
       std::shared_ptr<EpochGarbageContext> temp_epoch_gc_ctx(new EpochGarbageContext());
       temp_epoch_gc_ctx->epoch_id = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpoch();
       for (ItemPointer itemptr : invalid_tuples) {

@@ -214,6 +214,10 @@ private:
       epoch_queue_[next_idx].Init();
       current_epoch_++;
 
+      // No need to init the read only epoch because:
+      //      1) We don't use the id generator field
+      //      2) The ref count is naturally 0 when the epoch becomes read only epoch tail
+
       IncreaseQueueTail();
       IncreaseReadonlyQueueTail();
     }
@@ -228,11 +232,12 @@ private:
     queue_tail_token_ = true;
     ro_queue_tail_token_ = true;
 
-    current_epoch_ = START_EPOCH_ID + ro_epoch_frequency_ + 1; // 41
-    queue_tail_ = START_EPOCH_ID + ro_epoch_frequency_;    // 40
+    // Propely init the significant epochs with safe interval
+    ro_queue_tail_ = START_EPOCH_ID;
+    queue_tail_ = ro_epoch_frequency_ * (ro_queue_tail_ + 1 + safety_interval_);    // 40
+    current_epoch_ = queue_tail_ + 1 + safety_interval_; // 41
 
     // current reid = 1
-    ro_queue_tail_ = START_EPOCH_ID; // 0
   }
 
   void IncreaseQueueTail() {
@@ -257,7 +262,8 @@ private:
       tail++;
 
       if(tail + safety_interval_ >= current) {
-        tail = current - 1;
+        // Reset the tail when tail overlaps the head (including the safety interval)
+        tail = current - 1 - safety_interval_;
         break;
       }
     }
@@ -294,7 +300,8 @@ private:
       tail++;
 
       if(tail + safety_interval_ >= current) {
-        tail = current - 1;
+        // Reset the tail when tail overlaps the head (including the safety interval)
+        tail = current - 1 - safety_interval_;
         break;
       }
     }
