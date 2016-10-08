@@ -40,10 +40,6 @@ class GCManagerFactory {
   }
 
   static void Configure( GCType gc_type, int thread_count = default_gc_thread_count_) {
-    if (gc_type != GC_TYPE_OFF && gc_type != GC_TYPE_N2O_TXN && gc_type != GC_TYPE_N2O_EPOCH) {
-      // Enforce the default
-      gc_type = GC_TYPE_OFF;
-    }
     gc_type_ = gc_type;
     gc_thread_count_ = thread_count;
   }

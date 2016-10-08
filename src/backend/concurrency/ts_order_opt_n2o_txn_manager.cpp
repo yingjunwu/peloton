@@ -412,10 +412,10 @@ void TsOrderOptN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
     if (nearest_snapshot_cid >= tile_group_header->GetBeginCommitId(old_location.offset)
         && nearest_snapshot_cid < tile_group_header->GetEndCommitId(old_location.offset)) {
       // The before image is a snapshot, chain it in the chain
-      new_tile_group_header->SetNextItemPointer(new_location.offset, old_location);
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset, old_location);
     } else {
       // Chain the previous snapshot into the new version
-      new_tile_group_header->SetNextItemPointer(new_location.offset,
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset,
                                                 tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
     }
   }
@@ -523,10 +523,10 @@ void TsOrderOptN2OTxnManager::PerformDelete(const ItemPointer &old_location,
     if (nearest_snapshot_cid >= tile_group_header->GetBeginCommitId(old_location.offset)
         && nearest_snapshot_cid < tile_group_header->GetEndCommitId(old_location.offset)) {
       // The before image is a snapshot, chain it in the chain
-      new_tile_group_header->SetNextItemPointer(new_location.offset, old_location);
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset, old_location);
     } else {
       // Chain the previous snapshot into the new version
-      new_tile_group_header->SetNextItemPointer(new_location.offset,
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset,
                                                 tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
     }
   }

@@ -84,9 +84,12 @@ namespace gc {
       auto tg_header = tg->GetHeader();
       cid_t begin_cid = tg_header->GetBeginCommitId(tuple_id);
       cid_t end_cid = tg_header->GetEndCommitId(tuple_id);
+
       if (snapshot_cid >= begin_cid && snapshot_cid < end_cid) {
-        RecycleSnapshotTupleSlot(tg->GetTableId(), tg->GetTileGroupId(), tuple_id);
+         // printf("find snapshot\n");
+         RecycleSnapshotTupleSlot(tg->GetTableId(), tg->GetTileGroupId(), tuple_id);
       } else {
+        // printf("find rw\n");
         RecycleRWOldTupleSlot(tg->GetTableId(), tg->GetTileGroupId(), tuple_id);
       }
     }
@@ -105,9 +108,10 @@ namespace gc {
     }
 
     virtual void CreateGCContext(size_t eid) override {
-      snapshot_gc_manager.CreateGCContext(eid, current_snapshot_epoch_garbage_context);
+      rw_gc_manager.CreateGCContext(eid, current_epoch_garbage_context);
       // Use the nearest ro epoch id
-      rw_gc_manager.CreateGCContext(concurrency::SnapshotEpochManager::GetNearestSnapshotEpochId(eid), current_epoch_garbage_context);
+      snapshot_gc_manager.CreateGCContext(
+          concurrency::SnapshotEpochManager::GetNearestSnapshotEpochId(eid), current_snapshot_epoch_garbage_context);
     }
 
     virtual void EndGCContext() override {}
