@@ -39,7 +39,7 @@ void Usage(FILE *out) {
           "   -p --protocol          :  choose protocol, default OCC\n"
           "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, to_central_rb, to_full_central_rb and ton2o\n"
           "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
-          "                             gc protocol could be off, co, va, n2o and n2otxn\n"
+          "                             gc protocol could be off, n2otxn, n2oepoch, n2oss\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -f --epoch_length      :  epoch length\n"
@@ -317,32 +317,17 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       }
       case 'g': {
         char *gc_protocol = optarg;
-        bool valid_gc = false;
         if (strcmp(gc_protocol, "off") == 0) {
           state.gc_protocol = GC_TYPE_OFF;
-          valid_gc = true;
-        } else if (strcmp(gc_protocol, "va") == 0) {
-          state.gc_protocol = GC_TYPE_VACUUM;
-        } else if (strcmp(gc_protocol, "co") == 0) {
-          state.gc_protocol = GC_TYPE_CO;
-        } else if (strcmp(gc_protocol, "n2o") == 0) {
-          state.gc_protocol = GC_TYPE_N2O;
         } else if (strcmp(gc_protocol, "n2otxn") == 0) {
           state.gc_protocol = GC_TYPE_N2O_TXN;
-          valid_gc = true;
-        } else if (strcmp(gc_protocol, "sv") == 0) {
-          state.gc_protocol = GC_TYPE_SV;
         } else if (strcmp(gc_protocol, "n2oepoch") == 0) {
           state.gc_protocol = GC_TYPE_N2O_EPOCH;
-          valid_gc = true;
+        } else if (strcmp(gc_protocol, "n2oss")) {
+          state.gc_protocol = GC_TYPE_N2O_SNAPSHOT;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);
-        }
-
-        if (valid_gc == false) {
-          fprintf(stdout, "We no longer support %s, turn to default gc-off\n", gc_protocol);
-          state.gc_protocol = GC_TYPE_OFF;
         }
         break;
       }

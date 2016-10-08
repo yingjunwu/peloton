@@ -193,9 +193,15 @@ static void ValidateMVCC() {
 
 // Main Entry Point
 void RunBenchmark() {
-  concurrency::EpochManagerFactory::Configure(EPOCH_SINGLE_QUEUE, state.epoch_length);
+
+  auto epoch_type = EPOCH_SINGLE_QUEUE;
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
+    epoch_type = EPOCH_SNAPSHOT;
+  }
+  concurrency::EpochManagerFactory::Configure(epoch_type, state.epoch_length);
   // Force init
   // TODO: We should force the init order of singleton -- Jiexi
+
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
   (void) epoch_manager;
 
