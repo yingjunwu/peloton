@@ -214,7 +214,8 @@ void ValidateProtocol(const configuration &state) {
     if (state.gc_protocol != GC_TYPE_OFF
     && state.gc_protocol != GC_TYPE_N2O
     && state.gc_protocol != GC_TYPE_N2O_TXN
-    && state.gc_protocol != GC_TYPE_N2O_EPOCH) {
+    && state.gc_protocol != GC_TYPE_N2O_EPOCH
+    && state.gc_protocol != GC_TYPE_N2O_SNAPSHOT) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
     }
