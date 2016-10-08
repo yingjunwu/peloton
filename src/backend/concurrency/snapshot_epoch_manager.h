@@ -169,7 +169,7 @@ public:
   }
 
   // assume we store epoch_store max_store previously
-  virtual size_t GetMaxDeadEid() override { PL_ASSERT(false); }
+  virtual size_t GetMaxDeadEid() override { PL_ASSERT(false); return INVALID_EPOCH_ID; }
 
   size_t GetMaxDeadEidForRwGC() {
     IncreaseQueueTail();

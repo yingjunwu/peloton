@@ -46,13 +46,16 @@ public:
                                    const size_t __attribute__((unused)) epoch_id) {}
 
   // recycle invalid version
-  virtual void RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) {}
+  virtual void RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples  __attribute__((unused))) {}
 
   virtual ItemPointer ReturnFreeSlot(const oid_t __attribute__((unused))&table_id) {
     return INVALID_ITEMPOINTER;
   }
 
   virtual void RegisterTable(oid_t table_id __attribute__((unused))){}
+
+  virtual void DirectRecycleTuple(oid_t table_id __attribute__((unused)),
+                                  ItemPointer garbage_tuple __attribute__((unused))) {};
 };
 
 }  // namespace gc
