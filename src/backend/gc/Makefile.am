@@ -7,6 +7,7 @@
 gc_FILES = \
            backend/gc/n2o_txn_gc.cpp \
            backend/gc/n2o_epoch_gc.cpp \
+           backend/gc/n2o_snapshot_gc.cpp \
            backend/gc/gc_manager_factory.cpp
 
 gc_INCLUDES = \

@@ -44,7 +44,13 @@ enum GCType {
   GC_TYPE_N2O,
   GC_TYPE_N2O_TXN,
   GC_TYPE_SV,
-  GC_TYPE_N2O_EPOCH
+  GC_TYPE_N2O_EPOCH,
+  GC_TYPE_N2O_SNAPSHOT,
+};
+
+enum EpochType {
+  EPOCH_SINGLE_QUEUE = 0,
+  EPOCH_SNAPSHOT,
 };
 
 //===--------------------------------------------------------------------===//
@@ -785,6 +791,8 @@ struct TupleMetadata {
   oid_t tuple_slot_id;
 
   TupleMetadata():table_id(0), tile_group_id(0), tuple_slot_id(0){}
+  TupleMetadata(oid_t table_id, oid_t tg_id, oid_t tuple_id) :
+      table_id(table_id), tile_group_id(tg_id), tuple_slot_id(tuple_id) {}
 };
 
 //===--------------------------------------------------------------------===//

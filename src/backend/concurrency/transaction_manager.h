@@ -120,19 +120,15 @@ class TransactionManager {
    * concurrency implementations of transactions.
    */
 
-  void RecycleInvalidTupleSlot(const oid_t &tile_group_id, const oid_t &tuple_id) {
-    LOG_TRACE("recycle invalid tuple slot: %u, %u", tile_group_id, tuple_id);
-    auto& gc_instance = gc::GCManagerFactory::GetInstance();
-
-    auto tile_group =
-      catalog::Manager::GetInstance().GetTileGroup(tile_group_id);
-
-    gc_instance.RecycleInvalidTupleSlot(
-      tile_group->GetTableId(), tile_group_id, tuple_id);
+  void RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) {
+    gc::GCManagerFactory::GetInstance().RecycleInvalidTupleSlot(invalid_tuples);
   }
 
   void RecycleOldTupleSlot(const oid_t &tile_group_id, const oid_t &tuple_id,
                            const size_t tuple_eid) {
+    auto tile_group =
+      catalog::Manager::GetInstance().GetTileGroup(tile_group_id);
+
     if(gc::GCManagerFactory::GetGCType() == GC_TYPE_VACUUM
     || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O
     || gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_TXN
@@ -142,11 +138,12 @@ class TransactionManager {
 
       auto& gc_instance = gc::GCManagerFactory::GetInstance();
 
-      auto tile_group =
-        catalog::Manager::GetInstance().GetTileGroup(tile_group_id);
-
       gc_instance.RecycleOldTupleSlot(
         tile_group->GetTableId(), tile_group_id, tuple_id, tuple_eid);
+    } else if (gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT) {
+      PL_ASSERT(EpochManagerFactory::GetType() == EPOCH_SNAPSHOT);
+      reinterpret_cast<gc::N2OSnapshotGCManager*>(&gc::GCManagerFactory::GetInstance())
+                         ->RecycleOldTupleSlot(tile_group.get(), tuple_id, tuple_eid);
     }
   }
 

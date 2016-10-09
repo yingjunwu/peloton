@@ -16,18 +16,17 @@ namespace peloton {
   namespace gc {
     thread_local GarbageContext *current_garbage_context = nullptr;
 
-    void N2OTxn_GCManager::CreateGCContext(size_t eid UNUSED_ATTRIBUTE) {
+    void N2OTxn_GCManager::CreateGCContext(size_t eid) {
       current_garbage_context = new GarbageContext();
+      current_garbage_context->epoch_id = eid;
     }
 
     // WARNING: This function must be called before the current_txn is distructed
-    void N2OTxn_GCManager::EndGCContext(size_t eid) {
-      if (eid == INVALID_EPOCH_ID) {
-        // Directly delete the context
+    void N2OTxn_GCManager::EndGCContext() {
+      // Add the garbage context to the lockfree queue
+      if (current_garbage_context->garbages.empty() == true) {
         delete current_garbage_context;
       } else {
-        current_garbage_context->epoch_id = eid;
-        // Add the garbage context to the lockfree queue
         std::shared_ptr<GarbageContext> gc_context(current_garbage_context);
         unlink_queues_[HashToThread(gc_context->epoch_id)]->Enqueue(gc_context);
       }
@@ -72,6 +71,8 @@ namespace peloton {
                                             INVALID_ITEMPOINTER);
       tile_group_header->SetNextItemPointer(tuple_metadata.tuple_slot_id,
                                             INVALID_ITEMPOINTER);
+      tile_group_header->SetNextSnapshotItemPointer(tuple_metadata.tuple_slot_id, INVALID_ITEMPOINTER);
+
       std::memset(
         tile_group_header->GetReservedFieldRef(tuple_metadata.tuple_slot_id), 0,
         storage::TileGroupHeader::GetReservedSize());
@@ -82,16 +83,20 @@ namespace peloton {
     }
 
 // Multiple GC thread share the same recycle map
-    void N2OTxn_GCManager::AddToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx) {
+    void N2OTxn_GCManager::AddGarbageCtxToRecycleMap(std::shared_ptr<GarbageContext> gc_ctx) {
       // If the tuple being reset no longer exists, just skip it
-      for (auto tuple_metadata : gc_ctx->garbages) {
+      for (auto &tuple_metadata : gc_ctx->garbages) {
+        AddTupleToRecycleMap(tuple_metadata);
+      }
+    }
+
+    void N2OTxn_GCManager::AddTupleToRecycleMap(TupleMetadata &tuple_metadata) {
         if (ResetTuple(tuple_metadata) == false) {
-          continue;
+          return;
         }
         // if the entry for table_id exists.
         assert(recycle_queue_map_.find(tuple_metadata.table_id) != recycle_queue_map_.end());
         recycle_queue_map_[tuple_metadata.table_id]->Enqueue(tuple_metadata);
-      }
     }
 
     void N2OTxn_GCManager::Running(int thread_id) {
@@ -127,7 +132,7 @@ namespace peloton {
         // if the timestamp of the garbage is older than the current max_cid,
         // recycle it
         if (garbage_eid < max_eid) {
-          AddToRecycleMap(garbage_context);
+          AddGarbageCtxToRecycleMap(garbage_context);
 
           // Remove from the original map
           garbage_ctx = reclaim_maps_[thread_id].erase(garbage_ctx);
@@ -210,6 +215,26 @@ namespace peloton {
       LOG_TRACE("Marked tuple(%u, %u) in table %u as possible garbage",
                 tuple_metadata.tile_group_id, tuple_metadata.tuple_slot_id,
                 tuple_metadata.table_id);
+    }
+
+    void N2OTxn_GCManager::RecycleInvalidTupleSlot(const std::vector<ItemPointer> &invalid_tuples) {
+      if (invalid_tuples.empty() == true) {
+        return;
+      }
+
+      size_t cur_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpoch();
+      for (ItemPointer itemptr : invalid_tuples) {
+        oid_t tg_id = itemptr.block;
+        oid_t tuple_id = itemptr.offset;
+        auto tg = catalog::Manager::GetInstance().GetTileGroup(tg_id);
+        current_garbage_context->garbages.emplace_back(tg->GetTableId(), tg_id, tuple_id);
+      }
+      current_garbage_context->epoch_id = cur_eid;
+    }
+
+    void N2OTxn_GCManager::DirectRecycleTuple(oid_t table_id, ItemPointer garbage_tuple) {
+      TupleMetadata tuple_meta = TupleMetadata(table_id, garbage_tuple.block, garbage_tuple.offset);
+      AddTupleToRecycleMap(tuple_meta);
     }
 
 // this function returns a free tuple slot, if one exists

@@ -10,13 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "backend/executor/index_scan_executor.h"
 
 #include <memory>
 #include <utility>
 #include <vector>
-#include <backend/index/index_factory.h>
 
+#include "backend/executor/index_scan_executor.h"
 #include "backend/common/types.h"
 #include "backend/executor/logical_tile.h"
 #include "backend/executor/logical_tile_factory.h"
@@ -29,9 +28,11 @@
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
 #include "backend/concurrency/transaction_manager_factory.h"
+#include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/common/logger.h"
 #include "backend/catalog/manager.h"
 #include "backend/gc/gc_manager_factory.h"
+#include "backend/index/index_factory.h"
 
 namespace peloton {
 namespace executor {
@@ -189,7 +190,22 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupSV() {
     return true;
   } if (visibility == VISIBILITY_INVISIBLE) {
     // if the tuple is owned by the transaction but it is a before image.
-    tuple_location = tile_group_header->GetNextItemPointer(tuple_location.offset);
+
+    if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+      // Snapshot epoch manager
+      PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+
+      if (concurrency::current_txn->IsStaticReadOnlyTxn()) {
+        // Read only txn uses another chain
+        tuple_location = tile_group_header->GetNextSnapshotItemPointer(tuple_location.offset);
+      } else {
+        tuple_location = tile_group_header->GetNextItemPointer(tuple_location.offset);
+      }
+
+    } else {
+      // Non snapshot epoch manager
+      tuple_location = tile_group_header->GetNextItemPointer(tuple_location.offset);
+    }
   }
 
   tile_group = manager.GetTileGroup(tuple_location.block);
@@ -425,7 +441,21 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
         }
 
         ItemPointer old_item = tuple_location;
-        tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+
+        if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+          // Snapshot epoch manager
+          PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+          if (concurrency::current_txn->IsStaticReadOnlyTxn()) {
+            // Read only txn uses another chain
+            tuple_location = tile_group_header->GetNextSnapshotItemPointer(old_item.offset);
+          } else {
+            // Normal chain
+            tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+          }
+        } else {
+          // Non snapshot epoch manager
+          tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+        }
 
         // there must exist a visible version.
 
@@ -703,7 +733,22 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
         }
 
         ItemPointer old_item = tuple_location;
-        tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+
+        if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+          // Snapshot epoch manager
+          PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+          if (concurrency::current_txn->IsStaticReadOnlyTxn()) {
+            // readonly txn goes to another chain
+            tuple_location = tile_group_header->GetNextSnapshotItemPointer(old_item.offset);
+          } else {
+            // Normal txn
+            tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+          }
+
+        } else {
+          // Non snapshot epoch manager
+          tuple_location = tile_group_header->GetNextItemPointer(old_item.offset);
+        }
 
         // there must exist a visible version.
 

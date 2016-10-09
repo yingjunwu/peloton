@@ -54,6 +54,7 @@ TileGroupHeader::TileGroupHeader(const BackendType &backend_type,
     SetEndCommitId(tuple_slot_id, MAX_CID);
     SetNextItemPointer(tuple_slot_id, INVALID_ITEMPOINTER);
     SetPrevItemPointer(tuple_slot_id, INVALID_ITEMPOINTER);
+    SetNextSnapshotItemPointer(tuple_slot_id, INVALID_ITEMPOINTER);
 
     SetInsertCommit(tuple_slot_id, false);  // unused
     SetDeleteCommit(tuple_slot_id, false);  // unused
@@ -232,7 +233,7 @@ oid_t TileGroupHeader::GetActiveTupleCount() {
 oid_t TileGroupHeader::GetCurrentTupleCount() {
   oid_t active_tuple_slots = 0;
 
-  cid_t next_cid = concurrency::EpochManagerFactory::GetInstance().GetSafeMaxCid();
+  cid_t next_cid = concurrency::EpochManagerFactory::GetInstance().GetCurrentCid();
 
   for (oid_t tuple_slot_id = START_OID; tuple_slot_id < num_tuple_slots;
        tuple_slot_id++) {

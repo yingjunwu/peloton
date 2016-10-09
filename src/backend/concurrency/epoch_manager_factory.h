@@ -15,6 +15,8 @@
 #include <vector>
 
 #include "backend/concurrency/epoch_manager.h"
+#include "backend/concurrency/single_queue_epoch_manager.h"
+#include "backend/concurrency/snapshot_epoch_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -22,16 +24,29 @@ namespace concurrency {
 class EpochManagerFactory {
  public:
   static EpochManager &GetInstance() {
-    static EpochManager epoch_manager(epoch_length_);
-    return epoch_manager;
+    switch (epoch_type_) {
+      case EPOCH_SINGLE_QUEUE:
+        return SingleQueueEpochManager::GetInstance(epoch_length_);
+      case EPOCH_SNAPSHOT:
+        return SnapshotEpochManager::GetInstance(epoch_length_);
+      default:
+        return SingleQueueEpochManager::GetInstance(epoch_length_);
+
+    }
   }
 
-  static void Configure(int epoch_length) {
+  static EpochType GetType() {
+    return epoch_type_;
+  }
+
+  static void Configure(EpochType type, int epoch_length) {
     epoch_length_ = epoch_length;
+    epoch_type_ = type;
   }
 
  private:
   static int epoch_length_;
+  static EpochType epoch_type_;
 };
 
 }

@@ -43,7 +43,6 @@ namespace logging {
   // This function is called only by the corresponding logger.
   void DeltaSnapshotPool::PutSnapshot(std::unique_ptr<DeltaSnapshot> snapshot) {
     PL_ASSERT(snapshot.get() != nullptr);
-    PL_ASSERT(snapshot->worker_id_ == worker_id_);
 
     size_t tail_idx = tail_ % snapshot_queue_size_;
     
