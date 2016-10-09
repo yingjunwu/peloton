@@ -42,6 +42,7 @@ void Usage(FILE *out) {
           "                             gc protocol could be off, n2otxn, n2oepoch, n2oss\n"
           "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/va/n2otxn\n"
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
+          "   -n --disable_insert    :  disable insert\n"
           "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -65,10 +66,11 @@ static struct option opts[] = {
   { "gc_protocol", optional_argument, NULL, 'g'},
   { "gc_thread", optional_argument, NULL, 't'},
   { "sindex_mode", optional_argument, NULL, 'q'},
+  { "disable_insert", no_argument, NULL, 'n'},
   { "epoch_length", optional_argument, NULL, 'f'},
   { "log_type", optional_argument, NULL, 'L'},
   { "log_directories", optional_argument, NULL, 'D'},
-    {"timer_on", optional_argument, NULL, 'T'},
+  { "timer_on", optional_argument, NULL, 'T'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -195,11 +197,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
   state.timer_on = false;
+  state.disable_insert = false;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "Taeh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:", opts, &idx);
+    int c = getopt_long(argc, argv, "Taenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:", opts, &idx);
 
     if (c == -1) break;
 
@@ -236,6 +239,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'e':
         state.run_backoff = true;
+        break;
+      case 'n':
+        state.disable_insert = true;
         break;
       case 'f':
         state.epoch_length = atoi(optarg);

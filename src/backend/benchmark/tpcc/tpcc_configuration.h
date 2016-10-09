@@ -133,6 +133,8 @@ class configuration {
   // enable client affinity
   bool run_affinity;
 
+  bool disable_insert;
+
   // protocol type
   ConcurrencyType protocol;
 

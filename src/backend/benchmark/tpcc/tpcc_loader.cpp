@@ -119,7 +119,7 @@ const std::string data_constant = std::string("FOO");
 NURandConstant nu_rand_const;
 
 
-const int loading_thread_count = 4;
+const int loading_thread_count = 2;
 
 
 /////////////////////////////////////////////////////////
