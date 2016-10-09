@@ -332,7 +332,7 @@ private:
   std::atomic<size_t> current_epoch_;
 
   // Read only epoch frequenct
-  static const int ro_epoch_frequency_ = 40;
+  static const int ro_epoch_frequency_ = 20;
 
   // Read only epoch vector
   std::vector<Epoch> repoch_queue_;

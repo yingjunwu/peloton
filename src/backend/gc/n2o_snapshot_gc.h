@@ -155,6 +155,8 @@ namespace gc {
     const int gc_thread_count_;
 
     std::vector<std::unique_ptr<std::thread>> gc_threads_;
+    // TODO: Currently for simplicity we reuse the logic of epoch gc manager to do snapshot gc
+    // However, since the snapshot chain is only a single linked list, it's possible to skip node while doing unlink
     N2OEpochGCManager snapshot_gc_manager;
     N2OEpochGCManager rw_gc_manager;
   };
