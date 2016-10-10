@@ -10,6 +10,10 @@
 #include "concurrency/transaction_tests_util.h"
 #include "backend/gc/gc_manager.h"
 #include "backend/concurrency/epoch_manager.h"
+
+
+#define EPOCH_LENGTH 40
+
 namespace peloton {
 
 namespace test {

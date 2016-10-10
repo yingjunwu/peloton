@@ -282,7 +282,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.sindex_count = 0;
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
   state.sindex_scan = false;
-  state.epoch_length = 40;
+  state.epoch_length = 10;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
   state.timer_type = TIMER_OFF;
