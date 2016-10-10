@@ -40,8 +40,6 @@ namespace concurrency {
 extern thread_local Transaction *current_txn;
 extern thread_local cid_t latest_read_ts;
 
-#define RUNNING_TXN_BUCKET_NUM 10
-
 class TransactionManager {
  public:
   TransactionManager() {

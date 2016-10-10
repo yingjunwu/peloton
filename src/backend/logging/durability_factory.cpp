@@ -39,10 +39,13 @@ namespace logging {
   void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, PhylogWorkerContext *worker_ctx) {
     if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
+    if (persist_eid == worker_ctx->reported_eid) {
+      return;
+    }
+
     uint64_t commit_time_usec = GetCurrentTimeInUsec();
     auto upper_itr = worker_ctx->pending_txn_timers.upper_bound(persist_eid);
     auto itr = worker_ctx->pending_txn_timers.begin();
-
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
         // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
@@ -50,10 +53,7 @@ namespace logging {
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
     }
-
-    // while (itr != worker_ctx->pending_txn_timers.end()) {
-    //   EpochManagerFactory::
-    // }
+    worker_ctx->reported_eid = persist_eid;
   }
 
 

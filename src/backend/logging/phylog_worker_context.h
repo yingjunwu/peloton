@@ -44,6 +44,7 @@ namespace logging {
         output_buffer(),
         current_eid(START_EPOCH_ID), 
         persist_eid(INVALID_EPOCH_ID),
+        reported_eid(INVALID_EPOCH_ID),
         current_cid(INVALID_CID), 
         worker_id(id),
         cur_txn_start_time(0),
@@ -68,6 +69,8 @@ namespace logging {
     size_t current_eid;
     // persisted epoch id
     size_t persist_eid;
+    // reported epoch id
+    size_t reported_eid;
 
     // current transaction id
     cid_t current_cid;
