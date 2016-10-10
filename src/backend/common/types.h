@@ -53,6 +53,12 @@ enum EpochType {
   EPOCH_SNAPSHOT,
 };
 
+enum TimerType {
+  TIMER_OFF = 0,
+  TIMER_SUMMARY,
+  TIMER_DISTRIBUTION,
+};
+
 //===--------------------------------------------------------------------===//
 // Filesystem directories
 //===--------------------------------------------------------------------===//
@@ -793,6 +799,22 @@ struct TupleMetadata {
   TupleMetadata():table_id(0), tile_group_id(0), tuple_slot_id(0){}
   TupleMetadata(oid_t table_id, oid_t tg_id, oid_t tuple_id) :
       table_id(table_id), tile_group_id(tg_id), tuple_slot_id(tuple_id) {}
+};
+
+//===--------------------------------------------------------------------===//
+// Latency summary
+//===--------------------------------------------------------------------===//
+struct LatSummary {
+  double average_lat;
+  double percentile_50;
+  double percentile_90;
+  double percentile_99;
+  double min_lat;
+  double max_lat;
+  size_t txn_count;
+
+  LatSummary() :
+      average_lat(0), percentile_50(0), percentile_90(0), percentile_99(0), min_lat(0), max_lat(0), txn_count(0) {}
 };
 
 //===--------------------------------------------------------------------===//

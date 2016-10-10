@@ -216,7 +216,7 @@ void RunBenchmark() {
   LoadYCSBDatabase();
 
   // XXX: Change the logging type from INVALID to the logging type we want
-  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_on);
+  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_type);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);

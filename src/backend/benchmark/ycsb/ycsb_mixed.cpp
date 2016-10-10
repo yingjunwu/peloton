@@ -187,7 +187,7 @@ MixedPlans PrepareMixedPlan() {
   return mixed_plans;
 }
   
-bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count, bool is_read_only) {
+bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng, double update_ratio, int operation_count, bool is_read_only, int mock_sleep) {
 
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
@@ -204,6 +204,11 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
     txn = txn_manager.BeginReadonlyTransaction();
   } else {
     txn = txn_manager.BeginTransaction();
+  }
+
+  // Mock sleep
+  if (mock_sleep != 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(state.scan_mock_duration));
   }
 
   std::unordered_set<uint64_t> lookup_map;

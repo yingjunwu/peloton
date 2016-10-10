@@ -38,17 +38,17 @@ class DurabilityFactory {
     return CheckpointManager::GetInstance();
   }
 
-  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, bool timer_on = false) {
+  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, TimerType timer_type) {
     logging_type_ = logging_type;
     checkpoint_type_ = checkpoint_type;
-    timer_flag = timer_on;
+    timer_type_ = timer_type;
   }
 
   inline static LoggingType GetLoggingType() { return logging_type_; }
 
   inline static CheckpointType GetCheckpointType() { return checkpoint_type_; }
 
-  inline static bool GetTimerFlag() { return timer_flag; }
+  inline static TimerType GetTimerType() { return timer_type_; }
 
 
   /* Statistics */
@@ -67,7 +67,7 @@ class DurabilityFactory {
 
   static LoggingType logging_type_;
   static CheckpointType checkpoint_type_;
-  static bool timer_flag;
+  static TimerType  timer_type_;
 
 };
 } // namespace gc

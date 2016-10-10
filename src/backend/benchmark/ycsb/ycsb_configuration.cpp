@@ -56,7 +56,7 @@ void Usage(FILE *out) {
           "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, epoch, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
-          "   -T --timer_on          :  enable timer\n"
+          "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -285,19 +285,16 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_length = 40;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
-  state.timer_on = false;
+  state.timer_type = TIMER_OFF;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "Thaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:", opts, &idx);
+    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
-      case 'T':
-        state.timer_on = true;
-        break;
       case 'a':
         state.declared = true;
         break;
@@ -358,6 +355,17 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
+      case 'T' : {
+        char *timer_type = optarg;
+        if (strcmp(timer_type, "off") == 0) {
+          state.timer_type = TIMER_OFF;
+        } else if (strcmp(timer_type, "sum") == 0) {
+          state.timer_type = TIMER_SUMMARY;
+        } else if (strcmp(timer_type, "dist") == 0) {
+          state.timer_type = TIMER_DISTRIBUTION;
+        }
+        break;
+      }
       case 'L': {
         char *logging_proto = optarg;
         if (strcmp(logging_proto, "off") == 0) {
@@ -525,6 +533,12 @@ void WriteOutput() {
              state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, total_snapshot_memory);
 
   LOG_INFO("average commit latency: %lf ms", state.commit_latency);
+  LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
+  LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
+  LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
+  LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
+  LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
+
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
        ++round_id) {
@@ -616,6 +630,11 @@ void WriteOutput() {
   out << total_snapshot_memory <<"\n";
 
   out << "average commit latency = " << state.commit_latency << "\n";
+ out << "min commit latency = " <<  state.latency_summary.min_lat << "\n";
+ out << "max commit latency = " <<  state.latency_summary.max_lat << "\n";
+ out << "p50 commit latency = " <<  state.latency_summary.percentile_50 << "\n";
+ out << "p90 commit latency = " <<  state.latency_summary.percentile_90 << "\n";
+ out << "p99 commit latency = " <<  state.latency_summary.percentile_99 << "\n";
   out.flush();
   out.close();
 }

@@ -109,7 +109,7 @@ class configuration {
   bool sindex_scan;
 
   // Timer on
-  bool timer_on;
+  TimerType timer_type;
 
   // protocol type
   ConcurrencyType protocol;
@@ -142,6 +142,8 @@ class configuration {
   int epoch_length;
 
   double commit_latency;
+
+  LatSummary latency_summary;
 
 };
 

@@ -58,6 +58,7 @@
 #include "backend/index/index_factory.h"
 
 #include "backend/logging/durability_factory.h"
+#include "backend/logging/worker_context.h"
 #include "backend/logging/phylog_worker_context.h"
 
 #include "backend/planner/abstract_plan.h"
@@ -83,6 +84,7 @@ volatile bool is_running = true;
 oid_t *abort_counts;
 oid_t *commit_counts;
 double *commit_latencies;
+LatSummary *commit_lat_summaries;
 
 oid_t *ro_abort_counts;
 oid_t *ro_commit_counts;
@@ -102,6 +104,7 @@ void RunBackend(oid_t thread_id) {
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
   double &commit_latency_ref = commit_latencies[thread_id];
+  LatSummary &commit_lat_summary_ref = commit_lat_summaries[thread_id];
 
   ZipfDistribution zipf(state.scale_factor * 1000 - 1,
                         state.zipf_theta);
@@ -141,8 +144,14 @@ void RunBackend(oid_t thread_id) {
 
   if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
     commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
+    if (thread_id == 0) {
+      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
+    }
   } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
     commit_latency_ref = logging::tl_epoch_worker_ctx->txn_summary.GetAverageLatencyInMs();
+    if (thread_id == 0) {
+      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
+    }
   }
   
   log_manager.DeregisterWorker();
@@ -152,9 +161,14 @@ void RunBackend(oid_t thread_id) {
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.RegisterWorker();
+
   double update_ratio = 0;
   auto operation_count = state.operation_count;
   bool is_read_only = state.declared;
+  double &commit_latency_ref = commit_latencies[thread_id];
+  LatSummary &commit_lat_summary_ref = commit_lat_summaries[thread_id];
 
   if (is_read_only == true) {
     auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -176,7 +190,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
     if (is_running == false) {
       break;
     }
-    while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, is_read_only) == false) {
+    while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, is_read_only, state.scan_mock_duration) == false) {
       if (is_running == false) {
         break;
       }
@@ -198,6 +212,20 @@ void RunReadOnlyBackend(oid_t thread_id) {
 
     ro_transaction_count_ref++;
   }
+
+  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
+    if (thread_id == 0) {
+      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
+    }
+  } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
+    commit_latency_ref = logging::tl_epoch_worker_ctx->txn_summary.GetAverageLatencyInMs();
+    if (thread_id == 0) {
+      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
+    }
+  }
+
+  log_manager.DeregisterWorker();
 
 }
 
@@ -266,6 +294,8 @@ void RunWorkload() {
   commit_latencies = new double[num_threads];
   memset(commit_latencies, 0, sizeof(double) * num_threads);
 
+  commit_lat_summaries = new LatSummary[num_threads];
+
   ro_abort_counts = new oid_t[num_threads];
   memset(ro_abort_counts, 0, sizeof(oid_t) * num_threads);
 
@@ -288,16 +318,20 @@ void RunWorkload() {
   }
 
   // Launch a group of threads
-  for (oid_t thread_itr = 0; thread_itr < num_scan_threads; ++thread_itr) {
-    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
+  // thread count settings should pass the parameter validation
+  oid_t rw_backend_count = num_threads - num_ro_threads - num_scan_threads;
+  oid_t thread_itr = 0;
+
+  for (; thread_itr < rw_backend_count; ++thread_itr) {
+    thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 
-  for (oid_t thread_itr = num_scan_threads; thread_itr < num_scan_threads + num_ro_threads; ++thread_itr) {
+  for (; thread_itr < rw_backend_count + num_ro_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunReadOnlyBackend, thread_itr)));
   }
 
-  for (oid_t thread_itr = num_scan_threads + num_ro_threads; thread_itr < num_threads; ++thread_itr) {
-    thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
+  for (; thread_itr < num_threads; ++thread_itr) {
+    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
   }
 
   //////////////////////////////////////
@@ -406,6 +440,10 @@ void RunWorkload() {
 
   //////////////////////////////////////////////////
 
+  state.latency_summary = commit_lat_summaries[0];
+
+  //////////////////////////////////////////////////
+
   // cleanup everything.
   for (size_t round_id = 0; round_id < snapshot_round; ++round_id) {
     delete[] abort_counts_snapshots[round_id];
@@ -428,6 +466,8 @@ void RunWorkload() {
   commit_counts = nullptr;
   delete[] commit_latencies;
   commit_latencies = nullptr;
+  delete[] commit_lat_summaries;
+  commit_lat_summaries = nullptr;
 
   delete[] ro_abort_counts;
   ro_abort_counts = nullptr;

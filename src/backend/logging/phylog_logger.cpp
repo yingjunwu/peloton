@@ -343,7 +343,9 @@ void PhyLogLogger::Run() {
 
     std::this_thread::sleep_for(
        std::chrono::milliseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMiliSec() / 4));
-    
+
+    size_t max_persist_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
+
     // Pull log records from workers per epoch buffer
     {
       worker_map_lock_.Lock();
@@ -353,7 +355,6 @@ void PhyLogLogger::Run() {
         // For every alive worker, move its buffer to the logger's local buffer
         auto worker_ctx_ptr = worker_entry.second.get();
 
-        size_t max_persist_eid = worker_ctx_ptr->current_eid - 1;
         size_t current_persist_eid = worker_ctx_ptr->persist_eid;
 
         PL_ASSERT(current_persist_eid <= max_persist_eid);

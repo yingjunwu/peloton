@@ -166,9 +166,10 @@ class configuration {
   int epoch_length;
 
   double commit_latency;
+  LatSummary latency_summary;
 
   // Timer on
-  bool timer_on;
+  TimerType timer_type;
 
 };
 

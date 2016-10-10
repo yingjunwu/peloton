@@ -20,11 +20,11 @@ namespace logging {
 
   CheckpointType DurabilityFactory::checkpoint_type_ = CHECKPOINT_TYPE_INVALID;
 
-  bool DurabilityFactory::timer_flag = false;
+  TimerType DurabilityFactory::timer_type_ = TIMER_OFF;
 
 
   void DurabilityFactory::StartTxnTimer(size_t eid, PhylogWorkerContext *worker_ctx) {
-    if (DurabilityFactory::GetTimerFlag() == false) return;
+    if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
     uint64_t cur_time_usec = GetCurrentTimeInUsec();
 
@@ -36,7 +36,7 @@ namespace logging {
   }
 
   void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, PhylogWorkerContext *worker_ctx) {
-    if (DurabilityFactory::GetTimerFlag() == false) return;
+    if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
     uint64_t commit_time_usec = GetCurrentTimeInUsec();
     auto upper_itr = worker_ctx->pending_txn_timers.upper_bound(persist_eid);
@@ -45,7 +45,7 @@ namespace logging {
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
         // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
-        worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us);
+        worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (timer_type_ == TIMER_DISTRIBUTION));
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
     }
@@ -54,7 +54,7 @@ namespace logging {
 
 
   void DurabilityFactory::StartTxnTimer(size_t eid, EpochWorkerContext *worker_ctx) {
-    if (DurabilityFactory::GetTimerFlag() == false) return;
+    if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
     uint64_t cur_time_usec = GetCurrentTimeInUsec();
 
@@ -66,7 +66,7 @@ namespace logging {
   }
 
   void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, EpochWorkerContext *worker_ctx) {
-    if (DurabilityFactory::GetTimerFlag() == false) return;
+    if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
     uint64_t commit_time_usec = GetCurrentTimeInUsec();
     auto upper_itr = worker_ctx->pending_txn_timers.upper_bound(persist_eid);
@@ -75,7 +75,7 @@ namespace logging {
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
         // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
-        worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us);
+        worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (worker_ctx->worker_id == 0 && timer_type_ == TIMER_DISTRIBUTION));
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
     }
