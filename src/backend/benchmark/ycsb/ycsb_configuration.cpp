@@ -250,11 +250,11 @@ void ValidateSecondaryIndex(const configuration &state) {
 
 void ValidateEpoch(const configuration &state) {
   if (state.epoch_length <= 0) {
-    LOG_ERROR("Invalid epoch length :: %d", state.epoch_length);
+    LOG_ERROR("Invalid epoch length :: %lf", state.epoch_length);
     exit(EXIT_FAILURE);
   }
 
-  LOG_TRACE("%s : %d", "epoch_length", state.epoch_length);
+  LOG_TRACE("%s : %lf", "epoch_length", state.epoch_length);
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
@@ -353,7 +353,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         state.sindex_scan = true;
         break;
       case 'f':
-        state.epoch_length = atoi(optarg);
+        state.epoch_length = atof(optarg);
         break;
       case 'T' : {
         char *timer_type = optarg;

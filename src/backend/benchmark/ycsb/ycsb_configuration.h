@@ -139,7 +139,7 @@ class configuration {
   // Only available when gc type is n2o and va
   int gc_thread_count;
 
-  int epoch_length;
+  double epoch_length;
 
   double commit_latency;
 

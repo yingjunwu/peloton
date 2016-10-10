@@ -64,7 +64,7 @@ void EpochLogger::Run() {
     if (is_running_ == false) { break; }
 
     std::this_thread::sleep_for(
-       std::chrono::milliseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMiliSec() / 4));
+       std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
     
     // Pull log records from workers per epoch buffer
     {

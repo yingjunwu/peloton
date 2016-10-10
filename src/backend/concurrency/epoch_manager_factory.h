@@ -39,13 +39,13 @@ class EpochManagerFactory {
     return epoch_type_;
   }
 
-  static void Configure(EpochType type, int epoch_length) {
+  static void Configure(EpochType type, double epoch_length) {
     epoch_length_ = epoch_length;
     epoch_type_ = type;
   }
 
  private:
-  static int epoch_length_;
+  static double epoch_length_;
   static EpochType epoch_type_;
 };
 

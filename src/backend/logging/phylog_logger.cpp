@@ -342,7 +342,7 @@ void PhyLogLogger::Run() {
     if (is_running_ == false) { break; }
 
     std::this_thread::sleep_for(
-       std::chrono::milliseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMiliSec() / 4));
+       std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
 
     size_t max_persist_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
 

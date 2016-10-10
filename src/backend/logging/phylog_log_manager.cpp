@@ -225,8 +225,8 @@ void PhyLogLogManager::RunPepochLogger() {
       break;
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds
-      (concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMiliSec() / 4)
+    std::this_thread::sleep_for(std::chrono::microseconds
+      (concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter())
     );
     
     size_t curr_persist_epoch_id = INVALID_EPOCH_ID;

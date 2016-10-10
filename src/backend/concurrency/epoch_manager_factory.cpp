@@ -15,6 +15,6 @@
 namespace peloton {
 namespace concurrency {
   EpochType EpochManagerFactory::epoch_type_ = EPOCH_SINGLE_QUEUE;
-  int EpochManagerFactory::epoch_length_ = 40;
+  double EpochManagerFactory::epoch_length_ = 40;
 }
 }

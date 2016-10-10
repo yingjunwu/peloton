@@ -42,8 +42,8 @@ class EpochManager {
   EpochManager(const EpochManager&) = delete;
 
  public:
-  EpochManager(const int epoch_length)
- : epoch_duration_milisec_(epoch_length) {}
+  EpochManager(const double epoch_length)
+ : epoch_duration_millisec_(epoch_length) {}
 
   virtual ~EpochManager() {}
 
@@ -60,8 +60,8 @@ class EpochManager {
     return (eid << 32) | low_32_bit_mask_;
   }
 
-  int GetEpochLengthInMiliSec() const {
-    return epoch_duration_milisec_;
+  size_t GetEpochLengthInMicroSecQuarter() const {
+    return (int)(epoch_duration_millisec_ * 1000 / 4);
   }
 
   virtual size_t GetCurrentEpoch() = 0;
@@ -90,7 +90,7 @@ protected:
   static const int safety_interval_ = 0;
   static const size_t low_32_bit_mask_ = 0xffffffff;
 
-  const int epoch_duration_milisec_;
+  const double epoch_duration_millisec_;
 };
 
 

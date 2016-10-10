@@ -57,12 +57,12 @@ class SingleQueueEpochManager : public EpochManager {
   };
 
 public:
-  static SingleQueueEpochManager& GetInstance(const int epoch_length) {
+  static SingleQueueEpochManager& GetInstance(const double epoch_length) {
     static SingleQueueEpochManager epochManager(epoch_length);
     return epochManager;
   }
 
-  SingleQueueEpochManager(const int epoch_length)
+  SingleQueueEpochManager(const double epoch_length)
     : EpochManager(epoch_length),
       epoch_queue_(epoch_queue_size_) {
     InitEpochQueue();
@@ -183,7 +183,7 @@ private:
   void Start() {
     while (!finish_) {
       // the epoch advances every 40 milliseconds.
-      std::this_thread::sleep_for(std::chrono::milliseconds(epoch_duration_milisec_));
+      std::this_thread::sleep_for(std::chrono::microseconds(size_t(epoch_duration_millisec_ * 1000)));
 
       auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
       auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
