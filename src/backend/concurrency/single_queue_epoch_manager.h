@@ -13,6 +13,7 @@
 
 #include <thread>
 #include <vector>
+#include <unordered_set>
 
 #include "backend/common/macros.h"
 #include "backend/common/types.h"
@@ -46,6 +47,17 @@ class SingleQueueEpochManager : public EpochManager {
     std::atomic<int> rw_txn_ref_count_;
     std::atomic<size_t> id_generator_;
 
+    Spinlock spinlock_;
+    std::unordered_set<size_t> dependency_set_;
+
+    void InsertDependency(const size_t &epoch_id) {
+      spinlock_.Lock();
+
+      dependency_set_.insert(epoch_id);
+
+      spinlock_.Unlock();
+    }
+
     Epoch()
       :ro_txn_ref_count_(0), rw_txn_ref_count_(0), id_generator_(0) {}
 
@@ -53,6 +65,8 @@ class SingleQueueEpochManager : public EpochManager {
       ro_txn_ref_count_ = 0;
       rw_txn_ref_count_ = 0;
       id_generator_ = 0;
+
+      dependency_set_.clear();
     }
   };
 
@@ -76,6 +90,20 @@ public:
     }
   }
 
+  ///////////////////////////////////////////////
+  // DEPENDENCY-RELATED OPERATIONS
+  void RegisterEpochDependency(const size_t &epoch_id) override {
+    size_t eid = current_epoch_id_.load();
+    size_t epoch_idx = eid % epoch_queue_size_;
+
+    epoch_queue_[epoch_idx].InsertDependency(epoch_id);
+  }
+
+
+
+  ///////////////////////////////////////////////
+  
+
   virtual void StartEpochManager() override {
     finish_ = false;
     ts_thread_.reset(new std::thread(&SingleQueueEpochManager::Start, this));
@@ -92,14 +120,14 @@ public:
   }
 
 
-  virtual size_t GetCurrentEpoch() override {
-    return current_epoch_.load();
+  virtual size_t GetCurrentEpochId() override {
+    return current_epoch_id_.load();
   }
 
   // Get a eid that is larger than all the running transactions
   // TODO: See if we can delete this method
   virtual size_t GetCurrentCid() override {
-    size_t eid = current_epoch_.load();
+    size_t eid = current_epoch_id_.load();
     size_t epoch_idx = eid % epoch_queue_size_;
 
     size_t id = epoch_queue_[epoch_idx].id_generator_++;
@@ -130,19 +158,19 @@ public:
 
   // Return a timestamp, higher 32 bits are eid and lower 32 bits are tid within epoch
   virtual cid_t EnterEpoch() override {
-    auto epoch = current_epoch_.load();
+    auto epoch = current_epoch_id_.load();
 
     size_t epoch_idx = epoch % epoch_queue_size_;
     epoch_queue_[epoch_idx].rw_txn_ref_count_++;
 
     // Validation
-    auto epoch_validate = current_epoch_.load();
+    auto epoch_validate = current_epoch_id_.load();
     while (epoch_validate != epoch) {
       epoch_queue_[epoch_idx].rw_txn_ref_count_--;
       epoch = epoch_validate;
       epoch_idx = epoch % epoch_queue_size_;
       epoch_queue_[epoch_idx].rw_txn_ref_count_++;
-      epoch_validate = current_epoch_.load();
+      epoch_validate = current_epoch_id_.load();
     }
 
     auto id = epoch_queue_[epoch_idx].id_generator_++;
@@ -160,7 +188,7 @@ public:
 
   virtual void ExitEpoch(size_t epoch) override {
     PL_ASSERT(epoch >= queue_tail_);
-    PL_ASSERT(epoch <= current_epoch_);
+    PL_ASSERT(epoch <= current_epoch_id_);
 
     auto epoch_idx = epoch % epoch_queue_size_;
     epoch_queue_[epoch_idx].rw_txn_ref_count_--;
@@ -185,7 +213,7 @@ private:
       // the epoch advances every 40 milliseconds.
       std::this_thread::sleep_for(std::chrono::microseconds(size_t(epoch_duration_millisec_ * 1000)));
 
-      auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
+      auto next_idx = (current_epoch_id_.load() + 1) % epoch_queue_size_;
       auto tail_idx = reclaim_tail_.load() % epoch_queue_size_;
 
 
@@ -200,7 +228,7 @@ private:
       // we have to init it first, then increase current epoch
       // otherwise may read dirty data
       epoch_queue_[next_idx].Init();
-      current_epoch_++;
+      current_epoch_id_++;
 
       IncreaseQueueTail();
       IncreaseReclaimTail();
@@ -218,7 +246,7 @@ private:
     // Propely init the significant epochs with safe interval
     reclaim_tail_ = START_EPOCH_ID;
     queue_tail_ = reclaim_tail_ + 1 + safety_interval_;
-    current_epoch_ = queue_tail_ + 1 + safety_interval_;
+    current_epoch_id_ = queue_tail_ + 1 + safety_interval_;
   }
 
   void IncreaseReclaimTail() {
@@ -264,7 +292,7 @@ private:
       return;
     }
 
-    auto current = current_epoch_.load();
+    auto current = current_epoch_id_.load();
     auto tail = queue_tail_.load();
 
     while(true) {
@@ -299,7 +327,7 @@ private:
   std::vector<Epoch> epoch_queue_;
   std::atomic<size_t> queue_tail_;
   std::atomic<size_t> reclaim_tail_;
-  std::atomic<size_t> current_epoch_;
+  std::atomic<size_t> current_epoch_id_;
   std::atomic<bool> queue_tail_token_;
   std::atomic<bool> reclaim_tail_token_;
   bool finish_;

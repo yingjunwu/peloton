@@ -81,7 +81,7 @@ bool RunScan() {
   if (state.scan_mock_duration != 0) {
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
     txn_manager.BeginReadonlyTransaction();
-    std::this_thread::sleep_for(std::chrono::seconds(state.scan_mock_duration));
+    std::this_thread::sleep_for(std::chrono::milliseconds(state.scan_mock_duration));
     txn_manager.EndReadonlyTransaction();
   }
 

@@ -29,12 +29,11 @@ class LogManager {
   LogManager &operator=(LogManager &&) = delete;
 
 public:
-  LogManager() {}
+  LogManager() : global_persist_epoch_id_(INVALID_EPOCH_ID) {}
 
   virtual ~LogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
-
 
   virtual void RegisterWorker() = 0;
   virtual void DeregisterWorker() = 0;
@@ -44,8 +43,14 @@ public:
   virtual void StartLoggers() = 0;
   virtual void StopLoggers() = 0;
 
+  size_t GetPersistEpochId() {
+    return global_persist_epoch_id_.load();
+  }
+
 protected:
   size_t logger_count_;
+
+  std::atomic<size_t> global_persist_epoch_id_;
 
 };
 

@@ -12,6 +12,7 @@
 
 #include "backend/logging/durability_factory.h"
 #include "backend/logging/phylog_worker_context.h"
+#include "backend/concurrency/epoch_manager_factory.h"
 
 namespace peloton {
 namespace logging {
@@ -49,6 +50,10 @@ namespace logging {
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
     }
+
+    // while (itr != worker_ctx->pending_txn_timers.end()) {
+    //   EpochManagerFactory::
+    // }
   }
 
 

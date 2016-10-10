@@ -92,14 +92,14 @@ public:
   }
 
 
-  virtual size_t GetCurrentEpoch() override {
-    return current_epoch_.load();
+  virtual size_t GetCurrentEpochId() override {
+    return current_epoch_id_.load();
   }
 
   // Get a eid that is larger than all the running transactions
   // TODO: See if we can delete this method
   virtual size_t GetCurrentCid() override {
-    size_t eid = current_epoch_.load();
+    size_t eid = current_epoch_id_.load();
     size_t epoch_idx = eid % epoch_queue_size_;
 
     size_t id = epoch_queue_[epoch_idx].id_generator_++;
@@ -130,19 +130,19 @@ public:
 
   // Return a timestamp, higher 32 bits are eid and lower 32 bits are tid within epoch
   virtual cid_t EnterEpoch() override {
-    auto epoch = current_epoch_.load();
+    auto epoch = current_epoch_id_.load();
 
     size_t epoch_idx = epoch % epoch_queue_size_;
     epoch_queue_[epoch_idx].txn_ref_count_++;
 
     // Validation
-    auto epoch_validate = current_epoch_.load();
+    auto epoch_validate = current_epoch_id_.load();
     while (epoch_validate != epoch) {
       epoch_queue_[epoch_idx].txn_ref_count_--;
       epoch = epoch_validate;
       epoch_idx = epoch % epoch_queue_size_;
       epoch_queue_[epoch_idx].txn_ref_count_++;
-      epoch_validate = current_epoch_.load();
+      epoch_validate = current_epoch_id_.load();
     }
 
     auto id = epoch_queue_[epoch_idx].id_generator_++;
@@ -162,7 +162,7 @@ public:
 
   virtual void ExitEpoch(size_t epoch) override {
     PL_ASSERT(epoch >= queue_tail_);
-    PL_ASSERT(epoch <= current_epoch_);
+    PL_ASSERT(epoch <= current_epoch_id_);
 
     auto epoch_idx = epoch % epoch_queue_size_;
     epoch_queue_[epoch_idx].txn_ref_count_--;
@@ -198,7 +198,7 @@ private:
       // the epoch advances every 40 milliseconds.
       std::this_thread::sleep_for(std::chrono::microseconds(size_t(epoch_duration_millisec_ * 1000)));
 
-      auto next_idx = (current_epoch_.load() + 1) % epoch_queue_size_;
+      auto next_idx = (current_epoch_id_.load() + 1) % epoch_queue_size_;
       auto tail_idx = queue_tail_.load() % epoch_queue_size_;
 
 
@@ -212,7 +212,7 @@ private:
       // we have to init it first, then increase current epoch
       // otherwise may read dirty data
       epoch_queue_[next_idx].Init();
-      current_epoch_++;
+      current_epoch_id_++;
 
       // No need to init the read only epoch because:
       //      1) We don't use the id generator field
@@ -235,7 +235,7 @@ private:
     // Propely init the significant epochs with safe interval
     ro_queue_tail_ = START_EPOCH_ID;
     queue_tail_ = ro_epoch_frequency_ * (ro_queue_tail_ + 1 + safety_interval_);    // 40
-    current_epoch_ = queue_tail_ + 1 + safety_interval_; // 41
+    current_epoch_id_ = queue_tail_ + 1 + safety_interval_; // 41
 
     // current reid = 1
   }
@@ -248,7 +248,7 @@ private:
       return;
     }
 
-    auto current = current_epoch_.load();
+    auto current = current_epoch_id_.load();
     auto tail = queue_tail_.load();
 
     while(true) {
@@ -329,10 +329,10 @@ private:
   // Read write epoch vector
   std::vector<Epoch> epoch_queue_;
   std::atomic<size_t> queue_tail_;
-  std::atomic<size_t> current_epoch_;
+  std::atomic<size_t> current_epoch_id_;
 
-  // Read only epoch frequenct
-  static const int ro_epoch_frequency_ = 20;
+  // Read only epoch frequency
+  static const int ro_epoch_frequency_ = 20; // TODO: remove this magic number.
 
   // Read only epoch vector
   std::vector<Epoch> repoch_queue_;

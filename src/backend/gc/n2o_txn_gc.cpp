@@ -193,7 +193,7 @@ namespace peloton {
         }
       }  // end for
 
-      size_t current_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpoch();
+      size_t current_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
       for(auto& item : garbages){
           reclaim_maps_[thread_id].insert(std::make_pair(current_eid, item));
       }
@@ -222,7 +222,7 @@ namespace peloton {
         return;
       }
 
-      size_t cur_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpoch();
+      size_t cur_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
       for (ItemPointer itemptr : invalid_tuples) {
         oid_t tg_id = itemptr.block;
         oid_t tuple_id = itemptr.offset;

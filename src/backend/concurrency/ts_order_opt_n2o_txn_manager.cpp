@@ -885,7 +885,7 @@ Result TsOrderOptN2OTxnManager::AbortTransaction() {
     }
   }
 
-  size_t next_eid = EpochManagerFactory::GetInstance().GetCurrentEpoch();
+  size_t next_eid = EpochManagerFactory::GetInstance().GetCurrentEpochId();
 
   for (auto &item_pointer : aborted_versions) {
     RecycleOldTupleSlot(item_pointer.block, item_pointer.offset, next_eid);

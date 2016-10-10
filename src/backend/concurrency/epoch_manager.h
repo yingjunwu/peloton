@@ -62,7 +62,7 @@ class EpochManager {
     return (int)(epoch_duration_millisec_ * 1000 / 4);
   }
 
-  virtual size_t GetCurrentEpoch() = 0;
+  virtual size_t GetCurrentEpochId() = 0;
 
   // Get a eid that is larger than all the running transactions
   // TODO: See if we can delete this method
@@ -82,6 +82,9 @@ class EpochManager {
 
   virtual size_t GetReadonlyEid() = 0;
 
+
+  virtual void RegisterEpochDependency(UNUSED_ATTRIBUTE const size_t &epoch_id) {}
+
 protected:
   // queue size
   static const size_t epoch_queue_size_ = 4096;
@@ -89,6 +92,7 @@ protected:
   static const size_t low_32_bit_mask_ = 0xffffffff;
 
   const double epoch_duration_millisec_;
+
 };
 
 

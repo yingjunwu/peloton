@@ -241,6 +241,7 @@ void PhyLogLogManager::RunPepochLogger() {
       // we should post the pepoch id after the fsync -- Jiexi
       fwrite((const void *) (&curr_persist_epoch_id), sizeof(curr_persist_epoch_id), 1, file_handle.file);
       global_persist_epoch_id_ = curr_persist_epoch_id;
+      // printf("global persist epoch id = %d\n", (int)global_persist_epoch_id_);
       // Call fsync
       LoggingUtil::FFlushFsync(file_handle);
     }

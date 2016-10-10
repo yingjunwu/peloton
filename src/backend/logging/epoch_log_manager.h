@@ -68,8 +68,7 @@ protected:
 
   EpochLogManager()
     : worker_count_(0),
-      is_running_(false),
-      global_persist_epoch_id_(INVALID_EPOCH_ID){}
+      is_running_(false) {}
 
 public:
   static EpochLogManager &GetInstance() {
@@ -142,8 +141,6 @@ private:
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;
-
-  std::atomic<size_t> global_persist_epoch_id_;
 
   std::string pepoch_dir_;
 
