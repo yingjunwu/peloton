@@ -36,7 +36,6 @@ namespace logging {
     }
 
     head_.fetch_add(1, std::memory_order_relaxed);
-
     return std::move(local_buffer_queue_[head_idx]);
   }
 

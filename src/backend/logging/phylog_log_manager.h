@@ -126,8 +126,9 @@ private:
     LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_worker_ctx->worker_id, (int) tl_phylog_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
     PL_ASSERT(tl_phylog_worker_ctx);
-    tl_phylog_worker_ctx->per_epoch_buffer_ptrs[tl_phylog_worker_ctx->current_eid].push(std::move(log_buffer_ptr));
-    return tl_phylog_worker_ctx->per_epoch_buffer_ptrs[tl_phylog_worker_ctx->current_eid].top().get();
+    size_t eid_idx = tl_phylog_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+    tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
+    return tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
   }
 
 

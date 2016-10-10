@@ -101,8 +101,10 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
     }
   }
 
-  PL_ASSERT(ctx->per_epoch_buffer_ptrs[ctx->current_eid].empty() == false);
-  LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[ctx->current_eid].top().get();
+  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+  
+  PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
+  LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
   PL_ASSERT(buffer_ptr);
 
   // Add the frame length
