@@ -201,11 +201,20 @@ public:
     return reclaim_tail_.load();
   }
 
+  virtual int GetActiveRwTxnCount(size_t eid) override {
+    size_t epoch_idx = eid % epoch_queue_size_;
+    return epoch_queue_[epoch_idx].rw_txn_ref_count_.load();
+  }
+
   virtual size_t GetReadonlyEid() override {
     IncreaseQueueTail();
     return queue_tail_.load();
   }
 
+  virtual int GetActiveRoTxnCount(size_t eid) override {
+    size_t epoch_idx = eid % epoch_queue_size_;
+    return epoch_queue_[epoch_idx].ro_txn_ref_count_.load();
+  }
 
 private:
   void Start() {

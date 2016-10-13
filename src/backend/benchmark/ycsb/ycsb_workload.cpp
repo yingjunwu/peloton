@@ -190,6 +190,11 @@ void RunReadOnlyBackend(oid_t thread_id) {
     if (is_running == false) {
       break;
     }
+
+    if (state.ro_sleep_between_txn != 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(state.ro_sleep_between_txn));
+    }
+
     while (RunMixed(mixed_plans, zipf, rng, update_ratio, operation_count, is_read_only, state.scan_mock_duration) == false) {
       if (is_running == false) {
         break;

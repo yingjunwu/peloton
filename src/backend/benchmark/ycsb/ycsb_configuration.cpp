@@ -57,6 +57,7 @@ void Usage(FILE *out) {
           "   -L --log_type          :  log type could be phylog, epoch, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
+          "   -S --sleep-between-ro  :  sleep between ro txn in millisecond (default 0)\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -89,6 +90,7 @@ static struct option opts[] = {
     {"log_type", optional_argument, NULL, 'L'},
     {"log_directories", optional_argument, NULL, 'D'},
     {"timer_on", optional_argument, NULL, 'T'},
+    {"timer_on", optional_argument, NULL, 'S'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -257,6 +259,14 @@ void ValidateEpoch(const configuration &state) {
   LOG_TRACE("%s : %lf", "epoch_length", state.epoch_length);
 }
 
+void ValidateRoSleepInterval(const configuration &state) {
+  if (state.ro_sleep_between_txn > state.duration * 1000) {
+    LOG_ERROR("Sleep interval between 2 readonly txn can not be larger than the exp's duration");
+    exit(EXIT_FAILURE);
+  }
+  LOG_TRACE("%s : %d", "sleep between ro txn", state.ro_sleep_between_txn);
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -286,15 +296,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
   state.timer_type = TIMER_OFF;
+  state.ro_sleep_between_txn = 0;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:", opts, &idx);
+    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'S':
+        state.ro_sleep_between_txn = atoi(optarg);
+        break;
       case 'a':
         state.declared = true;
         break;
@@ -513,6 +527,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateSecondaryIndex(state);
   ValidateEpoch(state);
   ValidateSecondaryIndexScan(state);
+  ValidateRoSleepInterval(state);
 
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
   LOG_TRACE("%s : %d", "Run blind write", state.blind_write);

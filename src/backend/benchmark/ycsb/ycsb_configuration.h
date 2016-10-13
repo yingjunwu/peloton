@@ -145,6 +145,8 @@ class configuration {
 
   LatSummary latency_summary;
 
+  int ro_sleep_between_txn;
+
 };
 
 extern configuration state;
@@ -182,6 +184,8 @@ void ValidateZipfTheta(const configuration &state);
 void ValidateSecondaryIndex(const configuration &state);
 
 void ValidateSecondaryIndexScan(const configuration &state);
+
+void ValidateRoSleepInterval(const configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 

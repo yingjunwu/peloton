@@ -344,7 +344,8 @@ void PhyLogLogger::Run() {
     std::this_thread::sleep_for(
        std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
 
-    size_t max_persist_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
+    size_t max_persist_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
+    size_t max_possible_persiste_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
 
     // Pull log records from workers per epoch buffer
     {
@@ -362,14 +363,20 @@ void PhyLogLogger::Run() {
         if (current_persist_eid == max_persist_eid) {
           continue;
         }
-        for (size_t epoch_id = current_persist_eid + 1; epoch_id <= max_persist_eid; ++epoch_id) {
+        for (size_t epoch_id = current_persist_eid + 1; epoch_id < max_persist_eid; ++epoch_id) {
           size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
           // get all the buffers that are associated with the epoch.
           auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
 
+          // Flush dead epoch to disk when there is no running txn in it
+          if (concurrency::EpochManagerFactory::GetInstance().GetActiveRwTxnCount(epoch_id) > 0) {
+            continue;
+          }
+
           if (buffers.empty() == true) {
             // no transaction log is generated within this epoch.
-            // it's fine. simply ignore it.
+            // or we have logged this epoch before.
+            // just skip it.
             continue;
           }
           PersistEpochBegin(epoch_id);
@@ -390,7 +397,7 @@ void PhyLogLogger::Run() {
           LoggingUtil::FFlushFsync(file_handle_);
         } // end for
 
-        worker_ctx_ptr->persist_eid = max_persist_eid;
+        worker_ctx_ptr->persist_eid = std::min(max_persist_eid, max_possible_persiste_eid);
 
         if (max_workers_persist_eid == INVALID_EPOCH_ID || max_workers_persist_eid > max_persist_eid) {
           max_workers_persist_eid = max_persist_eid;

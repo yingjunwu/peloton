@@ -229,7 +229,7 @@ void PhyLogLogManager::RunPepochLogger() {
       (concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter())
     );
     
-    size_t curr_persist_epoch_id = INVALID_EPOCH_ID;
+    size_t curr_persist_epoch_id = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
     for (auto &logger : loggers_) {
       size_t logger_pepoch_id = logger->GetPersistEpochId();
       if (curr_persist_epoch_id == INVALID_EPOCH_ID || curr_persist_epoch_id > logger_pepoch_id) {

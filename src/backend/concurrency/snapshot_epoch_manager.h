@@ -192,6 +192,17 @@ public:
     return (eid / ro_epoch_frequency_) * ro_epoch_frequency_;
   }
 
+  virtual int GetActiveRwTxnCount(size_t eid) override {
+    size_t epoch_idx = eid % epoch_queue_size_;
+    return epoch_queue_[epoch_idx].txn_ref_count_.load();
+  }
+
+  virtual int GetActiveRoTxnCount(size_t eid) override {
+    PL_ASSERT(eid % ro_epoch_frequency_ == 0);
+    size_t ro_epoch_idx = (eid / ro_epoch_frequency_) % epoch_queue_size_;
+    return repoch_queue_[ro_epoch_idx].txn_ref_count_.load();
+  }
+
 private:
   void Start() {
     while (!finish_) {
