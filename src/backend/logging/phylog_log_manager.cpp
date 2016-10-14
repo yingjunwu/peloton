@@ -229,13 +229,15 @@ void PhyLogLogManager::RunPepochLogger() {
       (concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter())
     );
     
-    size_t curr_persist_epoch_id = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
+    size_t curr_persist_epoch_id = MAX_EPOCH_ID;
     for (auto &logger : loggers_) {
       size_t logger_pepoch_id = logger->GetPersistEpochId();
-      if (curr_persist_epoch_id == INVALID_EPOCH_ID || curr_persist_epoch_id > logger_pepoch_id) {
+      if (logger_pepoch_id < curr_persist_epoch_id) {
         curr_persist_epoch_id = logger_pepoch_id;
       }
     }
+
+    PL_ASSERT(curr_persist_epoch_id < MAX_EPOCH_ID);
     size_t glob_peid = global_persist_epoch_id_.load();
     if (curr_persist_epoch_id > glob_peid) {
       // we should post the pepoch id after the fsync -- Jiexi

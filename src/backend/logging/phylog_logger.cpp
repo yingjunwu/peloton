@@ -344,34 +344,29 @@ void PhyLogLogger::Run() {
     std::this_thread::sleep_for(
        std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
 
-    size_t max_persist_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
-    size_t max_possible_persiste_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
-
     // Pull log records from workers per epoch buffer
     {
       worker_map_lock_.Lock();
 
-      size_t max_workers_persist_eid = INVALID_EPOCH_ID;
+      size_t min_workers_persist_eid = INVALID_EPOCH_ID;
       for (auto &worker_entry : worker_map_) {
         // For every alive worker, move its buffer to the logger's local buffer
         auto worker_ctx_ptr = worker_entry.second.get();
 
-        size_t current_persist_eid = worker_ctx_ptr->persist_eid;
+        size_t last_persist_eid = worker_ctx_ptr->persist_eid;
+        size_t worker_current_eid = worker_ctx_ptr->current_eid;
 
-        PL_ASSERT(current_persist_eid <= max_persist_eid);
+        PL_ASSERT(last_persist_eid <= worker_current_eid);
 
-        if (current_persist_eid == max_persist_eid) {
+        if (last_persist_eid == worker_current_eid) {
+          // The worker makes no progess
           continue;
         }
-        for (size_t epoch_id = current_persist_eid + 1; epoch_id < max_persist_eid; ++epoch_id) {
+
+        for (size_t epoch_id = last_persist_eid + 1; epoch_id < worker_current_eid; ++epoch_id) {
           size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
           // get all the buffers that are associated with the epoch.
           auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
-
-          // Flush dead epoch to disk when there is no running txn in it
-          if (concurrency::EpochManagerFactory::GetInstance().GetActiveRwTxnCount(epoch_id) > 0) {
-            continue;
-          }
 
           if (buffers.empty() == true) {
             // no transaction log is generated within this epoch.
@@ -397,23 +392,23 @@ void PhyLogLogger::Run() {
           LoggingUtil::FFlushFsync(file_handle_);
         } // end for
 
-        worker_ctx_ptr->persist_eid = std::min(max_persist_eid, max_possible_persiste_eid);
+        worker_ctx_ptr->persist_eid = worker_current_eid - 1;
 
-        if (max_workers_persist_eid == INVALID_EPOCH_ID || max_workers_persist_eid > max_persist_eid) {
-          max_workers_persist_eid = max_persist_eid;
+        if (min_workers_persist_eid == INVALID_EPOCH_ID || min_workers_persist_eid > (worker_current_eid - 1)) {
+          min_workers_persist_eid = worker_current_eid - 1;
         }
 
       } // end for
 
-      if (max_workers_persist_eid == INVALID_EPOCH_ID) {
+      if (min_workers_persist_eid == INVALID_EPOCH_ID) {
         // in this case, it is likely that there's no registered worker or there's nothing to persist.
         worker_map_lock_.Unlock();
         continue;
       }
 
-      PL_ASSERT(max_workers_persist_eid >= persist_epoch_id_);
+      PL_ASSERT(min_workers_persist_eid >= persist_epoch_id_);
 
-      persist_epoch_id_ = max_workers_persist_eid;
+      persist_epoch_id_ = min_workers_persist_eid;
 
       worker_map_lock_.Unlock();
     }
