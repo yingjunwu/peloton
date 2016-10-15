@@ -50,12 +50,12 @@ class SingleQueueEpochManager : public EpochManager {
     Spinlock spinlock_;
     std::unordered_set<size_t> dependency_set_;
 
-    void InsertDependency(const size_t &epoch_id) {
-      spinlock_.Lock();
+    void InsertDependency(UNUSED_ATTRIBUTE const size_t &epoch_id) {
+      // spinlock_.Lock();
 
-      dependency_set_.insert(epoch_id);
+      // dependency_set_.insert(epoch_id);
 
-      spinlock_.Unlock();
+      // spinlock_.Unlock();
     }
 
     Epoch()

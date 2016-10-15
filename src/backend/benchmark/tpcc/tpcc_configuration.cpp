@@ -206,7 +206,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.gc_protocol = GC_TYPE_OFF;
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
-  state.sindex = SECONDARY_INDEX_TYPE_VERSION;
+  state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
   state.epoch_length = 10;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};

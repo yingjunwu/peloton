@@ -221,17 +221,13 @@ bool TsOrderN2OTxnManager::PerformRead(const ItemPointer &location) {
   auto tile_group = manager.GetTileGroup(tile_group_id);
   auto tile_group_header = tile_group->GetHeader();
 
-  cid_t begin_commit_cid = tile_group_header->GetBeginCommitId(location.offset);
-  size_t read_epoch_id = begin_commit_cid >> 32;
-  size_t persist_epoch_id = logging::DurabilityFactory::GetLoggerInstance().GetPersistEpochId();
+  // cid_t begin_commit_cid = tile_group_header->GetBeginCommitId(location.offset);
+  // size_t read_epoch_id = begin_commit_cid >> 32;
+  // size_t persist_epoch_id = logging::DurabilityFactory::GetLoggerInstance().GetPersistEpochId();
 
-  if (read_epoch_id > persist_epoch_id) {
-    EpochManagerFactory::GetInstance().RegisterEpochDependency(read_epoch_id);
-    // printf("dependent on volatile epoches..\n");
-  } 
-  // else {
-  //   printf("no dependency. read_epoch_id = %lu, persist_epoch_id = %lu\n", read_epoch_id, persist_epoch_id);
-  // }
+  // if (read_epoch_id > persist_epoch_id) {
+  //   EpochManagerFactory::GetInstance().RegisterEpochDependency(read_epoch_id);
+  // } 
 
   //auto last_reader_cid = GetLastReaderCid(tile_group_header, tuple_id);
   if (IsOwner(tile_group_header, tuple_id) == true) {
