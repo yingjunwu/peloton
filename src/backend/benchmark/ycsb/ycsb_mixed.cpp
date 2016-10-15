@@ -297,7 +297,7 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
 
       if ((ret_result.size() > 1 && state.sindex_scan == false) || ret_result.size() < 1) {
         LOG_ERROR("Error: result size = %d\n", (int)ret_result.size());
-        assert(false);
+        PL_ASSERT(false);
       }
     }
   }

@@ -712,6 +712,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 }
 
 Result TsOrderN2OTxnManager::AbortTransaction() {
+  PL_ASSERT(current_txn->IsStaticReadOnlyTxn() == false);
   LOG_TRACE("Aborting peloton txn : %lu ", current_txn->GetTransactionId());
   auto &manager = catalog::Manager::GetInstance();
 

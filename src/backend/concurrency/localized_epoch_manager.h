@@ -100,7 +100,7 @@ namespace peloton {
 
       virtual cid_t EnterReadOnlyEpoch() {
         PL_ASSERT(lt_txn_worker_id != INVALID_TXN_WORKER_ID);
-        size_t eid = GetMaxDeadEid();
+        size_t eid = GetReadonlyEid();
         ro_worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.current_epoch = eid;
         // readonly txn cid's lower 32bits are all 1
         return (eid << 32) | low_32_bit_mask_;
