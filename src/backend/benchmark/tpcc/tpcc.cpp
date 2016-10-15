@@ -33,12 +33,7 @@ configuration state;
 
 // Main Entry Point
 void RunBenchmark() {
-
-  auto epoch_type = EPOCH_SINGLE_QUEUE;
-  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
-    epoch_type = EPOCH_SNAPSHOT;
-  }
-  concurrency::EpochManagerFactory::Configure(epoch_type, state.epoch_length);
+  concurrency::EpochManagerFactory::Configure(state.epoch_type, state.epoch_length);
   // Force init
   // TODO: We should force the init order of singleton -- Jiexi
 

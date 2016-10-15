@@ -171,6 +171,7 @@ class configuration {
   // Timer on
   TimerType timer_type;
 
+  EpochType epoch_type;
 };
 
 extern configuration state;
@@ -194,6 +195,8 @@ void ValidateIndex(const configuration &state);
 void ValidateEpoch(const configuration &state);
 
 void ValidateOrderRange(const configuration &state);
+
+void ValidateEpochType(configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 

@@ -47,6 +47,7 @@ void Usage(FILE *out) {
           "   -L --log_type          :  log type could be phylog, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -T --timer_type        :  timer type could be off, sum, dist. Default is off\n"
+          "   -E --epoch_type        :  can be queue (default), local\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -71,6 +72,7 @@ static struct option opts[] = {
   { "log_type", optional_argument, NULL, 'L'},
   { "log_directories", optional_argument, NULL, 'D'},
   { "timer_type", optional_argument, NULL, 'T'},
+  {"epoch_type", optional_argument, NULL, 'E'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -177,6 +179,18 @@ void ValidateEpoch(const configuration &state) {
   LOG_TRACE("%s : %d", "epoch_length", state.epoch_length);
 }
 
+void ValidateEpochType(configuration &state) {
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
+    LOG_INFO("Use snapshot gc protocol");
+    if (state.epoch_type == EPOCH_LOCALIZED) {
+      LOG_INFO("Use localized snapshot epoch manager");
+      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+    } else {
+      state.epoch_type = EPOCH_SNAPSHOT;
+    }
+  }
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -198,11 +212,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.log_directories = {TMP_DIR};
   state.timer_type = TIMER_OFF;
   state.disable_insert = false;
+  state.epoch_type = EPOCH_SINGLE_QUEUE;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:", opts, &idx);
+    int c = getopt_long(argc, argv, "aenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:", opts, &idx);
 
     if (c == -1) break;
 
@@ -243,6 +258,18 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
+      case 'E' : {
+        char *epoch_type = optarg;
+        if (strcmp(epoch_type, "queue") == 0) {
+          state.epoch_type = EPOCH_SINGLE_QUEUE;
+        } else if (strcmp(epoch_type, "local") == 0) {
+          state.epoch_type = EPOCH_LOCALIZED;
+        } else {
+          fprintf(stderr, "\nUnknown epoch protocol: %s\n", epoch_type);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
       case 'T' : {
         char *timer_type = optarg;
         if (strcmp(timer_type, "off") == 0) {
@@ -338,7 +365,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.gc_protocol = GC_TYPE_N2O_TXN;
         } else if (strcmp(gc_protocol, "n2oepoch") == 0) {
           state.gc_protocol = GC_TYPE_N2O_EPOCH;
-        } else if (strcmp(gc_protocol, "n2oss")) {
+        } else if (strcmp(gc_protocol, "n2oss") == 0) {
           state.gc_protocol = GC_TYPE_N2O_SNAPSHOT;
         } else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
@@ -401,6 +428,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateIndex(state);
   ValidateOrderRange(state);
   ValidateEpoch(state);
+  ValidateEpochType(state);
   
   LOG_TRACE("%s : %d", "Run client affinity", state.run_affinity);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);

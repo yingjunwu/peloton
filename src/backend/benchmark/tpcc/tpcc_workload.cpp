@@ -133,6 +133,8 @@ size_t GenerateWarehouseId(const size_t &thread_id) {
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  epoch_manager.RegisterTxnWorker(true);
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -165,6 +167,9 @@ void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+
+  epoch_manager.RegisterTxnWorker(false);
   log_manager.RegisterWorker();
 
   oid_t &execution_count_ref = abort_counts[thread_id];
