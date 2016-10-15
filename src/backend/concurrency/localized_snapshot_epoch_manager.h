@@ -52,7 +52,9 @@ namespace peloton {
         : EpochManager(epoch_length), txnid_generator_(0), worker_current_epoch_ctxs_(max_worker_count),
           ro_worker_current_epoch_ctxs_(max_worker_count), worker_id_generator_(0),
           global_current_epoch_(START_EPOCH_ID * ro_epoch_frequency_ + 1)
-        {}
+        {
+          StartEpochManager();
+        }
 
       virtual ~LocalizedSnapshotEpochManager() {
         finish_ = true;
@@ -142,11 +144,10 @@ namespace peloton {
       }
 
     size_t GetMaxDeadEidForRwGC() {
-//      size_t cur_eid = global_current_epoch_.load();
-//      COMPILER_MEMORY_FENCE;
-//      size_t min_eid = GetMin(worker_current_epoch_ctxs_);
-//      return std::min(cur_eid, min_eid) - 1;
-        return global_current_epoch_;
+      size_t cur_eid = global_current_epoch_.load();
+      COMPILER_MEMORY_FENCE;
+      size_t min_eid = GetMin(worker_current_epoch_ctxs_);
+      return std::min(cur_eid, min_eid) - 1;
     };
 
     size_t GetMaxDeadEidForSnapshotGC() {

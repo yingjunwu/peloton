@@ -52,7 +52,9 @@ namespace peloton {
         : EpochManager(epoch_length), txnid_generator_(0), worker_current_epoch_ctxs_(max_worker_count),
           ro_worker_current_epoch_ctxs_(max_worker_count), worker_id_generator_(0),
           global_current_epoch_(START_EPOCH_ID)
-        {}
+        {
+          StartEpochManager();
+        }
 
       virtual ~LocalizedEpochManager() {
         finish_ = true;
