@@ -166,19 +166,19 @@ void RunReadOnlyBackend(oid_t thread_id) {
   bool is_read_only = state.declared;
   double update_ratio = 0;
   auto operation_count = state.operation_count;
-  double &commit_latency_ref = commit_latencies[thread_id];
-  LatSummary &commit_lat_summary_ref = commit_lat_summaries[thread_id];
+  // double &commit_latency_ref = commit_latencies[thread_id];
+  // LatSummary &commit_lat_summary_ref = commit_lat_summaries[thread_id];
 
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
   epoch_manager.RegisterTxnWorker(is_read_only);
 
-  if (is_read_only) {
+  if (is_read_only == false) {
     auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
     log_manager.RegisterWorker();
+  } else {
     auto SLEEP_TIME = std::chrono::milliseconds(500);
     std::this_thread::sleep_for(SLEEP_TIME);
   }
-
   oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
   oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
 
@@ -222,19 +222,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
     ro_transaction_count_ref++;
   }
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
-    if (thread_id == 0) {
-      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
-    }
-  } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
-    commit_latency_ref = logging::tl_epoch_worker_ctx->txn_summary.GetAverageLatencyInMs();
-    if (thread_id == 0) {
-      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
-    }
-  }
-
-  if (is_read_only) {
+  if (is_read_only == false) {
     auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
     log_manager.DeregisterWorker();
   }
@@ -334,17 +322,17 @@ void RunWorkload() {
   // Launch a group of threads
   // thread count settings should pass the parameter validation
   oid_t rw_backend_count = num_threads - num_ro_threads - num_scan_threads;
-  oid_t thread_itr = 0;
+  oid_t thread_itr;
 
-  for (; thread_itr < rw_backend_count; ++thread_itr) {
+  for (thread_itr = 0; thread_itr < rw_backend_count; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 
-  for (; thread_itr < rw_backend_count + num_ro_threads; ++thread_itr) {
+  for (; thread_itr < num_ro_threads + rw_backend_count; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunReadOnlyBackend, thread_itr)));
   }
 
-  for (; thread_itr < num_threads; ++thread_itr) {
+  for (; thread_itr < num_ro_threads + rw_backend_count + num_scan_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
   }
 
@@ -429,11 +417,11 @@ void RunWorkload() {
 
   if (num_ro_threads != 0) {
     for (size_t i = 0; i < num_ro_threads; ++i) {
-      total_ro_commit_count += ro_commit_counts[i];
+      total_ro_commit_count += ro_commit_counts[i + rw_backend_count];
     }
 
     for (size_t i = 0; i < num_ro_threads; ++i) {
-      total_to_abort_count += ro_abort_counts[i];
+      total_to_abort_count += ro_abort_counts[i + rw_backend_count];
     }
 
     state.ro_throughput = total_ro_commit_count * 1.0 / state.duration;

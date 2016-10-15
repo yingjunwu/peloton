@@ -62,6 +62,12 @@ namespace peloton {
       }
 
       virtual void StartEpochManager() {
+        size_t max_worker_count = worker_current_epoch_ctxs_.size();
+        for (size_t i = 0; i < max_worker_count; ++i) {
+          worker_current_epoch_ctxs_[i].epoch_ctx.Reset();
+          ro_worker_current_epoch_ctxs_[i].epoch_ctx.Reset();
+        }
+
         finish_ = false;
         PL_ASSERT(ts_thread_ == nullptr);
         global_current_epoch_ = START_EPOCH_ID;
@@ -95,7 +101,7 @@ namespace peloton {
         size_t current_eid = global_current_epoch_.load();
         size_t eid = GetNearestSnapshotEpochId(current_eid);
         ro_worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.current_epoch = eid;
-        // readonly txn cid's lower 32bits are all 1
+        // readonly txn cid's lower 32bits are all 0
         return (eid << 32) | low_32_bit_mask_;
       };
 
@@ -136,10 +142,11 @@ namespace peloton {
       }
 
     size_t GetMaxDeadEidForRwGC() {
-      size_t cur_eid = global_current_epoch_.load();
-      COMPILER_MEMORY_FENCE;
-      size_t min_ro_eid = GetMin(ro_worker_current_epoch_ctxs_);
-      return std::min(cur_eid, min_ro_eid) - 1;
+//      size_t cur_eid = global_current_epoch_.load();
+//      COMPILER_MEMORY_FENCE;
+//      size_t min_eid = GetMin(worker_current_epoch_ctxs_);
+//      return std::min(cur_eid, min_eid) - 1;
+        return global_current_epoch_;
     };
 
     size_t GetMaxDeadEidForSnapshotGC() {

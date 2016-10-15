@@ -270,8 +270,14 @@ void ValidateRoSleepInterval(const configuration &state) {
 }
 
 void ValidateEpochType(configuration &state) {
-  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT && state.epoch_type == EPOCH_LOCALIZED) {
-    state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
+    LOG_INFO("Use snapshot gc protocol");
+    if (state.epoch_type == EPOCH_LOCALIZED) {
+      LOG_INFO("Use localized snapshot epoch manager");
+      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+    } else {
+      state.epoch_type = EPOCH_SNAPSHOT;
+    }
   }
 }
 

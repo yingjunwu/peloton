@@ -427,13 +427,13 @@ void RunWorkload() {
   // Launch a group of threads
   // thread count settings should pass the parameter validation
   oid_t rw_backend_count = num_threads - num_scan_threads;
-  oid_t thread_itr = 0;
+  oid_t thread_itr;
 
-  for (; thread_itr < rw_backend_count; ++thread_itr) {
+  for (thread_itr = 0; thread_itr < rw_backend_count; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
   }
 
-  for (; thread_itr < num_threads; ++thread_itr) {
+  for (thread_itr = rw_backend_count; thread_itr < rw_backend_count + num_scan_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
   }
 

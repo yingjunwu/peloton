@@ -44,8 +44,9 @@ void N2OSnapshotGCManager::Running(int thread_id) {
       PL_ASSERT(false);
     }
 
-    PL_ASSERT(max_rw_eid != MAX_EPOCH_ID);
-    PL_ASSERT(max_ro_eid != MAX_EPOCH_ID);
+    // They can be MAX if there is no running txn in the system
+//    PL_ASSERT(max_rw_eid != MAX_EPOCH_ID);
+//    PL_ASSERT(max_ro_eid != MAX_EPOCH_ID);
 
     snapshot_gc_manager.Reclaim(thread_id, max_ro_eid);
     rw_gc_manager.Reclaim(thread_id, max_rw_eid);

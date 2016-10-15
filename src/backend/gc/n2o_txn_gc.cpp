@@ -107,7 +107,8 @@ namespace peloton {
       while (true) {
         size_t max_eid = concurrency::EpochManagerFactory::GetInstance().GetMaxDeadEid();
 
-        assert(max_eid != MAX_EPOCH_ID);
+        // max_eid can be MAX when there is no txn running
+        // assert(max_eid != MAX_EPOCH_ID);
 
         Reclaim(thread_id, max_eid);
 

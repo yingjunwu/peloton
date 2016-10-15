@@ -62,6 +62,12 @@ namespace peloton {
       }
 
       virtual void StartEpochManager() {
+        size_t max_worker_count = worker_current_epoch_ctxs_.size();
+        for (size_t i = 0; i < max_worker_count; ++i) {
+          worker_current_epoch_ctxs_[i].epoch_ctx.Reset();
+          ro_worker_current_epoch_ctxs_[i].epoch_ctx.Reset();
+        }
+
         finish_ = false;
         PL_ASSERT(ts_thread_ == nullptr);
         global_current_epoch_ = START_EPOCH_ID;
