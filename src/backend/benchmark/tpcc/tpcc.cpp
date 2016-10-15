@@ -43,13 +43,13 @@ void RunBenchmark() {
   // TODO: We should force the init order of singleton -- Jiexi
 
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
-  (void) epoch_manager;
 
   gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
   concurrency::TransactionManagerFactory::Configure(state.protocol);
   index::IndexFactory::Configure(state.sindex);
 
   // Create and load the database
+  epoch_manager.RegisterTxnWorker(false);
   CreateTPCCDatabase();
   LoadTPCCDatabase();
 
