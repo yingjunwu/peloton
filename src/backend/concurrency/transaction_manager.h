@@ -139,7 +139,8 @@ class TransactionManager {
       gc_instance.RecycleOldTupleSlot(
         tile_group->GetTableId(), tile_group_id, tuple_id, tuple_eid);
     } else if (gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT) {
-      PL_ASSERT(EpochManagerFactory::GetType() == EPOCH_SNAPSHOT);
+      PL_ASSERT(EpochManagerFactory::GetType() == EPOCH_SNAPSHOT
+                || EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT);
       reinterpret_cast<gc::N2OSnapshotGCManager*>(&gc::GCManagerFactory::GetInstance())
                          ->RecycleOldTupleSlot(tile_group.get(), tuple_id, tuple_eid);
     }

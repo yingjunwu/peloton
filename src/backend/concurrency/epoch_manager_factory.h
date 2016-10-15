@@ -17,6 +17,8 @@
 #include "backend/concurrency/epoch_manager.h"
 #include "backend/concurrency/single_queue_epoch_manager.h"
 #include "backend/concurrency/snapshot_epoch_manager.h"
+#include "backend/concurrency/localized_epoch_manager.h"
+#include "backend/concurrency/localized_snapshot_epoch_manager.h"
 
 namespace peloton {
 namespace concurrency {
@@ -29,6 +31,10 @@ class EpochManagerFactory {
         return SingleQueueEpochManager::GetInstance(epoch_length_);
       case EPOCH_SNAPSHOT:
         return SnapshotEpochManager::GetInstance(epoch_length_);
+      case EPOCH_LOCALIZED:
+        return LocalizedEpochManager::GetInstance(epoch_length_, max_worker_count_);
+      case EPOCH_LOCALIZED_SNAPSHOT:
+        return LocalizedSnapshotEpochManager::GetInstance(epoch_length_, max_worker_count_);
       default:
         return SingleQueueEpochManager::GetInstance(epoch_length_);
 
@@ -45,6 +51,7 @@ class EpochManagerFactory {
   }
 
  private:
+  static const size_t max_worker_count_ = 256;
   static double epoch_length_;
   static EpochType epoch_type_;
 };

@@ -96,6 +96,9 @@ void RunBackend(oid_t thread_id) {
   PinToCore(thread_id);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+
+  epoch_manager.RegisterTxnWorker(false);
   log_manager.RegisterWorker();
 
   auto update_ratio = state.update_ratio;
@@ -160,17 +163,18 @@ void RunBackend(oid_t thread_id) {
 
 void RunReadOnlyBackend(oid_t thread_id) {
   PinToCore(thread_id);
-
-  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-  log_manager.RegisterWorker();
-
+  bool is_read_only = state.declared;
   double update_ratio = 0;
   auto operation_count = state.operation_count;
-  bool is_read_only = state.declared;
   double &commit_latency_ref = commit_latencies[thread_id];
   LatSummary &commit_lat_summary_ref = commit_lat_summaries[thread_id];
 
-  if (is_read_only == true) {
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  epoch_manager.RegisterTxnWorker(is_read_only);
+
+  if (is_read_only) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    log_manager.RegisterWorker();
     auto SLEEP_TIME = std::chrono::milliseconds(500);
     std::this_thread::sleep_for(SLEEP_TIME);
   }
@@ -230,12 +234,17 @@ void RunReadOnlyBackend(oid_t thread_id) {
     }
   }
 
-  log_manager.DeregisterWorker();
-
+  if (is_read_only) {
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+    log_manager.DeregisterWorker();
+  }
 }
 
 void RunScanBackend(oid_t thread_id) {
   PinToCore(thread_id);
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  epoch_manager.RegisterTxnWorker(true);
+
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);

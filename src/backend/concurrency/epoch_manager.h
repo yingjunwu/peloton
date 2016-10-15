@@ -79,13 +79,10 @@ class EpochManager {
 
   // assume we store epoch_store max_store previously
   virtual size_t GetMaxDeadEid() = 0;
-  virtual int GetActiveRwTxnCount(size_t eid) = 0;
-
-  virtual size_t GetReadonlyEid() = 0;
-  virtual int GetActiveRoTxnCount(size_t eid) = 0;
-
 
   virtual void RegisterEpochDependency(UNUSED_ATTRIBUTE const size_t &epoch_id) {}
+
+  virtual void RegisterTxnWorker(UNUSED_ATTRIBUTE bool read_only) {}
 
 protected:
   // queue size

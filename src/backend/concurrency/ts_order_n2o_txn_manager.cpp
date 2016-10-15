@@ -350,6 +350,19 @@ void TsOrderN2OTxnManager::PerformUpdate(const ItemPointer &old_location,
       new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset,
                                                 tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
     }
+  } else if (EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT) {
+    PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+    cid_t nearest_snapshot_cid =
+      EpochManager::GetReadonlyCidFromEid(LocalizedSnapshotEpochManager::GetNearestSnapshotEpochId(current_txn->GetEpochId()));
+    if (nearest_snapshot_cid >= tile_group_header->GetBeginCommitId(old_location.offset)
+        && nearest_snapshot_cid < tile_group_header->GetEndCommitId(old_location.offset)) {
+      // The before image is a snapshot, chain it in the chain
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset, old_location);
+    } else {
+      // Chain the previous snapshot into the new version
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset,
+                                                        tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
+    }
   }
 
 
@@ -471,7 +484,21 @@ void TsOrderN2OTxnManager::PerformDelete(const ItemPointer &old_location,
       new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset,
                                                 tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
     }
+  } else if (EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT) {
+    PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
+    cid_t nearest_snapshot_cid =
+      EpochManager::GetReadonlyCidFromEid(LocalizedSnapshotEpochManager::GetNearestSnapshotEpochId(current_txn->GetEpochId()));
+    if (nearest_snapshot_cid >= tile_group_header->GetBeginCommitId(old_location.offset)
+        && nearest_snapshot_cid < tile_group_header->GetEndCommitId(old_location.offset)) {
+      // The before image is a snapshot, chain it in the chain
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset, old_location);
+    } else {
+      // Chain the previous snapshot into the new version
+      new_tile_group_header->SetNextSnapshotItemPointer(new_location.offset,
+                                                        tile_group_header->GetNextSnapshotItemPointer(old_location.offset));
+    }
   }
+
 
 
 

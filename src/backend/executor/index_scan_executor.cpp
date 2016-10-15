@@ -191,7 +191,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupSV() {
   } if (visibility == VISIBILITY_INVISIBLE) {
     // if the tuple is owned by the transaction but it is a before image.
 
-    if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+    if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT
+        || concurrency::EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT) {
       // Snapshot epoch manager
       PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
 
@@ -442,7 +443,8 @@ bool IndexScanExecutor::ExecPrimaryIndexLookupMV() {
 
         ItemPointer old_item = tuple_location;
 
-        if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+        if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT
+            || concurrency::EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT) {
           // Snapshot epoch manager
           PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
           if (concurrency::current_txn->IsStaticReadOnlyTxn()) {
@@ -734,7 +736,8 @@ bool IndexScanExecutor::ExecTupleSecondaryIndexLookup() {
 
         ItemPointer old_item = tuple_location;
 
-        if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+        if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT
+            || concurrency::EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT) {
           // Snapshot epoch manager
           PL_ASSERT(gc::GCManagerFactory::GetGCType() == GC_TYPE_N2O_SNAPSHOT);
           if (concurrency::current_txn->IsStaticReadOnlyTxn()) {

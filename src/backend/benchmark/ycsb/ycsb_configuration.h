@@ -147,6 +147,8 @@ class configuration {
 
   int ro_sleep_between_txn;
 
+  EpochType epoch_type;
+
 };
 
 extern configuration state;
@@ -186,6 +188,8 @@ void ValidateSecondaryIndex(const configuration &state);
 void ValidateSecondaryIndexScan(const configuration &state);
 
 void ValidateRoSleepInterval(const configuration &state);
+
+void ValidateEpochType(configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 

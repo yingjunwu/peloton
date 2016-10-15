@@ -51,6 +51,8 @@ enum GCType {
 enum EpochType {
   EPOCH_SINGLE_QUEUE = 0,
   EPOCH_SNAPSHOT,
+  EPOCH_LOCALIZED,
+  EPOCH_LOCALIZED_SNAPSHOT,
 };
 
 enum TimerType {
@@ -787,6 +789,9 @@ static const size_t INVALID_EPOCH_ID = 0;
 static const size_t START_EPOCH_ID = 1;
 
 static const size_t MAX_EPOCH_ID = std::numeric_limits<size_t >::max();
+
+// For localized epoch manager
+static const size_t INVALID_TXN_WORKER_ID = std::numeric_limits<size_t >::max();
 
 //===--------------------------------------------------------------------===//
 // TupleMetadata

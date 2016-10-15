@@ -193,17 +193,11 @@ static void ValidateMVCC() {
 
 // Main Entry Point
 void RunBenchmark() {
-
-  auto epoch_type = EPOCH_SINGLE_QUEUE;
-  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
-    epoch_type = EPOCH_SNAPSHOT;
-  }
-  concurrency::EpochManagerFactory::Configure(epoch_type, state.epoch_length);
+  concurrency::EpochManagerFactory::Configure(state.epoch_type, state.epoch_length);
   // Force init
   // TODO: We should force the init order of singleton -- Jiexi
 
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
-  (void) epoch_manager;
 
   gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
   concurrency::TransactionManagerFactory::Configure(state.protocol);
@@ -212,6 +206,7 @@ void RunBenchmark() {
 
   // for now, we do not perform logging when loading tables. --Yingjun
   // Create and load the user table
+  epoch_manager.RegisterTxnWorker(false);
   CreateYCSBDatabase();
   LoadYCSBDatabase();
 

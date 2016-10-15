@@ -57,7 +57,8 @@ void Usage(FILE *out) {
           "   -L --log_type          :  log type could be phylog, epoch, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
-          "   -S --sleep-between-ro  :  sleep between ro txn in millisecond (default 0)\n"
+          "   -S --sleep_between_ro  :  sleep between ro txn in millisecond (default 0)\n"
+          "   -E --epoch_type        :  can be queue (default), local\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -90,7 +91,8 @@ static struct option opts[] = {
     {"log_type", optional_argument, NULL, 'L'},
     {"log_directories", optional_argument, NULL, 'D'},
     {"timer_on", optional_argument, NULL, 'T'},
-    {"timer_on", optional_argument, NULL, 'S'},
+    {"sleep_between_ro", optional_argument, NULL, 'S'},
+    {"epoch_type", optional_argument, NULL, 'E'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -267,6 +269,12 @@ void ValidateRoSleepInterval(const configuration &state) {
   LOG_TRACE("%s : %d", "sleep between ro txn", state.ro_sleep_between_txn);
 }
 
+void ValidateEpochType(configuration &state) {
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT && state.epoch_type == EPOCH_LOCALIZED) {
+    state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+  }
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -297,11 +305,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.log_directories = {TMP_DIR};
   state.timer_type = TIMER_OFF;
   state.ro_sleep_between_txn = 0;
+  state.epoch_type = EPOCH_SINGLE_QUEUE;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:", opts, &idx);
+    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:", opts, &idx);
 
     if (c == -1) break;
 
@@ -369,6 +378,18 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atof(optarg);
         break;
+      case 'E' : {
+        char *epoch_type = optarg;
+        if (strcmp(epoch_type, "queue") == 0) {
+          state.epoch_type = EPOCH_SINGLE_QUEUE;
+        } else if (strcmp(epoch_type, "local") == 0) {
+          state.epoch_type = EPOCH_LOCALIZED;
+        } else {
+          fprintf(stderr, "\nUnknown epoch protocol: %s\n", epoch_type);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
       case 'T' : {
         char *timer_type = optarg;
         if (strcmp(timer_type, "off") == 0) {
@@ -377,6 +398,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.timer_type = TIMER_SUMMARY;
         } else if (strcmp(timer_type, "dist") == 0) {
           state.timer_type = TIMER_DISTRIBUTION;
+        } else {
+          fprintf(stderr, "\nUnknown timer protocol: %s\n", timer_type);
+          exit(EXIT_FAILURE);
         }
         break;
       }
@@ -528,6 +552,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateEpoch(state);
   ValidateSecondaryIndexScan(state);
   ValidateRoSleepInterval(state);
+  ValidateEpoch(state);
+  ValidateEpochType(state);
 
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
   LOG_TRACE("%s : %d", "Run blind write", state.blind_write);

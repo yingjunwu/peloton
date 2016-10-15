@@ -27,11 +27,22 @@ void N2OSnapshotGCManager::Running(int thread_id) {
   std::this_thread::sleep_for(
     std::chrono::milliseconds(GC_PERIOD_MILLISECONDS));
   while (true) {
-    PL_ASSERT(concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT);
-    auto epoch_manager_ptr = reinterpret_cast<concurrency::SnapshotEpochManager*>(&concurrency::EpochManagerFactory::GetInstance());
+    PL_ASSERT(concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT
+              || concurrency::EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT);
+    size_t max_rw_eid = INVALID_EPOCH_ID;
+    size_t max_ro_eid = INVALID_EPOCH_ID;
 
-    size_t max_rw_eid = epoch_manager_ptr->GetMaxDeadEidForRwGC();
-    size_t max_ro_eid = epoch_manager_ptr->GetMaxDeadEidForSnapshotGC();
+    if (concurrency::EpochManagerFactory::GetType() == EPOCH_SNAPSHOT) {
+      auto epoch_manager_ptr = reinterpret_cast<concurrency::SnapshotEpochManager *>(&concurrency::EpochManagerFactory::GetInstance());
+      max_rw_eid = epoch_manager_ptr->GetMaxDeadEidForRwGC();
+      max_ro_eid = epoch_manager_ptr->GetMaxDeadEidForSnapshotGC();
+    } else if (concurrency::EpochManagerFactory::GetType() == EPOCH_LOCALIZED_SNAPSHOT) {
+      auto epoch_manager_ptr = reinterpret_cast<concurrency::LocalizedSnapshotEpochManager *>(&concurrency::EpochManagerFactory::GetInstance());
+      max_rw_eid = epoch_manager_ptr->GetMaxDeadEidForRwGC();
+      max_ro_eid = epoch_manager_ptr->GetMaxDeadEidForSnapshotGC();
+    } else {
+      PL_ASSERT(false);
+    }
 
     PL_ASSERT(max_rw_eid != MAX_EPOCH_ID);
     PL_ASSERT(max_ro_eid != MAX_EPOCH_ID);

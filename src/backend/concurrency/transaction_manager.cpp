@@ -18,6 +18,7 @@ namespace concurrency {
 // Current transaction for the backend thread
 thread_local Transaction *current_txn;
 thread_local cid_t latest_read_ts = INVALID_CID;
+thread_local size_t lt_txn_worker_id = INVALID_TXN_WORKER_ID;
 
 bool TransactionManager::IsOccupied(const void *position_ptr) {
   ItemPointer &position = *((ItemPointer*)position_ptr);
