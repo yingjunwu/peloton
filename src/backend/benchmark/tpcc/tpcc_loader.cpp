@@ -1678,6 +1678,9 @@ void LoadItems() {
 }
 
 void LoadWarehouses(const int &warehouse_from, const int &warehouse_to) {
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  epoch_manager.RegisterTxnWorker(false);
+
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   std::unique_ptr<executor::ExecutorContext> context;
 
