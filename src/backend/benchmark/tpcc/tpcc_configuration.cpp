@@ -287,8 +287,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "phylog") == 0) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
-        } else if (strcmp(logging_proto, "epoch") == 0) {
-          state.logging_type = LOGGING_TYPE_EPOCH;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

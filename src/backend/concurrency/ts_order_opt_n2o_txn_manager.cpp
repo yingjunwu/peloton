@@ -631,8 +631,15 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
   cid_t end_commit_id = current_txn->lower_bound_cid_;
   current_txn->SetEndCommitId(end_commit_id);
 
-  // TODO: make the end_commit_id to be the transaction's begin cid for the usage of backend loggers
-  
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  auto logging_type = logging::DurabilityFactory::GetLoggingType();
+  if (logging_type == LOGGING_TYPE_PHYLOG) {
+    ((logging::PhyLogLogManager*)(&log_manager))->StartTxn(current_txn);
+  } else if (logging_type == LOGGING_TYPE_EPOCH) {
+    ((logging::EpochLogManager*)(&log_manager))->StartTxn(current_txn);
+  }
+
+
   auto &rw_set = current_txn->GetRWSet();
 
   // TODO: Add optimization for read only
@@ -685,6 +692,15 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // GC recycle.
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
+        // add to log manager
+        if (logging_type == LOGGING_TYPE_PHYLOG) {
+          ((logging::PhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
+        } else if (logging_type == LOGGING_TYPE_EPOCH) {
+          auto head_ptr = GetHeadPtr(tile_group_header, tuple_slot);
+          PL_ASSERT(head_ptr != nullptr);
+          ((logging::EpochLogManager*)(&log_manager))->LogUpdate(head_ptr, new_version);
+        }
+
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
             tile_group_header->GetPrevItemPointer(tuple_slot);
@@ -710,6 +726,15 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // GC recycle.
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
+        // add to log manager
+        if (logging_type == LOGGING_TYPE_PHYLOG) {
+          ((logging::PhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_EPOCH) {
+          auto head_ptr = GetHeadPtr(tile_group_header, tuple_slot);
+          PL_ASSERT(head_ptr != nullptr);
+          ((logging::EpochLogManager*)(&log_manager))->LogDelete(head_ptr);
+        }
+
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         PL_ASSERT(tile_group_header->GetTransactionId(tuple_slot) ==
                current_txn->GetTransactionId());
@@ -720,6 +745,15 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         COMPILER_MEMORY_FENCE;
 
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
+        
+        // add to log manager
+        if (logging_type == LOGGING_TYPE_PHYLOG) {
+          ((logging::PhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_EPOCH) {
+          auto head_ptr = GetHeadPtr(tile_group_header, tuple_slot);
+          PL_ASSERT(head_ptr != nullptr);
+          ((logging::EpochLogManager*)(&log_manager))->LogInsert(head_ptr, ItemPointer(tile_group_id, tuple_slot));
+        }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
         PL_ASSERT(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -739,6 +773,11 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
   Result ret = current_txn->GetResult();
 
   gc::GCManagerFactory::GetInstance().EndGCContext();
+
+  if (logging_type == LOGGING_TYPE_PHYLOG) {
+    ((logging::PhyLogLogManager*)(&log_manager))->CommitCurrentTxn();
+  }
+
   EndTransaction();
 
   return ret;
