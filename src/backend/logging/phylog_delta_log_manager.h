@@ -56,26 +56,26 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local PhylogWorkerContext* tl_phylog_worker_ctx;
+extern thread_local PhylogWorkerContext* tl_phylog_delta_worker_ctx;
 
-class PhyLogLogManager : public LogManager {
-  PhyLogLogManager(const PhyLogLogManager &) = delete;
-  PhyLogLogManager &operator=(const PhyLogLogManager &) = delete;
-  PhyLogLogManager(PhyLogLogManager &&) = delete;
-  PhyLogLogManager &operator=(PhyLogLogManager &&) = delete;
+class PhyLogDeltaLogManager : public LogManager {
+  PhyLogDeltaLogManager(const PhyLogDeltaLogManager &) = delete;
+  PhyLogDeltaLogManager &operator=(const PhyLogDeltaLogManager &) = delete;
+  PhyLogDeltaLogManager(PhyLogDeltaLogManager &&) = delete;
+  PhyLogDeltaLogManager &operator=(PhyLogDeltaLogManager &&) = delete;
 
 protected:
 
-  PhyLogLogManager()
+  PhyLogDeltaLogManager()
     : worker_count_(0),
       is_running_(false) {}
 
 public:
-  static PhyLogLogManager &GetInstance() {
-    static PhyLogLogManager log_manager;
+  static PhyLogDeltaLogManager &GetInstance() {
+    static PhyLogDeltaLogManager log_manager;
     return log_manager;
   }
-  virtual ~PhyLogLogManager() {}
+  virtual ~PhyLogDeltaLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
     if (logging_dirs.size() > 0) {
@@ -122,12 +122,12 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_worker_ctx->worker_id, (int) tl_phylog_worker_ctx->current_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_delta_worker_ctx->worker_id, (int) tl_phylog_delta_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_phylog_worker_ctx);
-    size_t eid_idx = tl_phylog_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-    tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
-    return tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
+    PL_ASSERT(tl_phylog_delta_worker_ctx);
+    size_t eid_idx = tl_phylog_delta_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+    tl_phylog_delta_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
+    return tl_phylog_delta_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
   }
 
 

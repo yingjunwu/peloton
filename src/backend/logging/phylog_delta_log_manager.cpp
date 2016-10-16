@@ -23,31 +23,31 @@
 namespace peloton {
 namespace logging {
 
-thread_local PhylogWorkerContext* tl_phylog_worker_ctx = nullptr;
+thread_local PhylogWorkerContext* tl_phylog_delta_worker_ctx = nullptr;
 
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
-void PhyLogLogManager::RegisterWorker() {
-  PL_ASSERT(tl_phylog_worker_ctx == nullptr);
+void PhyLogDeltaLogManager::RegisterWorker() {
+  PL_ASSERT(tl_phylog_delta_worker_ctx == nullptr);
   // shuffle worker to logger
-  tl_phylog_worker_ctx = new PhylogWorkerContext(worker_count_++);
-  size_t logger_id = HashToLogger(tl_phylog_worker_ctx->worker_id);
+  tl_phylog_delta_worker_ctx = new PhylogWorkerContext(worker_count_++);
+  size_t logger_id = HashToLogger(tl_phylog_delta_worker_ctx->worker_id);
 
-  loggers_[logger_id]->RegisterWorker(tl_phylog_worker_ctx);
+  loggers_[logger_id]->RegisterWorker(tl_phylog_delta_worker_ctx);
 }
 
 // deregister worker threads.
-void PhyLogLogManager::DeregisterWorker() {
-  PL_ASSERT(tl_phylog_worker_ctx != nullptr);
+void PhyLogDeltaLogManager::DeregisterWorker() {
+  PL_ASSERT(tl_phylog_delta_worker_ctx != nullptr);
 
-  size_t logger_id = HashToLogger(tl_phylog_worker_ctx->worker_id);
+  size_t logger_id = HashToLogger(tl_phylog_delta_worker_ctx->worker_id);
 
-  loggers_[logger_id]->DeregisterWorker(tl_phylog_worker_ctx);
+  loggers_[logger_id]->DeregisterWorker(tl_phylog_delta_worker_ctx);
 }
 
-void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
-  PhylogWorkerContext *ctx = tl_phylog_worker_ctx;
+void PhyLogDeltaLogManager::WriteRecordToBuffer(LogRecord &record) {
+  PhylogWorkerContext *ctx = tl_phylog_delta_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);
@@ -123,61 +123,61 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   }
 }
 
-void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
-  PL_ASSERT(tl_phylog_worker_ctx);
+void PhyLogDeltaLogManager::StartTxn(concurrency::Transaction *txn) {
+  PL_ASSERT(tl_phylog_delta_worker_ctx);
   size_t txn_eid = txn->GetEpochId();
 
   // Record the txn timer
-  DurabilityFactory::StartTxnTimer(txn_eid, tl_phylog_worker_ctx);
+  DurabilityFactory::StartTxnTimer(txn_eid, tl_phylog_delta_worker_ctx);
 
-  PL_ASSERT(tl_phylog_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_phylog_worker_ctx->current_eid <= txn_eid);
+  PL_ASSERT(tl_phylog_delta_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_phylog_delta_worker_ctx->current_eid <= txn_eid);
 
   // Handle the epoch id
-  if (tl_phylog_worker_ctx->current_eid == INVALID_EPOCH_ID 
-    || tl_phylog_worker_ctx->current_eid != txn_eid) {
+  if (tl_phylog_delta_worker_ctx->current_eid == INVALID_EPOCH_ID 
+    || tl_phylog_delta_worker_ctx->current_eid != txn_eid) {
     // if this is a new epoch, then write to a new buffer
-    tl_phylog_worker_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(tl_phylog_worker_ctx->buffer_pool.GetBuffer()));
+    tl_phylog_delta_worker_ctx->current_eid = txn_eid;
+    RegisterNewBufferToEpoch(std::move(tl_phylog_delta_worker_ctx->buffer_pool.GetBuffer()));
   }
 
   // Handle the commit id
   cid_t txn_cid = txn->GetEndCommitId();
-  tl_phylog_worker_ctx->current_cid = txn_cid;
+  tl_phylog_delta_worker_ctx->current_cid = txn_cid;
 
   // Log down the begin of a transaction
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::CommitCurrentTxn() {
-  PL_ASSERT(tl_phylog_worker_ctx);
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_phylog_worker_ctx->current_cid);
+void PhyLogDeltaLogManager::CommitCurrentTxn() {
+  PL_ASSERT(tl_phylog_delta_worker_ctx);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_phylog_delta_worker_ctx->current_cid);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::FinishPendingTxn() {
-  PL_ASSERT(tl_phylog_worker_ctx);
+void PhyLogDeltaLogManager::FinishPendingTxn() {
+  PL_ASSERT(tl_phylog_delta_worker_ctx);
   size_t glob_peid = global_persist_epoch_id_.load();
-  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_phylog_worker_ctx);
+  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_phylog_delta_worker_ctx);
 }
 
-void PhyLogLogManager::LogInsert(const ItemPointer &tuple_pos) {
+void PhyLogDeltaLogManager::LogInsert(const ItemPointer &tuple_pos) {
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::LogUpdate(const ItemPointer &tuple_pos) {
+void PhyLogDeltaLogManager::LogUpdate(const ItemPointer &tuple_pos) {
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_UPDATE, tuple_pos);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
+void PhyLogDeltaLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   // Need the tuple value for the deleted tuple
   LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_DELETE, tuple_pos_deleted);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::DoRecovery(){
+void PhyLogDeltaLogManager::DoRecovery(){
   // TODO: Get the checkpoint eid
   // TODO: Get the pepoch eid
   // TODO: Get the number of logger -- Better be the same as the last run
@@ -192,16 +192,16 @@ void PhyLogLogManager::DoRecovery(){
   }
 }
 
-void PhyLogLogManager::StartLoggers() {
+void PhyLogDeltaLogManager::StartLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d", (int) logger_id);
     loggers_[logger_id]->StartLogging();
   }
   is_running_ = true;
-  pepoch_thread_.reset(new std::thread(&PhyLogLogManager::RunPepochLogger, this));
+  pepoch_thread_.reset(new std::thread(&PhyLogDeltaLogManager::RunPepochLogger, this));
 }
 
-void PhyLogLogManager::StopLoggers() {
+void PhyLogDeltaLogManager::StopLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     loggers_[logger_id]->StopLogging();
   }
@@ -209,7 +209,7 @@ void PhyLogLogManager::StopLoggers() {
   pepoch_thread_->join();
 }
 
-void PhyLogLogManager::RunPepochLogger() {
+void PhyLogDeltaLogManager::RunPepochLogger() {
   
   FileHandle file_handle;
   std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
