@@ -50,9 +50,5 @@ void LogRecord::Serialize(CopySerializeOutput &output){
   }
 }
 
-// void LogRecord::Deserialize(CopySerializeInput &input UNUSED_ATTRIBUTE) {
-//     // TODO: Implement it
-// }
-
 }
 }

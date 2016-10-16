@@ -182,6 +182,8 @@ namespace logging {
           target_table->GetTileGroup(current_tile_group_offset);
       auto tile_group_header = tile_group->GetHeader();
 
+      oid_t tile_group_id = tile_group->GetTileGroupId();
+
       oid_t active_tuple_count = tile_group->GetNextTupleSlot();
     
       for (oid_t tuple_id = 0; tuple_id < active_tuple_count; tuple_id++) {
@@ -189,7 +191,6 @@ namespace logging {
         // check tuple version visibility
         if (IsVisible(tile_group_header, tuple_id, begin_cid) == true) {
           // persist this version.
-          //PersistTuple(tile_group_header, tuple_id);
 
           expression::ContainerTuple<storage::TileGroup> container_tuple(
             tile_group.get(), tuple_id);
@@ -198,6 +199,10 @@ namespace logging {
 
           container_tuple.SerializeTo(output_buffer);
 
+          // persist block id + tuple offset
+          fwrite((const void *) tile_group_id, sizeof(tile_group_id), 1, file_handle.file);
+          fwrite((const void *) tuple_id, sizeof(tuple_id), 1, file_handle.file);
+          
           fwrite((const void *) (output_buffer.Data()), output_buffer.Size(), 1, file_handle.file);
 
         } // end if isvisible

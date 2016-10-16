@@ -49,8 +49,6 @@ public:
 
   void Serialize(CopySerializeOutput &output);
 
-  // void Deserialize(CopySerializeInput &input);
-
 private:
   LogRecordType log_record_type_ = LOGRECORD_TYPE_INVALID;
 
