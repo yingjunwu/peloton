@@ -200,8 +200,8 @@ namespace logging {
           container_tuple.SerializeTo(output_buffer);
 
           // persist block id + tuple offset
-          fwrite((const void *) tile_group_id, sizeof(tile_group_id), 1, file_handle.file);
-          fwrite((const void *) tuple_id, sizeof(tuple_id), 1, file_handle.file);
+          fwrite((const void *) (&tile_group_id), sizeof(tile_group_id), 1, file_handle.file);
+          fwrite((const void *) (&tuple_id), sizeof(tuple_id), 1, file_handle.file);
           
           fwrite((const void *) (output_buffer.Data()), output_buffer.Size(), 1, file_handle.file);
 
