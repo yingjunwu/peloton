@@ -37,6 +37,7 @@ enum LoggingType {
 enum CheckpointType {
   CHECKPOINT_TYPE_INVALID = 0,
   CHECKPOINT_TYPE_PHYLOG = 1,
+  CHECKPOINT_TYPE_PHYSICAL = 2,
 };
 
 enum GCType {

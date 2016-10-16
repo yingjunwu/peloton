@@ -56,7 +56,7 @@ void Usage(FILE *out) {
           "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, physical, epoch, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
-          "   -C --checkpoint_type   :  checkpoint type could be phylog, off\n"
+          "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -I --ckpt_interval     :  checkpoint interval (s)\n"
           "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
@@ -287,6 +287,21 @@ void ValidateEpochType(configuration &state) {
   }
 }
 
+void ValidateLoggingType(configuration &state) {
+  if (state.logging_type == LOGGING_TYPE_PHYLOG) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
+  else if (state.logging_type == LOGGING_TYPE_PHYSICAL) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYLOG) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -445,6 +460,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
         } else if (strcmp(checkpoint_proto, "phylog") == 0) {
           state.checkpoint_type = CHECKPOINT_TYPE_PHYLOG;
+        } else if (strcmp(checkpoint_proto, "physical") == 0) {
+          state.checkpoint_type = CHECKPOINT_TYPE_PHYSICAL;
         } else {
           fprintf(stderr, "\nUnknown checkpoint protocol: %s\n", checkpoint_proto);
           exit(EXIT_FAILURE);

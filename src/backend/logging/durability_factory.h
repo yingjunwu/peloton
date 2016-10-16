@@ -17,6 +17,7 @@
 #include "backend/logging/epoch_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 #include "backend/logging/phylog_checkpoint_manager.h"
+#include "backend/logging/physical_checkpoint_manager.h"
 #include "backend/logging/dummy_checkpoint_manager.h"
 
 namespace peloton {
@@ -42,6 +43,8 @@ class DurabilityFactory {
     switch (checkpoint_type_) {
       case CHECKPOINT_TYPE_PHYLOG:
         return PhyLogCheckpointManager::GetInstance();
+      case CHECKPOINT_TYPE_PHYSICAL:
+        return PhysicalCheckpointManager::GetInstance();
       default:
       return DummyCheckpointManager::GetInstance();
     }

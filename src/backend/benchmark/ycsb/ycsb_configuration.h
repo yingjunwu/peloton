@@ -193,6 +193,8 @@ void ValidateRoSleepInterval(const configuration &state);
 
 void ValidateEpochType(configuration &state);
 
+void ValidateLoggingType(configuration &state);
+
 void ParseArguments(int argc, char *argv[], configuration &state);
 
 void WriteOutput();
