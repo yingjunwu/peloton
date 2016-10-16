@@ -6,7 +6,6 @@
 
 logging_FILES = \
 			   backend/logging/durability_factory.cpp \
-			   backend/logging/checkpoint_manager.cpp \
 			   backend/logging/phylog_checkpoint_manager.cpp \
 			   backend/logging/log_buffer.cpp \
 			   backend/logging/log_buffer_pool.cpp \
