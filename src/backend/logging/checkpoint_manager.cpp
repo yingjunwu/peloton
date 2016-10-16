@@ -24,49 +24,102 @@ namespace logging {
 
   void CheckpointManager::StartCheckpointing() {
     is_running_ = true;
-    checkpoint_thread_.reset(new std::thread(&CheckpointManager::Running, this));
+    central_checkpoint_thread_.reset(new std::thread(&CheckpointManager::Running, this));
   }
 
   void CheckpointManager::StopCheckpointing() {
     is_running_ = false;
-    checkpoint_thread_->join();
+    central_checkpoint_thread_->join();
   }
 
   void CheckpointManager::Running() {
+
+    FileHandle file_handle;
+    std::string filename = ckpt_pepoch_dir_ + "/" + ckpt_pepoch_filename_;
+    // Create a new file
+    if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle) == false) {
+      LOG_ERROR("Unable to create ckpt pepoch file %s\n", filename.c_str());
+      exit(EXIT_FAILURE);
+    }
+
     int count = 0;
     while (1) {
       if (is_running_ == false) {
-        return;
+        break;
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       ++count;
       if (count == CHECKPOINT_INTERVAL) {
-        PerformCheckpoint();
+
+        // first of all, we should get a snapshot txn id.
+        auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+        cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
+
+        PerformCheckpoint(begin_cid);
+
+        // exit epoch.
+        epoch_manager.ExitReadOnlyEpoch(concurrency::current_txn->GetEpochId());
+        
+        size_t epoch_id = begin_cid >> 32;
+        
+        fwrite((const void *) (&epoch_id), sizeof(epoch_id), 1, file_handle.file);
+  
+        LoggingUtil::FFlushFsync(file_handle);
+    
         count = 0;
       }
     }
   }
 
-  void CheckpointManager::PerformCheckpoint() {
+  void CheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
+    // prepare database structures.
+    // each checkpoint thread must observe the same database structures.
+    // this guarantees that the workload can be partitioned consistently.
+    std::vector<std::vector<size_t>> database_structures;
 
-    // prepare files
     auto &catalog_manager = catalog::Manager::GetInstance();
     auto database_count = catalog_manager.GetDatabaseCount();
+
+    database_structures.resize(database_count);
+
+    for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
+      auto database = catalog_manager.GetDatabase(database_idx);
+      auto table_count = database->GetTableCount();
+
+      database_structures[database_idx].resize(table_count);
+
+      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+  
+        storage::DataTable *target_table = database->GetTable(table_idx);
+
+        database_structures[database_idx][table_idx] = target_table->GetTileGroupCount();
+      }
+    }
+
+    // after obtaining the database structures, we can start performing checkpointing in parallel.
+    std::vector<std::unique_ptr<std::thread>> checkpoint_threads;
+    checkpoint_threads.resize(checkpointer_count_);
+    for (size_t i = 0; i < checkpointer_count_; ++i) {
+      checkpoint_threads[i].reset(new std::thread(&CheckpointManager::PerformCheckpointThread, this, i, begin_cid, std::ref(database_structures)));
+    }
+
+    for (size_t i = 0; i < checkpointer_count_; ++i) {
+      checkpoint_threads[i]->join();
+    }
+  }
+
+  void CheckpointManager::PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
     
-    // first of all, we should get a snapshot txn id.
-    auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
-    cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
     size_t epoch_id = begin_cid >> 32;
 
     // creating files
-    FileHandle **file_handles = new FileHandle*[database_count];
-    for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
-      auto database = catalog_manager.GetDatabase(database_idx);
-      auto table_count = database->GetTableCount();
+    FileHandle **file_handles = new FileHandle*[database_structures.size()];
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
       
-      file_handles[database_idx] = new FileHandle[table_count];
-      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
-        std::string file_name = GetCheckpointFileFullPath(0, database_idx, table_idx, epoch_id);
+      file_handles[database_idx] = new FileHandle[database_structures[database_idx].size()];
+
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
+        std::string file_name = GetCheckpointFileFullPath(thread_id, database_idx, table_idx, epoch_id);
        
         bool success =
             LoggingUtil::OpenFile(file_name.c_str(), "wb", file_handles[database_idx][table_idx]);
@@ -76,58 +129,57 @@ namespace logging {
           LOG_ERROR("create file failed!");
           exit(-1);
         }
-
       }
     }
 
+    auto &catalog_manager = catalog::Manager::GetInstance();
+
     // loop all databases
-    for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
       auto database = catalog_manager.GetDatabase(database_idx);
-      auto table_count = database->GetTableCount();
       
       // loop all tables
-      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
         // Get the target table
         storage::DataTable *target_table = database->GetTable(table_idx);
         PL_ASSERT(target_table);
-        LOG_TRACE("SeqScan: database idx %u table idx %u: %s", database_idx,
-                 table_idx, target_table->GetName().c_str());
-        CheckpointTable(target_table, begin_cid, file_handles[database_idx][table_idx]);
+
+        size_t tile_group_count = database_structures.at(database_idx).at(table_idx);
+
+        CheckpointTable(target_table, tile_group_count, thread_id, begin_cid, file_handles[database_idx][table_idx]);
       }
     }
 
-    // exit epoch.
-    epoch_manager.ExitReadOnlyEpoch(concurrency::current_txn->GetEpochId());
-
 
     // close files
-    for (oid_t database_idx = 0; database_idx < database_count; database_idx++) {
-      auto database = catalog_manager.GetDatabase(database_idx);
-      auto table_count = database->GetTableCount();
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
       
-      file_handles[database_idx] = new FileHandle[table_count];
-      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
         
         fclose(file_handles[database_idx][table_idx].file);
 
       }
-      delete[] file_handles[table_count];
+      delete[] file_handles[database_idx];
     }
     delete[] file_handles;
+
   }
 
-  void CheckpointManager::CheckpointTable(storage::DataTable *target_table, const cid_t &begin_cid, FileHandle &file_handle) {
 
-    LOG_TRACE("perform checkpoint cid = %lu", begin_cid);
+  void CheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle) {
 
-    oid_t tile_group_count = target_table->GetTileGroupCount();
-    oid_t current_tile_group_offset = 0;
-    
     CopySerializeOutput output_buffer;
 
-    while (current_tile_group_offset < tile_group_count) {
+    for (size_t current_tile_group_offset = 0; current_tile_group_offset < tile_group_count; ++current_tile_group_offset) {
+      
+      // shuffle workloads
+      if (current_tile_group_offset % checkpointer_count_ == thread_id) {
+        continue;
+      }
+
+
       auto tile_group =
-          target_table->GetTileGroup(current_tile_group_offset++);
+          target_table->GetTileGroup(current_tile_group_offset);
       auto tile_group_header = tile_group->GetHeader();
 
       oid_t active_tuple_count = tile_group->GetNextTupleSlot();

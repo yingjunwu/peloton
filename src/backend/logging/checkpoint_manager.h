@@ -67,6 +67,9 @@ public:
   }
 
   void SetDirectories(const std::vector<std::string> &checkpoint_dirs) {
+    if (checkpoint_dirs.size() > 0) {
+      ckpt_pepoch_dir_ = checkpoint_dirs.at(0);
+    }
     // check the existence of checkpoint directories.
     // if not exists, then create the directory.
     for (auto checkpoint_dir : checkpoint_dirs) {
@@ -90,9 +93,11 @@ public:
 private:
   void Running();
 
-  void PerformCheckpoint();
+  void PerformCheckpoint(const cid_t &begin_cid);
 
-  void CheckpointTable(storage::DataTable *, const cid_t &begin_cid, FileHandle &file_handle);
+  void PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures);
+
+  void CheckpointTable(storage::DataTable *, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle);
 
   // Visibility check
   bool IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &begin_cid);
@@ -111,7 +116,11 @@ private:
 
   const std::string checkpoint_filename_prefix_ = "checkpoint";
   
-  std::unique_ptr<std::thread> checkpoint_thread_;
+  std::unique_ptr<std::thread> central_checkpoint_thread_;
+
+  std::string ckpt_pepoch_dir_;
+
+  const std::string ckpt_pepoch_filename_ = "ckpt_pepoch";
 };
 
 }
