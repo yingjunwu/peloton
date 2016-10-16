@@ -26,8 +26,8 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/phylog_worker_context.h"
-#include "backend/logging/phylog_logger.h"
+#include "backend/logging/phylog_delta_worker_context.h"
+#include "backend/logging/phylog_delta_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -56,7 +56,7 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local PhylogWorkerContext* tl_phylog_delta_worker_ctx;
+extern thread_local PhyLogDeltaWorkerContext* tl_phylog_delta_worker_ctx;
 
 class PhyLogDeltaLogManager : public LogManager {
   PhyLogDeltaLogManager(const PhyLogDeltaLogManager &) = delete;
@@ -95,7 +95,7 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new PhyLogLogger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new PhyLogDeltaLogger(i, logging_dirs.at(i)));
     }
   }
 
@@ -140,7 +140,7 @@ private:
 private:
   std::atomic<oid_t> worker_count_;
 
-  std::vector<std::shared_ptr<PhyLogLogger>> loggers_;
+  std::vector<std::shared_ptr<PhyLogDeltaLogger>> loggers_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;

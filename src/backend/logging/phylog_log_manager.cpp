@@ -23,7 +23,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local PhylogWorkerContext* tl_phylog_worker_ctx = nullptr;
+thread_local PhyLogWorkerContext* tl_phylog_worker_ctx = nullptr;
 
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
@@ -31,7 +31,7 @@ thread_local PhylogWorkerContext* tl_phylog_worker_ctx = nullptr;
 void PhyLogLogManager::RegisterWorker() {
   PL_ASSERT(tl_phylog_worker_ctx == nullptr);
   // shuffle worker to logger
-  tl_phylog_worker_ctx = new PhylogWorkerContext(worker_count_++);
+  tl_phylog_worker_ctx = new PhyLogWorkerContext(worker_count_++);
   size_t logger_id = HashToLogger(tl_phylog_worker_ctx->worker_id);
 
   loggers_[logger_id]->RegisterWorker(tl_phylog_worker_ctx);
@@ -47,7 +47,7 @@ void PhyLogLogManager::DeregisterWorker() {
 }
 
 void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
-  PhylogWorkerContext *ctx = tl_phylog_worker_ctx;
+  PhyLogWorkerContext *ctx = tl_phylog_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);

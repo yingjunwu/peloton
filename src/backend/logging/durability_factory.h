@@ -58,8 +58,8 @@ class DurabilityFactory {
 
 
   /* Statistics */
-  static void StartTxnTimer(size_t eid, PhylogWorkerContext *worker_ctx);
-  static void StopTimersByPepoch(size_t persist_eid, PhylogWorkerContext *worker_ctx);
+  static void StartTxnTimer(size_t eid, PhyLogWorkerContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, PhyLogWorkerContext *worker_ctx);
   
   static void StartTxnTimer(size_t eid, EpochWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, EpochWorkerContext *worker_ctx);

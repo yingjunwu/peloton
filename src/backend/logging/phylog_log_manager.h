@@ -56,7 +56,7 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local PhylogWorkerContext* tl_phylog_worker_ctx;
+extern thread_local PhyLogWorkerContext* tl_phylog_worker_ctx;
 
 class PhyLogLogManager : public LogManager {
   PhyLogLogManager(const PhyLogLogManager &) = delete;
