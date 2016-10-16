@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_delta_logger.h
+// physical_logger.h
 //
-// Identification: src/backend/logging/phylog_delta_logger.h
+// Identification: src/backend/logging/physical_logger.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -24,7 +24,7 @@
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
-#include "backend/logging/phylog_delta_worker_context.h"
+#include "backend/logging/physical_worker_context.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -40,10 +40,10 @@ namespace storage {
 
 namespace logging {
 
-  class PhyLogDeltaLogger {
+  class PhysicalLogger {
 
   public:
-    PhyLogDeltaLogger(const size_t &logger_id, const std::string &log_dir) :
+    PhysicalLogger(const size_t &logger_id, const std::string &log_dir) :
       logger_id_(logger_id),
       log_dir_(log_dir),
       logger_thread_(nullptr),
@@ -57,11 +57,11 @@ namespace logging {
       worker_map_()
     {}
 
-    ~PhyLogDeltaLogger() {}
+    ~PhysicalLogger() {}
 
     void StartRecover(size_t checkpoint_eid, size_t persist_eid) {
       // Reuse the thread
-      logger_thread_.reset(new std::thread(&PhyLogDeltaLogger::RunRecovery, this, checkpoint_eid, persist_eid));
+      logger_thread_.reset(new std::thread(&PhysicalLogger::RunRecovery, this, checkpoint_eid, persist_eid));
     }
 
     void WaitForRecovery() {
@@ -70,7 +70,7 @@ namespace logging {
 
     void StartLogging() {
       is_running_ = true;
-      logger_thread_.reset(new std::thread(&PhyLogDeltaLogger::Run, this));
+      logger_thread_.reset(new std::thread(&PhysicalLogger::Run, this));
     }
 
     void StopLogging() {
@@ -78,8 +78,8 @@ namespace logging {
       logger_thread_->join();
     }
 
-    void RegisterWorker(PhyLogDeltaWorkerContext *phylog_delta_worker_ctx);
-    void DeregisterWorker(PhyLogDeltaWorkerContext *phylog_delta_worker_ctx);
+    void RegisterWorker(PhysicalWorkerContext *physical_worker_ctx);
+    void DeregisterWorker(PhysicalWorkerContext *physical_worker_ctx);
 
     size_t GetPersistEpochId() const {
       return persist_epoch_id_;
@@ -131,7 +131,7 @@ private:
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
-    std::unordered_map<oid_t, std::shared_ptr<PhyLogDeltaWorkerContext>> worker_map_;
+    std::unordered_map<oid_t, std::shared_ptr<PhysicalWorkerContext>> worker_map_;
   
     const std::string logging_filename_prefix_ = "log";
 

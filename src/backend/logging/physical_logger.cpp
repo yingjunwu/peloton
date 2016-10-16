@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_delta_logger.cpp
+// physical_logger.cpp
 //
-// Identification: src/backend/logging/phylog_delta_logger.cpp
+// Identification: src/backend/logging/physical_logger.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -25,24 +25,24 @@
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
 
-#include "backend/logging/phylog_delta_logger.h"
+#include "backend/logging/physical_logger.h"
 
 namespace peloton {
 namespace logging {
 
-void PhyLogDeltaLogger::RegisterWorker(PhyLogDeltaWorkerContext *phylog_delta_worker_ctx) {
+void PhysicalLogger::RegisterWorker(PhysicalWorkerContext *physical_worker_ctx) {
   worker_map_lock_.Lock();
-  worker_map_[phylog_delta_worker_ctx->worker_id].reset(phylog_delta_worker_ctx);
+  worker_map_[physical_worker_ctx->worker_id].reset(physical_worker_ctx);
   worker_map_lock_.Unlock();
 }
 
-void PhyLogDeltaLogger::DeregisterWorker(PhyLogDeltaWorkerContext *phylog_delta_worker_ctx) {
+void PhysicalLogger::DeregisterWorker(PhysicalWorkerContext *physical_worker_ctx) {
   worker_map_lock_.Lock();
-  worker_map_.erase(phylog_delta_worker_ctx->worker_id);
+  worker_map_.erase(physical_worker_ctx->worker_id);
   worker_map_lock_.Unlock();
 }
 
-std::vector<int> PhyLogDeltaLogger::GetSortedLogFileIdList() {
+std::vector<int> PhysicalLogger::GetSortedLogFileIdList() {
   // Open the log dir
   struct dirent *file;
   DIR *dirp;
@@ -71,7 +71,7 @@ std::vector<int> PhyLogDeltaLogger::GetSortedLogFileIdList() {
   return file_ids;
 }
 
-txn_id_t PhyLogDeltaLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
+txn_id_t PhysicalLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
   txn_id_t txnid_logger = (START_TXN_ID + this->logger_id_);
   while (true) {
     // We use the txn_id field as a lock. However this field also stored information about whether a tuple is deleted or not.
@@ -82,12 +82,12 @@ txn_id_t PhyLogDeltaLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t
   }
 }
 
-void PhyLogDeltaLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id) {
+void PhysicalLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id) {
   PL_ASSERT(new_txn_id == INVALID_TXN_ID || new_txn_id == INITIAL_TXN_ID);
   tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), new_txn_id);
 }
 
-bool PhyLogDeltaLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
+bool PhysicalLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
   // First do an index look up, if current version is newer, skip this record
   auto pindex = table->GetIndexWithOid(table->GetPrimaryIndexOid());
   auto pindex_schema = pindex->GetKeySchema();
@@ -186,7 +186,7 @@ bool PhyLogDeltaLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *t
   return true;
 }
 
-bool PhyLogDeltaLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
+bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
   PL_ASSERT(file_handle.file != nullptr && file_handle.fd != INVALID_FILE_DESCRIPTOR);
 
   // Status
@@ -301,7 +301,7 @@ bool PhyLogDeltaLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint
   return true;
 }
 
-void PhyLogDeltaLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
+void PhysicalLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
   // Get all log files, replay them in the reverse order
   std::vector<int> file_ids = GetSortedLogFileIdList();
 
@@ -321,7 +321,7 @@ void PhyLogDeltaLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
 }
 
 
-void PhyLogDeltaLogger::Run() {
+void PhysicalLogger::Run() {
   // TODO: Ensure that we have called run recovery before
 
   // Get the file name
@@ -425,7 +425,7 @@ void PhyLogDeltaLogger::Run() {
   }
 }
 
-void PhyLogDeltaLogger::PersistEpochBegin(const size_t epoch_id) {
+void PhysicalLogger::PersistEpochBegin(const size_t epoch_id) {
   // Write down the epoch begin record  
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_BEGIN, epoch_id);
 
@@ -434,7 +434,7 @@ void PhyLogDeltaLogger::PersistEpochBegin(const size_t epoch_id) {
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
 }
 
-void PhyLogDeltaLogger::PersistEpochEnd(const size_t epoch_id) {
+void PhysicalLogger::PersistEpochEnd(const size_t epoch_id) {
   // Write down the epoch end record
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_END, epoch_id);
 
@@ -444,7 +444,7 @@ void PhyLogDeltaLogger::PersistEpochEnd(const size_t epoch_id) {
 
 }
 
-void PhyLogDeltaLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
+void PhysicalLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
 
   fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle_.file);
 

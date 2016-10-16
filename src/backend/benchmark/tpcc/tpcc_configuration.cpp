@@ -44,7 +44,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -n --disable_insert    :  disable insert\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, delta, off\n"
+          "   -L --log_type          :  log type could be phylog, physical, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -76,7 +76,7 @@ static struct option opts[] = {
   { "log_directories", optional_argument, NULL, 'D'},
   { "checkpoint_type", optional_argument, NULL, 'C'},
   { "ckpt_directories", optional_argument, NULL, 'F'},
-    {"ckpt_interval", optional_argument, NULL, 'I'},
+  { "ckpt_interval", optional_argument, NULL, 'I'},
   { "timer_type", optional_argument, NULL, 'T'},
   { "epoch_type", optional_argument, NULL, 'E'},
   { NULL, 0, NULL, 0 }
@@ -296,8 +296,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "phylog") == 0) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
-        } else if (strcmp(logging_proto, "delta") == 0) {
-          state.logging_type = LOGGING_TYPE_PHYLOG_DELTA;
+        } else if (strcmp(logging_proto, "physical") == 0) {
+          state.logging_type = LOGGING_TYPE_PHYSICAL;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

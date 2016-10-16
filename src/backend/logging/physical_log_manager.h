@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_delta_log_manager.h
+// physical_log_manager.h
 //
-// Identification: src/backend/logging/phylog_delta_log_manager.h
+// Identification: src/backend/logging/physical_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -26,8 +26,8 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/phylog_delta_worker_context.h"
-#include "backend/logging/phylog_delta_logger.h"
+#include "backend/logging/physical_worker_context.h"
+#include "backend/logging/physical_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -56,26 +56,26 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local PhyLogDeltaWorkerContext* tl_phylog_delta_worker_ctx;
+extern thread_local PhysicalWorkerContext* tl_physical_worker_ctx;
 
-class PhyLogDeltaLogManager : public LogManager {
-  PhyLogDeltaLogManager(const PhyLogDeltaLogManager &) = delete;
-  PhyLogDeltaLogManager &operator=(const PhyLogDeltaLogManager &) = delete;
-  PhyLogDeltaLogManager(PhyLogDeltaLogManager &&) = delete;
-  PhyLogDeltaLogManager &operator=(PhyLogDeltaLogManager &&) = delete;
+class PhysicalLogManager : public LogManager {
+  PhysicalLogManager(const PhysicalLogManager &) = delete;
+  PhysicalLogManager &operator=(const PhysicalLogManager &) = delete;
+  PhysicalLogManager(PhysicalLogManager &&) = delete;
+  PhysicalLogManager &operator=(PhysicalLogManager &&) = delete;
 
 protected:
 
-  PhyLogDeltaLogManager()
+  PhysicalLogManager()
     : worker_count_(0),
       is_running_(false) {}
 
 public:
-  static PhyLogDeltaLogManager &GetInstance() {
-    static PhyLogDeltaLogManager log_manager;
+  static PhysicalLogManager &GetInstance() {
+    static PhysicalLogManager log_manager;
     return log_manager;
   }
-  virtual ~PhyLogDeltaLogManager() {}
+  virtual ~PhysicalLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
     if (logging_dirs.size() > 0) {
@@ -95,7 +95,7 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new PhyLogDeltaLogger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new PhysicalLogger(i, logging_dirs.at(i)));
     }
   }
 
@@ -122,12 +122,12 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_delta_worker_ctx->worker_id, (int) tl_phylog_delta_worker_ctx->current_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_physical_worker_ctx->worker_id, (int) tl_physical_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_phylog_delta_worker_ctx);
-    size_t eid_idx = tl_phylog_delta_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-    tl_phylog_delta_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
-    return tl_phylog_delta_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
+    PL_ASSERT(tl_physical_worker_ctx);
+    size_t eid_idx = tl_physical_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+    tl_physical_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
+    return tl_physical_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
   }
 
 
@@ -140,7 +140,7 @@ private:
 private:
   std::atomic<oid_t> worker_count_;
 
-  std::vector<std::shared_ptr<PhyLogDeltaLogger>> loggers_;
+  std::vector<std::shared_ptr<PhysicalLogger>> loggers_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;

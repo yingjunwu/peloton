@@ -13,7 +13,7 @@
 #pragma once
 
 #include "backend/logging/phylog_log_manager.h"
-#include "backend/logging/phylog_delta_log_manager.h"
+#include "backend/logging/physical_log_manager.h"
 #include "backend/logging/epoch_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 #include "backend/logging/phylog_checkpoint_manager.h"
@@ -29,8 +29,8 @@ class DurabilityFactory {
     switch (logging_type_) {
       case LOGGING_TYPE_PHYLOG:
         return PhyLogLogManager::GetInstance();
-      case LOGGING_TYPE_PHYLOG_DELTA:
-        return PhyLogDeltaLogManager::GetInstance();
+      case LOGGING_TYPE_PHYSICAL:
+        return PhysicalLogManager::GetInstance();
       case LOGGING_TYPE_EPOCH:
         return EpochLogManager::GetInstance();
       default:
@@ -64,8 +64,8 @@ class DurabilityFactory {
   static void StartTxnTimer(size_t eid, PhyLogWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, PhyLogWorkerContext *worker_ctx);
 
-  static void StartTxnTimer(size_t eid, PhyLogDeltaWorkerContext *worker_ctx);
-  static void StopTimersByPepoch(size_t persist_eid, PhyLogDeltaWorkerContext *worker_ctx);
+  static void StartTxnTimer(size_t eid, PhysicalWorkerContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, PhysicalWorkerContext *worker_ctx);
   
   static void StartTxnTimer(size_t eid, EpochWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, EpochWorkerContext *worker_ctx);

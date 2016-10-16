@@ -59,7 +59,7 @@ namespace logging {
 
 
   //////////////////////////////////
-  void DurabilityFactory::StartTxnTimer(size_t eid, PhyLogDeltaWorkerContext *worker_ctx) {
+  void DurabilityFactory::StartTxnTimer(size_t eid, PhysicalWorkerContext *worker_ctx) {
     if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
     uint64_t cur_time_usec = GetCurrentTimeInUsec();
@@ -71,7 +71,7 @@ namespace logging {
     itr->second.emplace_back(cur_time_usec);
   }
 
-  void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, PhyLogDeltaWorkerContext *worker_ctx) {
+  void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, PhysicalWorkerContext *worker_ctx) {
     if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
 
     if (persist_eid == worker_ctx->reported_eid) {
