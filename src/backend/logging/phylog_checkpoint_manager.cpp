@@ -2,15 +2,15 @@
 //
 //                         Peloton
 //
-// checkpoint_manager.cpp
+// phylog_checkpoint_manager.cpp
 //
-// Identification: src/backend/logging/checkpoint_manager.cpp
+// Identification: src/backend/logging/phylog_checkpoint_manager.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
-#include "backend/logging/checkpoint_manager.h"
+#include "backend/logging/phylog_checkpoint_manager.h"
 #include "backend/logging/logging_util.h"
 #include "backend/storage/database.h"
 #include "backend/storage/data_table.h"
@@ -22,17 +22,17 @@
 namespace peloton {
 namespace logging {
 
-  void CheckpointManager::StartCheckpointing() {
+  void PhyLogCheckpointManager::StartCheckpointing() {
     is_running_ = true;
-    central_checkpoint_thread_.reset(new std::thread(&CheckpointManager::Running, this));
+    central_checkpoint_thread_.reset(new std::thread(&PhyLogCheckpointManager::Running, this));
   }
 
-  void CheckpointManager::StopCheckpointing() {
+  void PhyLogCheckpointManager::StopCheckpointing() {
     is_running_ = false;
     central_checkpoint_thread_->join();
   }
 
-  void CheckpointManager::Running() {
+  void PhyLogCheckpointManager::Running() {
 
     FileHandle file_handle;
     std::string filename = ckpt_pepoch_dir_ + "/" + ckpt_pepoch_filename_;
@@ -71,7 +71,7 @@ namespace logging {
     }
   }
 
-  void CheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
+  void PhyLogCheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
     // prepare database structures.
     // each checkpoint thread must observe the same database structures.
     // this guarantees that the workload can be partitioned consistently.
@@ -100,7 +100,7 @@ namespace logging {
     std::vector<std::unique_ptr<std::thread>> checkpoint_threads;
     checkpoint_threads.resize(checkpointer_count_);
     for (size_t i = 0; i < checkpointer_count_; ++i) {
-      checkpoint_threads[i].reset(new std::thread(&CheckpointManager::PerformCheckpointThread, this, i, begin_cid, std::ref(database_structures)));
+      checkpoint_threads[i].reset(new std::thread(&PhyLogCheckpointManager::PerformCheckpointThread, this, i, begin_cid, std::ref(database_structures)));
     }
 
     for (size_t i = 0; i < checkpointer_count_; ++i) {
@@ -108,7 +108,7 @@ namespace logging {
     }
   }
 
-  void CheckpointManager::PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
+  void PhyLogCheckpointManager::PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
     
     size_t epoch_id = begin_cid >> 32;
 
@@ -166,7 +166,7 @@ namespace logging {
   }
 
 
-  void CheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle) {
+  void PhyLogCheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle) {
 
     CopySerializeOutput output_buffer;
 
@@ -211,7 +211,7 @@ namespace logging {
 
 
   // Visibility check
-  bool CheckpointManager::IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &begin_cid) {
+  bool PhyLogCheckpointManager::IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &begin_cid) {
     txn_id_t tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
     cid_t tuple_begin_cid = tile_group_header->GetBeginCommitId(tuple_id);
     cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);

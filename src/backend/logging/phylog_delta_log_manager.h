@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.h
+// phylog_delta_log_manager.h
 //
-// Identification: src/backend/logging/phylog_log_manager.h
+// Identification: src/backend/logging/phylog_delta_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -46,10 +46,10 @@ namespace logging {
  * logging file layout :
  *
  *  -----------------------------------------------------------------------------
- *  | txn_cid | database_id | table_id | operation_type | data | ... | txn_end_flag
+ *  | txn_cid | database_id | table_id | operation_type | column_count | columns | data | ... | txn_end_flag
  *  -----------------------------------------------------------------------------
  *
- * NOTE: this layout is designed for physiological logging.
+ * NOTE: this layout is designed for physiological delta logging.
  *
  * NOTE: tuple length can be obtained from the table schema.
  *

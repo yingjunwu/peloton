@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// checkpoint_manager.h
+// phylog_checkpoint_manager.h
 //
-// Identification: src/backend/logging/checkpoint/checkpoint_manager.h
+// Identification: src/backend/logging/checkpoint/phylog_checkpoint_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //

@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.cpp
+// phylog_delta_log_manager.cpp
 //
-// Identification: src/backend/logging/phylog_log_manager.cpp
+// Identification: src/backend/logging/phylog_delta_log_manager.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -13,7 +13,7 @@
 #include <cstdio>
 
 #include "backend/concurrency/epoch_manager_factory.h"
-#include "backend/logging/phylog_log_manager.h"
+#include "backend/logging/phylog_delta_log_manager.h"
 #include "backend/logging/durability_factory.h"
 #include "backend/catalog/manager.h"
 #include "backend/expression/container_tuple.h"

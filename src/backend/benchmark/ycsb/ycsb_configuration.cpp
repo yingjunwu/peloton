@@ -58,6 +58,7 @@ void Usage(FILE *out) {
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
+          "   -I --ckpt_interval     :  checkpoint interval (s)\n"
           "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
           "   -S --sleep_between_ro  :  sleep between ro txn in millisecond (default 0)\n"
           "   -E --epoch_type        :  can be queue (default), local\n"
@@ -94,6 +95,7 @@ static struct option opts[] = {
     {"log_directories", optional_argument, NULL, 'D'},
     {"checkpoint_type", optional_argument, NULL, 'C'},
     {"ckpt_directories", optional_argument, NULL, 'F'},
+    {"ckpt_interval", optional_argument, NULL, 'I'},
     {"timer_on", optional_argument, NULL, 'T'},
     {"sleep_between_ro", optional_argument, NULL, 'S'},
     {"epoch_type", optional_argument, NULL, 'E'},
@@ -315,6 +317,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.log_directories = {TMP_DIR};
   state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
   state.checkpoint_directories = {TMP_DIR};
+  state.checkpoint_interval = 30;
   state.timer_type = TIMER_OFF;
   state.ro_sleep_between_txn = 0;
   state.epoch_type = EPOCH_SINGLE_QUEUE;
@@ -322,7 +325,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:", opts, &idx);
+    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:", opts, &idx);
 
     if (c == -1) break;
 
@@ -450,6 +453,10 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         state.checkpoint_directories.clear();
         std::string checkpoint_dir_param(optarg);
         SplitString(checkpoint_dir_param, ',', state.checkpoint_directories);
+        break;
+      }
+      case 'I': {
+        state.checkpoint_interval = atoi(optarg);
         break;
       }
       case 'p': {

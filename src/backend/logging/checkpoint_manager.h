@@ -13,6 +13,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 
 namespace peloton {
 namespace logging {

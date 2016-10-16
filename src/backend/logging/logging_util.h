@@ -45,26 +45,6 @@ class LoggingUtil {
 
   static bool ReadNBytesFromFile(FileHandle &file_handle, void *bytes_read, size_t n);
 
-  // LOGGING/CHECKPOINTING SPECIFIC OPERATIONS
-
-  /**
-   * logging file name layout :
-   * 
-   * dir_name + "/" + prefix + "_" + epoch_id
-   *
-   *
-   * logging file layout :
-   *
-   *  -----------------------------------------------------------------------------
-   *  | txn_cid | database_id | table_id | operation_type | column_count | columns | data | ... | txn_end_flag
-   *  -----------------------------------------------------------------------------
-   *
-   * NOTE: this layout is designed for physiological delta logging.
-   *
-   * NOTE: tuple length can be obtained from the table schema.
-   *
-   */
-
 };
 
 }  // namespace logging

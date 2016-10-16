@@ -135,6 +135,8 @@ class configuration {
   // Checkpoint directories
   std::vector<std::string> checkpoint_directories;
 
+  int checkpoint_interval;
+
   // number of threads used in GC,
   // Only available when gc type is n2o and va
   int gc_thread_count;
