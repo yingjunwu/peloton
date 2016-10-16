@@ -13,6 +13,7 @@
 #pragma once
 
 #include "backend/logging/phylog_log_manager.h"
+#include "backend/logging/phylog_delta_log_manager.h"
 #include "backend/logging/epoch_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 #include "backend/logging/phylog_checkpoint_manager.h"
@@ -60,6 +61,9 @@ class DurabilityFactory {
   /* Statistics */
   static void StartTxnTimer(size_t eid, PhyLogWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, PhyLogWorkerContext *worker_ctx);
+
+  static void StartTxnTimer(size_t eid, PhyLogDeltaWorkerContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, PhyLogDeltaWorkerContext *worker_ctx);
   
   static void StartTxnTimer(size_t eid, EpochWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, EpochWorkerContext *worker_ctx);
