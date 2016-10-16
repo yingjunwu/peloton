@@ -211,11 +211,16 @@ void RunBenchmark() {
   LoadYCSBDatabase();
 
   // XXX: Change the logging type from INVALID to the logging type we want
-  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_type);
+  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
   log_manager.StartLoggers();
+
+  auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
+  checkpoint_manager.SetCheckpointInterval(state.checkpoint_interval);
+  checkpoint_manager.SetDirectories(state.checkpoint_directories);
+  checkpoint_manager.StartCheckpointing();
 
     // Validate MVCC storage
   if (concurrency::TransactionManagerFactory::IsN2O() == false
@@ -235,6 +240,7 @@ void RunBenchmark() {
   }
   // Stop the logger
   log_manager.StopLoggers();
+  checkpoint_manager.StopCheckpointing();
 
   WriteOutput();
 }

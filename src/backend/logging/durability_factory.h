@@ -12,10 +12,11 @@
 
 #pragma once
 
-#include "backend/logging/checkpoint_manager.h"
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/logging/epoch_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
+#include "backend/logging/phylog_checkpoint_manager.h"
+#include "backend/logging/dummy_checkpoint_manager.h"
 
 namespace peloton {
 namespace logging {
@@ -35,7 +36,12 @@ class DurabilityFactory {
   }
 
   static CheckpointManager &GetCheckpointerInstance() {
-    return CheckpointManager::GetInstance();
+    switch (checkpoint_type_) {
+      case CHECKPOINT_TYPE_PHYLOG:
+        return PhyLogCheckpointManager::GetInstance();
+      default:
+      return DummyCheckpointManager::GetInstance();
+    }
   }
 
   static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, TimerType timer_type) {

@@ -54,11 +54,18 @@ void RunBenchmark() {
   log_manager.SetDirectories(state.log_directories);
   log_manager.StartLoggers();
 
+  auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
+  checkpoint_manager.SetCheckpointInterval(state.checkpoint_interval);
+  checkpoint_manager.SetDirectories(state.checkpoint_directories);
+  checkpoint_manager.StartCheckpointing();
+  
   // Run the workload
   RunWorkload();
 
+  // Stop the logger
   log_manager.StopLoggers();
-
+  checkpoint_manager.StopCheckpointing();
+ 
   WriteOutput();
 }
 

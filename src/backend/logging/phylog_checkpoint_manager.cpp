@@ -49,7 +49,7 @@ namespace logging {
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       ++count;
-      if (count == CHECKPOINT_INTERVAL) {
+      if (count == checkpoint_interval_) {
 
         // first of all, we should get a snapshot txn id.
         auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();

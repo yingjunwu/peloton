@@ -46,6 +46,8 @@ void Usage(FILE *out) {
           "   -f --epoch_length      :  epoch length\n"
           "   -L --log_type          :  log type could be phylog, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
+          "   -C --checkpoint_type   :  checkpoint type could be phylog, off\n"
+          "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -T --timer_type        :  timer type could be off, sum, dist. Default is off\n"
           "   -E --epoch_type        :  can be queue (default), local\n"
   );
@@ -71,8 +73,10 @@ static struct option opts[] = {
   { "epoch_length", optional_argument, NULL, 'f'},
   { "log_type", optional_argument, NULL, 'L'},
   { "log_directories", optional_argument, NULL, 'D'},
+  { "checkpoint_type", optional_argument, NULL, 'C'},
+  { "ckpt_directories", optional_argument, NULL, 'F'},
   { "timer_type", optional_argument, NULL, 'T'},
-  {"epoch_type", optional_argument, NULL, 'E'},
+  { "epoch_type", optional_argument, NULL, 'E'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -210,6 +214,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_length = 10;
   state.logging_type = LOGGING_TYPE_INVALID;
   state.log_directories = {TMP_DIR};
+  state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
+  state.checkpoint_directories = {TMP_DIR};
   state.timer_type = TIMER_OFF;
   state.disable_insert = false;
   state.epoch_type = EPOCH_SINGLE_QUEUE;
@@ -217,7 +223,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:", opts, &idx);
+    int c = getopt_long(argc, argv, "aenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:", opts, &idx);
 
     if (c == -1) break;
 
@@ -297,6 +303,24 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         state.log_directories.clear();
         std::string log_dir_param(optarg);
         SplitString(log_dir_param, ',', state.log_directories);
+        break;
+      }
+      case 'C': {
+        char *checkpoint_proto = optarg;
+        if (strcmp(checkpoint_proto, "off") == 0) {
+          state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
+        } else if (strcmp(checkpoint_proto, "phylog") == 0) {
+          state.checkpoint_type = CHECKPOINT_TYPE_PHYLOG;
+        } else {
+          fprintf(stderr, "\nUnknown checkpoint protocol: %s\n", checkpoint_proto);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'F': {
+        state.checkpoint_directories.clear();
+        std::string checkpoint_dir_param(optarg);
+        SplitString(checkpoint_dir_param, ',', state.checkpoint_directories);
         break;
       }
       case 'p': {
