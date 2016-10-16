@@ -33,7 +33,6 @@ namespace logging {
   }
 
   void PhyLogCheckpointManager::Running() {
-
     FileHandle file_handle;
     std::string filename = ckpt_pepoch_dir_ + "/" + ckpt_pepoch_filename_;
     // Create a new file
@@ -50,20 +49,17 @@ namespace logging {
       std::this_thread::sleep_for(std::chrono::seconds(1));
       ++count;
       if (count == checkpoint_interval_) {
-
         // first of all, we should get a snapshot txn id.
         auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
         cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
 
         PerformCheckpoint(begin_cid);
-
-        // exit epoch.
-        epoch_manager.ExitReadOnlyEpoch(concurrency::current_txn->GetEpochId());
-        
         size_t epoch_id = begin_cid >> 32;
-        
+        // exit epoch.
+        epoch_manager.ExitReadOnlyEpoch(epoch_id);
+
         fwrite((const void *) (&epoch_id), sizeof(epoch_id), 1, file_handle.file);
-  
+        
         LoggingUtil::FFlushFsync(file_handle);
     
         count = 0;
@@ -72,6 +68,7 @@ namespace logging {
   }
 
   void PhyLogCheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
+
     // prepare database structures.
     // each checkpoint thread must observe the same database structures.
     // this guarantees that the workload can be partitioned consistently.
@@ -95,17 +92,18 @@ namespace logging {
         database_structures[database_idx][table_idx] = target_table->GetTileGroupCount();
       }
     }
-
+    
     // after obtaining the database structures, we can start performing checkpointing in parallel.
     std::vector<std::unique_ptr<std::thread>> checkpoint_threads;
     checkpoint_threads.resize(checkpointer_count_);
     for (size_t i = 0; i < checkpointer_count_; ++i) {
       checkpoint_threads[i].reset(new std::thread(&PhyLogCheckpointManager::PerformCheckpointThread, this, i, begin_cid, std::ref(database_structures)));
     }
-
+    
     for (size_t i = 0; i < checkpointer_count_; ++i) {
       checkpoint_threads[i]->join();
     }
+
   }
 
   void PhyLogCheckpointManager::PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
@@ -114,8 +112,9 @@ namespace logging {
 
     // creating files
     FileHandle **file_handles = new FileHandle*[database_structures.size()];
+    
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
-      
+    
       file_handles[database_idx] = new FileHandle[database_structures[database_idx].size()];
 
       for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
@@ -155,10 +154,11 @@ namespace logging {
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
       
       for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
-        
+    
         fclose(file_handles[database_idx][table_idx].file);
 
       }
+    
       delete[] file_handles[database_idx];
     }
     delete[] file_handles;
@@ -167,23 +167,23 @@ namespace logging {
 
 
   void PhyLogCheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle) {
-
+    
     CopySerializeOutput output_buffer;
 
     for (size_t current_tile_group_offset = 0; current_tile_group_offset < tile_group_count; ++current_tile_group_offset) {
-      
+    
       // shuffle workloads
-      if (current_tile_group_offset % checkpointer_count_ == thread_id) {
+      if (current_tile_group_offset % checkpointer_count_ != thread_id) {
         continue;
       }
-
+    
 
       auto tile_group =
           target_table->GetTileGroup(current_tile_group_offset);
       auto tile_group_header = tile_group->GetHeader();
 
       oid_t active_tuple_count = tile_group->GetNextTupleSlot();
-
+    
       for (oid_t tuple_id = 0; tuple_id < active_tuple_count; tuple_id++) {
 
         // check tuple version visibility
@@ -203,7 +203,7 @@ namespace logging {
         } // end if isvisible
       }   // end for
     }     // end while
-
+    
     // Call fsync
     LoggingUtil::FFlushFsync(file_handle);
 

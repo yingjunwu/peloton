@@ -125,7 +125,7 @@ private:
 
   std::string ckpt_pepoch_dir_;
 
-  const std::string ckpt_pepoch_filename_ = "ckpt_pepoch";
+  const std::string ckpt_pepoch_filename_ = "checkpoint_pepoch";
 };
 
 }
