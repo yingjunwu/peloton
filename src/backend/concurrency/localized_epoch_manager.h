@@ -145,11 +145,23 @@ namespace peloton {
         }
       }
 
+      virtual size_t GetRwTxnWorkerCurrentEid(size_t txn_worker_id) override {
+        return worker_current_epoch_ctxs_[txn_worker_id].epoch_ctx.current_epoch;
+      }
+
     private:
       void Start() {
         while (finish_ == false) {
           std::this_thread::sleep_for(std::chrono::microseconds(size_t(epoch_duration_millisec_ * 1000)));
-          global_current_epoch_++;
+          // Check we don't overflow
+          size_t tail = GetMaxDeadEid();
+          size_t head = global_current_epoch_.load();
+
+          if (head - tail >= GetEpochQueueCapacity()) {
+            LOG_ERROR("Epoch queue over flow");
+          } else {
+            global_current_epoch_++;
+          }
         }
       }
 

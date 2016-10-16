@@ -15,6 +15,7 @@
 #include "backend/logging/checkpoint_manager.h"
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/logging/epoch_log_manager.h"
+#include "backend/logging/dep_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 
 namespace peloton {
@@ -29,6 +30,8 @@ class DurabilityFactory {
         return PhyLogLogManager::GetInstance();
       case LOGGING_TYPE_EPOCH:
         return EpochLogManager::GetInstance();
+      case LOGGING_TYPE_DEPENDENCY:
+        return DepLogManager::GetInstance();
       default:
         return DummyLogManager::GetInstance();
     }
@@ -58,13 +61,17 @@ class DurabilityFactory {
   static void StartTxnTimer(size_t eid, EpochWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, EpochWorkerContext *worker_ctx);
 
- private:
+  static void StartTxnTimer(size_t eid, DepWorkerContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, DepWorkerContext *worker_ctx);
+
   static uint64_t GetCurrentTimeInUsec() {
     struct timeval tv;
     gettimeofday(&tv, 0);
     return ((uint64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
   }
 
+
+private:
   static LoggingType logging_type_;
   static CheckpointType checkpoint_type_;
   static TimerType  timer_type_;

@@ -85,14 +85,15 @@ class TsOrderN2OTxnManager : public TransactionManager {
     current_txn = txn;
 
     gc::GCManagerFactory::GetInstance().CreateGCContext(current_txn->GetEpochId());
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
 
     // Deal with pending txns
     if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-      auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       ((logging::PhyLogLogManager*)(&log_manager))->FinishPendingTxn();
     } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
-      auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       ((logging::EpochLogManager*)(&log_manager))->FinishPendingTxn();
+    } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_DEPENDENCY) {
+      ((logging::DepLogManager*)(&log_manager))->FinishPendingTxn();
     }
 
     return txn;

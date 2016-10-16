@@ -41,6 +41,10 @@ class EpochManagerFactory {
     }
   }
 
+  static bool IsLocalizedEpochManager() {
+    return epoch_type_ == EPOCH_LOCALIZED || epoch_type_ == EPOCH_LOCALIZED_SNAPSHOT;
+  }
+
   static EpochType GetType() {
     return epoch_type_;
   }

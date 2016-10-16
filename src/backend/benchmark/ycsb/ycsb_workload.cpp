@@ -99,6 +99,7 @@ void RunBackend(oid_t thread_id) {
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
 
   epoch_manager.RegisterTxnWorker(false);
+
   log_manager.RegisterWorker();
 
   auto update_ratio = state.update_ratio;
@@ -153,7 +154,12 @@ void RunBackend(oid_t thread_id) {
   } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
     commit_latency_ref = logging::tl_epoch_worker_ctx->txn_summary.GetAverageLatencyInMs();
     if (thread_id == 0) {
-      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
+      commit_lat_summary_ref = logging::tl_epoch_worker_ctx->txn_summary.GetLatSummary();
+    }
+  } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_DEPENDENCY) {
+    commit_latency_ref = logging::tl_dep_worker_ctx->txn_summary.GetAverageLatencyInMs();
+    if (thread_id == 0) {
+      commit_lat_summary_ref = logging::tl_dep_worker_ctx->txn_summary.GetLatSummary();
     }
   }
   

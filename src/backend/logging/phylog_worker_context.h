@@ -42,7 +42,7 @@ namespace logging {
       : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
         buffer_pool(id), 
         output_buffer(),
-        current_eid(START_EPOCH_ID), 
+        current_commit_eid(START_EPOCH_ID),
         persist_eid(INVALID_EPOCH_ID),
         reported_eid(INVALID_EPOCH_ID),
         current_cid(INVALID_CID), 
@@ -66,7 +66,7 @@ namespace logging {
     CopySerializeOutput output_buffer;
 
     // current epoch id
-    size_t current_eid;
+    size_t current_commit_eid;
     // persisted epoch id
     size_t persist_eid;
     // reported epoch id

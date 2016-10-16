@@ -91,10 +91,12 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
     txn->lower_bound_cid_ = 0;
     txn->upper_bound_cid_ = begin_cid;
+    auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
 
     if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-      auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       ((logging::PhyLogLogManager*)(&log_manager))->FinishPendingTxn();
+    } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_DEPENDENCY) {
+      ((logging::DepLogManager*)(&log_manager))->FinishPendingTxn();
     }
 
     return txn;

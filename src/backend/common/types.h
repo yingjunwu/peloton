@@ -28,8 +28,9 @@
 // Logging type
 enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
-  LOGGING_TYPE_PHYLOG = 1, // physiological logging
-  LOGGING_TYPE_EPOCH = 2,
+  LOGGING_TYPE_PHYLOG, // physiological logging
+  LOGGING_TYPE_EPOCH,
+  LOGGING_TYPE_DEPENDENCY,
 };
 
 enum CheckpointType {

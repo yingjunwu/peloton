@@ -38,6 +38,10 @@ class LockfreeQueue {
     queue_.enqueue(item);
   }
 
+  void Enqueue(const T&& item) {
+    queue_.enqueue(std::move(item));
+  }
+
   // Dequeues one item, returning true if an item was found
   // or false if the queue appeared empty
   bool Dequeue(T& item) {

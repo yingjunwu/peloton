@@ -13,6 +13,8 @@ logging_FILES = \
 			   backend/logging/logging_util.cpp \
 			   backend/logging/phylog_logger.cpp \
 			   backend/logging/phylog_log_manager.cpp \
+			   backend/logging/dep_logger.cpp \
+			   backend/logging/dep_log_manager.cpp \
 			   backend/logging/epoch_logger.cpp \
 			   backend/logging/epoch_log_manager.cpp \
 			   backend/logging/delta_snapshot_pool.cpp

@@ -54,7 +54,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, epoch, off\n"
+          "   -L --log_type          :  log type could be phylog, epoch, dep, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
           "   -S --sleep_between_ro  :  sleep between ro txn in millisecond (default 0)\n"
@@ -270,16 +270,25 @@ void ValidateRoSleepInterval(const configuration &state) {
 }
 
 void ValidateEpochType(configuration &state) {
-  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
-    LOG_INFO("Use snapshot gc protocol");
-    if (state.epoch_type == EPOCH_LOCALIZED) {
-      LOG_INFO("Use localized snapshot epoch manager");
-      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+  if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
+    if (state.epoch_type != EPOCH_LOCALIZED && state.epoch_type != EPOCH_LOCALIZED_SNAPSHOT) {
+      LOG_ERROR("Dependency logging should use localized epoch manager");
+      exit(EXIT_FAILURE);
     } else {
+      LOG_INFO("Use dependency logging");
+    }
+  }
+
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
+    LOG_INFO("Use snapshot GC manager");
+    if (state.epoch_type == EPOCH_SINGLE_QUEUE) {
       state.epoch_type = EPOCH_SNAPSHOT;
+    } else {
+      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
     }
   }
 }
+
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
@@ -418,6 +427,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
         } else if (strcmp(logging_proto, "epoch") == 0) {
           state.logging_type = LOGGING_TYPE_EPOCH;
+        } else if (strcmp(logging_proto, "dep") == 0) {
+          state.logging_type = LOGGING_TYPE_DEPENDENCY;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.h
+// dep_log_manager.h
 //
-// Identification: src/backend/logging/phylog_log_manager.h
+// Identification: src/backend/logging/dep_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -20,14 +20,14 @@
 
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
-#include "backend/concurrency/epoch_manager.h"
+#include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/logging/log_buffer.h"
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/phylog_worker_context.h"
-#include "backend/logging/phylog_logger.h"
+#include "backend/logging/dep_worker_context.h"
+#include "backend/logging/dep_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -35,11 +35,17 @@
 
 
 namespace peloton {
+
+namespace storage {
+  class TileGroupHeader;
+}
+
+
 namespace logging {
 
 /**
  * logging file name layout :
- * 
+ *
  * dir_name + "/" + prefix + "_" + epoch_id
  *
  *
@@ -56,26 +62,40 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local PhylogWorkerContext* tl_phylog_worker_ctx;
+extern thread_local DepWorkerContext* tl_dep_worker_ctx;
 
-class PhyLogLogManager : public LogManager {
-  PhyLogLogManager(const PhyLogLogManager &) = delete;
-  PhyLogLogManager &operator=(const PhyLogLogManager &) = delete;
-  PhyLogLogManager(PhyLogLogManager &&) = delete;
-  PhyLogLogManager &operator=(PhyLogLogManager &&) = delete;
+class DepLogManager : public LogManager {
+  DepLogManager(const DepLogManager &) = delete;
+  DepLogManager &operator=(const DepLogManager &) = delete;
+  DepLogManager(DepLogManager &&) = delete;
+  DepLogManager &operator=(DepLogManager &&) = delete;
 
 protected:
+  enum EpochStatus {
+    EPOCH_STAT_INVALID = 0,
+    EPOCH_STAT_NOT_COMMITABLE = 1,
+    EPOCH_STAT_COMMITABLE = 2, // Persisted + all dependent epoch persisted
+  };
 
-  PhyLogLogManager()
+  DepLogManager()
     : worker_count_(0),
-      is_running_(false) {}
+      is_running_(false),
+      per_epoch_complete_dependencies_(concurrency::EpochManager::GetEpochQueueCapacity()),
+      pepoch_id_(START_EPOCH_ID),
+      per_epoch_status_(concurrency::EpochManager::GetEpochQueueCapacity()) {
+        for (size_t i = 0; i < per_epoch_status_.size(); ++i) {
+          per_epoch_status_[i] = EPOCH_STAT_NOT_COMMITABLE;
+        }
+        PL_ASSERT(concurrency::EpochManagerFactory::IsLocalizedEpochManager() == true);
+      }
 
 public:
-  static PhyLogLogManager &GetInstance() {
-    static PhyLogLogManager log_manager;
+  static DepLogManager &GetInstance() {
+    // TODO: Enforce that we use localized epoch managers
+    static DepLogManager log_manager;
     return log_manager;
   }
-  virtual ~PhyLogLogManager() {}
+  virtual ~DepLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
     if (logging_dirs.size() > 0) {
@@ -95,7 +115,7 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new PhyLogLogger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new DepLogger(i, logging_dirs.at(i)));
     }
   }
 
@@ -103,6 +123,7 @@ public:
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
 
+  void RecordReadDependency(const storage::TileGroupHeader *tg_header, const oid_t tuple_slot);
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);
   void LogDelete(const ItemPointer &tuple_pos_deleted);
@@ -122,12 +143,12 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_worker_ctx->worker_id, (int) tl_phylog_worker_ctx->current_commit_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_dep_worker_ctx->worker_id, (int) tl_dep_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_phylog_worker_ctx);
-    size_t eid_idx = tl_phylog_worker_ctx->current_commit_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-    tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
-    return tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
+    PL_ASSERT(tl_dep_worker_ctx);
+    size_t eid_idx = tl_dep_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+    tl_dep_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
+    return tl_dep_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
   }
 
 
@@ -140,7 +161,7 @@ private:
 private:
   std::atomic<oid_t> worker_count_;
 
-  std::vector<std::shared_ptr<PhyLogLogger>> loggers_;
+  std::vector<std::shared_ptr<DepLogger>> loggers_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;
@@ -148,6 +169,18 @@ private:
   std::string pepoch_dir_;
 
   const std::string pepoch_filename_ = "pepoch";
+
+  // Pepoch thread should also know about all workers inorder to collect the dependency infomation
+  Spinlock log_workers_lock_;
+  std::unordered_map<size_t, std::shared_ptr<DepWorkerContext>> log_workers_;
+
+  // Epoch status map
+  // Epochs that still have running txns and are younger than the max dead epoch.
+  std::vector<std::unordered_set<size_t>> per_epoch_complete_dependencies_;
+
+  // Concurrent accessible members
+  std::atomic<size_t> pepoch_id_;
+  std::vector<std::atomic<int>> per_epoch_status_;
 };
 
 }

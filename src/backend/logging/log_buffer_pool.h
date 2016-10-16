@@ -35,7 +35,7 @@ namespace logging {
       worker_id_(worker_id),
       local_buffer_queue_(buffer_queue_size_) {}
 
-    std::unique_ptr<LogBuffer> GetBuffer();
+    std::unique_ptr<LogBuffer> GetBuffer(size_t current_eid);
 
     void PutBuffer(std::unique_ptr<LogBuffer> buf);
 

@@ -354,7 +354,7 @@ void PhyLogLogger::Run() {
         auto worker_ctx_ptr = worker_entry.second.get();
 
         size_t last_persist_eid = worker_ctx_ptr->persist_eid;
-        size_t worker_current_eid = worker_ctx_ptr->current_eid;
+        size_t worker_current_eid = worker_ctx_ptr->current_commit_eid;
 
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 
@@ -404,6 +404,13 @@ void PhyLogLogger::Run() {
         // in this case, it is likely that there's no registered worker or there's nothing to persist.
         worker_map_lock_.Unlock();
         continue;
+      }
+
+      // Currently when there is a long running txn, the logger can only know the worker's eid when the worker is committing the txn.
+      // We should switch to localized epoch manager to solve this problem.
+      // XXX: work around. We should switch to localized epoch manager to solve this problem
+      if (min_workers_persist_eid < persist_epoch_id_) {
+        min_workers_persist_eid = persist_epoch_id_;
       }
 
       PL_ASSERT(min_workers_persist_eid >= persist_epoch_id_);

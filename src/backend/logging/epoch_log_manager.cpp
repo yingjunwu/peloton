@@ -61,7 +61,7 @@ void EpochLogManager::StartTxn(concurrency::Transaction *txn) {
 
     if (tl_epoch_worker_ctx->current_eid != INVALID_EPOCH_ID) {
       
-      RegisterNewBufferToEpoch(std::move(tl_epoch_worker_ctx->buffer_pool.GetBuffer()));
+      RegisterNewBufferToEpoch(std::move(tl_epoch_worker_ctx->buffer_pool.GetBuffer(txn_eid)));
       
       
       auto &manager = catalog::Manager::GetInstance();    
@@ -92,7 +92,7 @@ void EpochLogManager::StartTxn(concurrency::Transaction *txn) {
           if (is_success == false) {
             // A buffer is full, pass it to the front end logger
             // Get a new buffer and register it to current epoch
-            buffer_ptr = RegisterNewBufferToEpoch(std::move((tl_epoch_worker_ctx->buffer_pool.GetBuffer())));
+            buffer_ptr = RegisterNewBufferToEpoch(std::move((tl_epoch_worker_ctx->buffer_pool.GetBuffer(tl_epoch_worker_ctx->current_eid))));
             // Write it again
             is_success = buffer_ptr->WriteData(output.Data(), output.Size());
             PL_ASSERT(is_success);

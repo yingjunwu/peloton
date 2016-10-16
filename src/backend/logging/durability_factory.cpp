@@ -48,7 +48,7 @@ namespace logging {
     auto itr = worker_ctx->pending_txn_timers.begin();
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
-        // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
+        PL_ASSERT(commit_time_usec > txn_start_us);
         worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (timer_type_ == TIMER_DISTRIBUTION));
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
@@ -80,6 +80,39 @@ namespace logging {
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
         // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
+        PL_ASSERT(commit_time_usec > txn_start_us);
+        worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (timer_type_ == TIMER_DISTRIBUTION));
+      }
+      itr = worker_ctx->pending_txn_timers.erase(itr);
+    }
+  }
+  /**
+   *  Dep log manager
+   */
+
+  void DurabilityFactory::StartTxnTimer(size_t eid, DepWorkerContext *worker_ctx) {
+    if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
+
+    uint64_t cur_time_usec = GetCurrentTimeInUsec();
+
+    auto itr = worker_ctx->pending_txn_timers.find(eid);
+    if (itr == worker_ctx->pending_txn_timers.end()) {
+      itr = (worker_ctx->pending_txn_timers.emplace(eid, std::vector<uint64_t>())).first;
+    }
+    itr->second.emplace_back(cur_time_usec);
+  }
+
+  void DurabilityFactory::StopTimersByPepoch(size_t persist_eid, DepWorkerContext *worker_ctx) {
+    if (DurabilityFactory::GetTimerType() == TIMER_OFF) return;
+
+    uint64_t commit_time_usec = GetCurrentTimeInUsec();
+    auto upper_itr = worker_ctx->pending_txn_timers.upper_bound(persist_eid);
+    auto itr = worker_ctx->pending_txn_timers.begin();
+
+    while (itr != upper_itr) {
+      for (uint64_t txn_start_us : itr->second) {
+        // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
+        PL_ASSERT(commit_time_usec > txn_start_us);
         worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (timer_type_ == TIMER_DISTRIBUTION));
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
