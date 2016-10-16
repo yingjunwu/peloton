@@ -44,7 +44,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -n --disable_insert    :  disable insert\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, off\n"
+          "   -L --log_type          :  log type could be phylog, delta, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -296,6 +296,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "phylog") == 0) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
+        } else if (strcmp(logging_proto, "delta") == 0) {
+          state.logging_type = LOGGING_TYPE_PHYLOG_DELTA;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

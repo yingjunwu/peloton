@@ -29,6 +29,8 @@ class DurabilityFactory {
     switch (logging_type_) {
       case LOGGING_TYPE_PHYLOG:
         return PhyLogLogManager::GetInstance();
+      case LOGGING_TYPE_PHYLOG_DELTA:
+        return PhyLogDeltaLogManager::GetInstance();
       case LOGGING_TYPE_EPOCH:
         return EpochLogManager::GetInstance();
       default:
