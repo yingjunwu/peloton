@@ -31,7 +31,6 @@ enum LoggingType {
   LOGGING_TYPE_PHYLOG = 1, // physiological logging
   LOGGING_TYPE_PHYSICAL = 2, // physical logging
   LOGGING_TYPE_COMMLOG = 3, // command logging
-  LOGGING_TYPE_EPOCH = 4,
 };
 
 enum CheckpointType {

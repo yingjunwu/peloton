@@ -46,8 +46,7 @@ static struct option opts[] = {
 
 static void ValidateLoggingType(const configuration& state) {
   if (state.logging_type != LOGGING_TYPE_INVALID && 
-      state.logging_type != LOGGING_TYPE_PHYLOG &&
-      state.logging_type != LOGGING_TYPE_EPOCH) {
+      state.logging_type != LOGGING_TYPE_PHYLOG) {
     LOG_ERROR("Invalid logging_type :: %d", state.logging_type);
     exit(EXIT_FAILURE);
   }

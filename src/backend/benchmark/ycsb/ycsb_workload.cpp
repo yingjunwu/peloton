@@ -150,11 +150,6 @@ void RunBackend(oid_t thread_id) {
     if (thread_id == 0) {
       commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
     }
-  } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
-    commit_latency_ref = logging::tl_epoch_worker_ctx->txn_summary.GetAverageLatencyInMs();
-    if (thread_id == 0) {
-      commit_lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
-    }
   }
   
   log_manager.DeregisterWorker();
