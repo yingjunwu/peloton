@@ -174,6 +174,10 @@ class configuration {
   TimerType timer_type;
 
   EpochType epoch_type;
+
+  bool recover_checkpoint;
+
+  bool replay_log;
 };
 
 extern configuration state;

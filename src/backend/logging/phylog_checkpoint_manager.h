@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
+#include <thread>
 
 #include "backend/common/types.h"
 #include "backend/common/logger.h"
@@ -58,7 +59,10 @@ class PhyLogCheckpointManager : public CheckpointManager {
 
 
 public:
-  PhyLogCheckpointManager() : is_running_(false), checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL) {}
+  PhyLogCheckpointManager() : is_running_(false), checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL) {
+    max_checkpointer_count_ = std::thread::hardware_concurrency() / 2;
+    printf("max checkpointer count = %d\n", (int)max_checkpointer_count_);
+  }
   virtual ~PhyLogCheckpointManager() {}
 
   static PhyLogCheckpointManager& GetInstance() {
@@ -99,15 +103,15 @@ private:
 
   void PerformCheckpoint(const cid_t &begin_cid);
 
-  void PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures);
+  void PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures, FileHandle ***file_handles);
 
-  void CheckpointTable(storage::DataTable *, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle);
+  void CheckpointTable(storage::DataTable *, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles);
 
   // Visibility check
   bool IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &begin_cid);
 
-  std::string GetCheckpointFileFullPath(size_t checkpointer_id, oid_t database_idx, oid_t table_idx, size_t epoch_id) {
-    return checkpoint_dirs_.at(checkpointer_id) + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(checkpointer_id) + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(epoch_id);
+  std::string GetCheckpointFileFullPath(size_t checkpointer_id, size_t virtual_checkpointer_id, oid_t database_idx, oid_t table_idx, size_t epoch_id) {
+    return checkpoint_dirs_.at(checkpointer_id) + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(virtual_checkpointer_id) + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(epoch_id);
   }
 
 
@@ -118,6 +122,8 @@ private:
   
   size_t checkpointer_count_;
   std::vector<std::string> checkpoint_dirs_;
+
+  size_t max_checkpointer_count_;
 
   const std::string checkpoint_filename_prefix_ = "checkpoint";
   

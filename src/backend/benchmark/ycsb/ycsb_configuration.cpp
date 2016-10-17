@@ -62,6 +62,8 @@ void Usage(FILE *out) {
           "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
           "   -S --sleep_between_ro  :  sleep between ro txn in millisecond (default 0)\n"
           "   -E --epoch_type        :  can be queue (default), local\n"
+          "   -R --recover_ckpt      :  recover checkpoint\n"
+          "   -P --replay_log        :  replay log\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -99,6 +101,8 @@ static struct option opts[] = {
     {"timer_on", optional_argument, NULL, 'T'},
     {"sleep_between_ro", optional_argument, NULL, 'S'},
     {"epoch_type", optional_argument, NULL, 'E'},
+    {"recover_ckpt", no_argument, NULL, 'R'},
+    {"replay_log", no_argument, NULL, 'P'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -336,15 +340,23 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.timer_type = TIMER_OFF;
   state.ro_sleep_between_txn = 0;
   state.epoch_type = EPOCH_SINGLE_QUEUE;
+  state.recover_checkpoint = false;
+  state.replay_log = false;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "haexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'R':
+        state.recover_checkpoint = true;
+        break;
+      case 'P':
+        state.replay_log = true;
+        break;
       case 'S':
         state.ro_sleep_between_txn = atoi(optarg);
         break;
@@ -581,6 +593,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         Usage(stderr);
         exit(EXIT_FAILURE);
         break;
+        
       default:
         fprintf(stderr, "\nUnknown option: -%c-\n", c);
         Usage(stderr);

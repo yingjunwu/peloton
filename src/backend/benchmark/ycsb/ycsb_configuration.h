@@ -151,6 +151,9 @@ class configuration {
 
   EpochType epoch_type;
 
+  bool recover_checkpoint;
+
+  bool replay_log;
 };
 
 extern configuration state;

@@ -68,6 +68,8 @@ namespace logging {
   }
 
   void PhyLogCheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
+    
+    size_t epoch_id = begin_cid >> 32;
 
     // prepare database structures.
     // each checkpoint thread must observe the same database structures.
@@ -92,44 +94,68 @@ namespace logging {
         database_structures[database_idx][table_idx] = target_table->GetTileGroupCount();
       }
     }
+
+    // creating files
+    FileHandle ***file_handles = new FileHandle**[database_structures.size()];
     
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+    
+      file_handles[database_idx] = new FileHandle*[database_structures[database_idx].size()];
+
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
+        
+        file_handles[database_idx][table_idx] = new FileHandle[max_checkpointer_count_];
+
+        for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
+          
+          std::string file_name = GetCheckpointFileFullPath(virtual_checkpointer_id % checkpointer_count_, virtual_checkpointer_id, database_idx, table_idx, epoch_id);
+         
+          bool success =
+              LoggingUtil::OpenFile(file_name.c_str(), "wb", file_handles[database_idx][table_idx][virtual_checkpointer_id]);
+          
+          PL_ASSERT(success == true);
+          if (success != true) {
+            LOG_ERROR("create file failed!");
+            exit(-1);
+          }
+        }
+      }
+    }
+    
+    /////////////////////////////////////////////////////////////////////
     // after obtaining the database structures, we can start performing checkpointing in parallel.
     std::vector<std::unique_ptr<std::thread>> checkpoint_threads;
     checkpoint_threads.resize(checkpointer_count_);
     for (size_t i = 0; i < checkpointer_count_; ++i) {
-      checkpoint_threads[i].reset(new std::thread(&PhyLogCheckpointManager::PerformCheckpointThread, this, i, begin_cid, std::ref(database_structures)));
+      checkpoint_threads[i].reset(new std::thread(&PhyLogCheckpointManager::PerformCheckpointThread, this, i, begin_cid, std::ref(database_structures), file_handles));
     }
     
     for (size_t i = 0; i < checkpointer_count_; ++i) {
       checkpoint_threads[i]->join();
     }
+    /////////////////////////////////////////////////////////////////////
 
+    // close files
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+      
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
+    
+        for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
+          
+          // Call fsync
+          LoggingUtil::FFlushFsync(file_handles[database_idx][table_idx][virtual_checkpointer_id]);
+
+          fclose(file_handles[database_idx][table_idx][virtual_checkpointer_id].file);
+
+        }
+        delete[] file_handles[database_idx][table_idx];
+      }
+      delete[] file_handles[database_idx];
+    }
+    delete[] file_handles;
   }
 
-  void PhyLogCheckpointManager::PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
-    
-    size_t epoch_id = begin_cid >> 32;
-
-    // creating files
-    FileHandle **file_handles = new FileHandle*[database_structures.size()];
-    
-    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
-    
-      file_handles[database_idx] = new FileHandle[database_structures[database_idx].size()];
-
-      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
-        std::string file_name = GetCheckpointFileFullPath(thread_id, database_idx, table_idx, epoch_id);
-       
-        bool success =
-            LoggingUtil::OpenFile(file_name.c_str(), "wb", file_handles[database_idx][table_idx]);
-        
-        PL_ASSERT(success == true);
-        if (success != true) {
-          LOG_ERROR("create file failed!");
-          exit(-1);
-        }
-      }
-    }
+  void PhyLogCheckpointManager::PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures, FileHandle ***file_handles) {
 
     auto &catalog_manager = catalog::Manager::GetInstance();
 
@@ -149,33 +175,20 @@ namespace logging {
       }
     }
 
-
-    // close files
-    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
-      
-      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
-    
-        fclose(file_handles[database_idx][table_idx].file);
-
-      }
-    
-      delete[] file_handles[database_idx];
-    }
-    delete[] file_handles;
-
   }
 
 
-  void PhyLogCheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle &file_handle) {
-    
+  void PhyLogCheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) {
     CopySerializeOutput output_buffer;
 
     for (size_t current_tile_group_offset = 0; current_tile_group_offset < tile_group_count; ++current_tile_group_offset) {
     
       // shuffle workloads
-      if (current_tile_group_offset % checkpointer_count_ != thread_id) {
+      if (current_tile_group_offset % max_checkpointer_count_ % checkpointer_count_ != thread_id) {
         continue;
       }
+
+      size_t virtual_checkpointer_id = current_tile_group_offset % max_checkpointer_count_;
     
 
       auto tile_group =
@@ -188,9 +201,8 @@ namespace logging {
 
         // check tuple version visibility
         if (IsVisible(tile_group_header, tuple_id, begin_cid) == true) {
+          
           // persist this version.
-          //PersistTuple(tile_group_header, tuple_id);
-
           expression::ContainerTuple<storage::TileGroup> container_tuple(
             tile_group.get(), tuple_id);
           
@@ -198,14 +210,12 @@ namespace logging {
 
           container_tuple.SerializeTo(output_buffer);
 
-          fwrite((const void *) (output_buffer.Data()), output_buffer.Size(), 1, file_handle.file);
+          fwrite((const void *) (output_buffer.Data()), output_buffer.Size(), 1, file_handles[virtual_checkpointer_id].file);
 
         } // end if isvisible
       }   // end for
     }     // end while
     
-    // Call fsync
-    LoggingUtil::FFlushFsync(file_handle);
 
   }
 

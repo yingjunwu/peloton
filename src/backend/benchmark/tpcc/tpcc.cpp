@@ -33,6 +33,15 @@ configuration state;
 
 // Main Entry Point
 void RunBenchmark() {
+
+  // perform recovery
+  if (state.recover_checkpoint == true) {
+    if (state.replay_log == true) {
+
+    }
+    return;
+  }
+
   concurrency::EpochManagerFactory::Configure(state.epoch_type, state.epoch_length);
   // Force init
   // TODO: We should force the init order of singleton -- Jiexi

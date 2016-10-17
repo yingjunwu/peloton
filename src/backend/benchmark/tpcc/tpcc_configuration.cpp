@@ -51,6 +51,8 @@ void Usage(FILE *out) {
           "   -I --ckpt_interval     :  checkpoint interval (s)\n"
           "   -T --timer_type        :  timer type could be off, sum, dist. Default is off\n"
           "   -E --epoch_type        :  can be queue (default), local\n"
+          "   -R --recover_ckpt      :  recover checkpoint\n"
+          "   -P --replay_log        :  replay log\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -79,6 +81,8 @@ static struct option opts[] = {
   { "ckpt_interval", optional_argument, NULL, 'I'},
   { "timer_type", optional_argument, NULL, 'T'},
   { "epoch_type", optional_argument, NULL, 'E'},
+  { "recover_ckpt", no_argument, NULL, 'R'},
+  { "replay_log", no_argument, NULL, 'P'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -237,11 +241,13 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.timer_type = TIMER_OFF;
   state.disable_insert = false;
   state.epoch_type = EPOCH_SINGLE_QUEUE;
+  state.recover_checkpoint = false;
+  state.replay_log = false;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "aenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:", opts, &idx);
 
     if (c == -1) break;
 
