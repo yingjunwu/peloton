@@ -22,6 +22,171 @@
 namespace peloton {
 namespace logging {
 
+  void PhyLogCheckpointManager::DoRecovery() {
+    size_t persist_epoch_id = RecoverPepoch();
+    
+    // reload all the files with file name containing "persist epoch id"
+    RecoverCheckpoint(persist_epoch_id);
+  }
+
+  size_t PhyLogCheckpointManager::RecoverPepoch() {
+    FileHandle file_handle;
+    std::string filename = ckpt_pepoch_dir_ + "/" + ckpt_pepoch_filename_;
+    // Create a new file
+    if (LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle) == false) {
+      LOG_ERROR("Unable to open pepoch file %s\n", filename.c_str());
+      exit(EXIT_FAILURE);
+    }
+
+    size_t persist_epoch_id = 0;
+    while (true) {
+      if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &persist_epoch_id, sizeof(persist_epoch_id)) == false) {
+        LOG_TRACE("Reach the end of the log file");
+        break;
+      }
+    }
+    LOG_INFO("checkpoint persist epoch id = %lu", persist_epoch_id);
+
+    // Safely close the file
+    bool res = LoggingUtil::CloseFile(file_handle);
+    if (res == false) {
+      LOG_ERROR("Cannot close pepoch file");
+      exit(EXIT_FAILURE);
+    }
+
+    return persist_epoch_id;
+  }
+
+  void PhyLogCheckpointManager::RecoverCheckpoint(const cid_t &epoch_id) {
+    // prepare database structures.
+    // each checkpoint thread must observe the same database structures.
+    // this guarantees that the workload can be partitioned consistently.
+    std::vector<size_t> database_structures;
+
+    auto &catalog_manager = catalog::Manager::GetInstance();
+    auto database_count = catalog_manager.GetDatabaseCount();
+
+    database_structures.resize(database_count);
+
+    // construct database structures
+    for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
+      auto database = catalog_manager.GetDatabase(database_idx);
+      auto table_count = database->GetTableCount();
+
+      database_structures[database_idx] = table_count;
+
+    }
+
+    // open files
+    FileHandle ***file_handles = new FileHandle**[database_structures.size()];
+    
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+    
+      file_handles[database_idx] = new FileHandle*[database_structures[database_idx]];
+
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+        
+        file_handles[database_idx][table_idx] = new FileHandle[max_checkpointer_count_];
+
+        for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
+          
+          std::string file_name = GetCheckpointFileFullPath(virtual_checkpointer_id % checkpointer_count_, virtual_checkpointer_id, database_idx, table_idx, epoch_id);
+         
+          bool success =
+              LoggingUtil::OpenFile(file_name.c_str(), "rb", file_handles[database_idx][table_idx][virtual_checkpointer_id]);
+          
+          PL_ASSERT(success == true);
+          if (success != true) {
+            LOG_ERROR("create file failed!");
+            exit(-1);
+          }
+        }
+      }
+    }
+    
+    /////////////////////////////////////////////////////////////////////
+    // after obtaining the database structures, we can start recovering checkpoints in parallel.
+    std::vector<std::unique_ptr<std::thread>> recovery_threads;
+    recovery_threads.resize(recovery_thread_count_);
+    for (size_t i = 0; i < recovery_thread_count_; ++i) {
+      recovery_threads[i].reset(new std::thread(&PhyLogCheckpointManager::RecoverCheckpointThread, this, i, epoch_id, std::ref(database_structures), file_handles));
+    }
+    for (size_t i = 0; i < recovery_thread_count_; ++i) {
+      recovery_threads[i]->join();
+    }
+    /////////////////////////////////////////////////////////////////////
+    // close files
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+      
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+    
+        for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
+          
+          fclose(file_handles[database_idx][table_idx][virtual_checkpointer_id].file);
+
+        }
+        delete[] file_handles[database_idx][table_idx];
+      }
+      delete[] file_handles[database_idx];
+    }
+    delete[] file_handles;
+  }
+
+  void PhyLogCheckpointManager::RecoverCheckpointThread(const size_t &thread_id, UNUSED_ATTRIBUTE const cid_t &epoch_id, const std::vector<size_t> &database_structures, UNUSED_ATTRIBUTE FileHandle ***file_handles) {
+
+    auto &catalog_manager = catalog::Manager::GetInstance();
+
+    // loop all databases
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+      auto database = catalog_manager.GetDatabase(database_idx);
+      
+      // loop all tables
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+        // Get the target table
+        storage::DataTable *target_table = database->GetTable(table_idx);
+        PL_ASSERT(target_table);
+
+        // size_t buf_size = 4096;
+        // std::unique_ptr<char[]> buffer(new char[buf_size]);
+        // char length_buf[sizeof(int32_t)];
+
+        for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
+          if (virtual_checkpointer_id % recovery_thread_count_ != thread_id) {
+            continue;
+          }
+
+          // FileHandle &file_handle = file_handles[database_idx][table_idx][virtual_checkpointer_id];
+          
+          // while (true) {
+          //   // Read the frame length
+          //   if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &length_buf, 4) == false) {
+          //     LOG_TRACE("Reach the end of the log file");
+          //     break;
+          //   }
+          //   CopySerializeInputBE length_decode((const void *) &length_buf, 4);
+          //   int length = length_decode.ReadInt();
+          //   printf("length = %d\n", length);
+          //   // Adjust the buffer
+          //   if ((size_t) length > buf_size) {
+          //     buffer.reset(new char[(int)(length * 1.2)]);
+          //     buf_size = (size_t) length;
+          //   }
+
+          //   if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer.get(), length) == false) {
+          //     LOG_ERROR("Unexpected file eof");
+          //     // TODO: How to handle damaged log file?
+          //     return false;
+          //   }
+          // }
+
+
+        }
+
+      }
+    }
+  }
+
+
   void PhyLogCheckpointManager::StartCheckpointing() {
     is_running_ = true;
     central_checkpoint_thread_.reset(new std::thread(&PhyLogCheckpointManager::Running, this));
@@ -210,7 +375,9 @@ namespace logging {
 
           container_tuple.SerializeTo(output_buffer);
 
-          fwrite((const void *) (output_buffer.Data()), output_buffer.Size(), 1, file_handles[virtual_checkpointer_id].file);
+          size_t output_buffer_size = output_buffer.Size();
+          // fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handles[virtual_checkpointer_id].file);
+          fwrite((const void *) (output_buffer.Data()), output_buffer_size, 1, file_handles[virtual_checkpointer_id].file);
 
         } // end if isvisible
       }   // end for

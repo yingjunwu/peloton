@@ -53,6 +53,8 @@ void Usage(FILE *out) {
           "   -E --epoch_type        :  can be queue (default), local\n"
           "   -R --recover_ckpt      :  recover checkpoint\n"
           "   -P --replay_log        :  replay log\n"
+          "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
+          "   -N --replay_log_num    :  # threads for replaying logs\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -83,6 +85,8 @@ static struct option opts[] = {
   { "epoch_type", optional_argument, NULL, 'E'},
   { "recover_ckpt", no_argument, NULL, 'R'},
   { "replay_log", no_argument, NULL, 'P'},
+  { "recover_ckpt_num", optional_argument, NULL, 'M'},
+  { "replay_log_num", optional_argument, NULL, 'N'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -243,15 +247,29 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_type = EPOCH_SINGLE_QUEUE;
   state.recover_checkpoint = false;
   state.replay_log = false;
+  state.recover_checkpoint_num = 1;
+  state.replay_log_num = 1;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'M':
+        state.recover_checkpoint_num = atoi(optarg);
+        break;
+      case 'N':
+        state.replay_log_num = atoi(optarg);
+        break;
+      case 'R':
+        state.recover_checkpoint = true;
+        break;
+      case 'P':
+        state.replay_log = true;
+        break;
       case 't':
         state.gc_thread_count = atoi(optarg);
         break;

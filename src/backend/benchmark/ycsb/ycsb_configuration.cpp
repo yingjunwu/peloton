@@ -64,6 +64,8 @@ void Usage(FILE *out) {
           "   -E --epoch_type        :  can be queue (default), local\n"
           "   -R --recover_ckpt      :  recover checkpoint\n"
           "   -P --replay_log        :  replay log\n"
+          "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
+          "   -N --replay_log_num    :  # threads for replaying logs\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -103,6 +105,8 @@ static struct option opts[] = {
     {"epoch_type", optional_argument, NULL, 'E'},
     {"recover_ckpt", no_argument, NULL, 'R'},
     {"replay_log", no_argument, NULL, 'P'},
+    {"recover_ckpt_num", optional_argument, NULL, 'M'},
+    {"replay_log_num", optional_argument, NULL, 'N'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -304,6 +308,15 @@ void ValidateLoggingType(configuration &state) {
       exit(EXIT_FAILURE);
     }
   }
+
+  if (state.recover_checkpoint == true && state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
+    LOG_ERROR("must set checkpoint type when performing checkpoint recovery!");
+    exit(EXIT_FAILURE);
+  }
+  if (state.replay_log == true && state.logging_type == LOGGING_TYPE_INVALID) {
+    LOG_ERROR("must set logging type when performing log replay!");
+    exit(EXIT_FAILURE);
+  }
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
@@ -342,15 +355,23 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.epoch_type = EPOCH_SINGLE_QUEUE;
   state.recover_checkpoint = false;
   state.replay_log = false;
+  state.recover_checkpoint_num = 1;
+  state.replay_log_num = 1;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'M':
+        state.recover_checkpoint_num = atoi(optarg);
+        break;
+      case 'N':
+        state.replay_log_num = atoi(optarg);
+        break;
       case 'R':
         state.recover_checkpoint = true;
         break;

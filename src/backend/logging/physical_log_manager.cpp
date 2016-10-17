@@ -184,7 +184,7 @@ void PhysicalLogManager::DoRecovery(){
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d for recovery", (int) logger_id);
     // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecover(START_EPOCH_ID, MAX_EPOCH_ID);
+    loggers_[logger_id]->StartRecovery(START_EPOCH_ID, MAX_EPOCH_ID);
   }
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {

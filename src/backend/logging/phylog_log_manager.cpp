@@ -184,7 +184,7 @@ void PhyLogLogManager::DoRecovery(){
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d for recovery", (int) logger_id);
     // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecover(START_EPOCH_ID, MAX_EPOCH_ID);
+    loggers_[logger_id]->StartRecovery(START_EPOCH_ID, MAX_EPOCH_ID);
   }
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
@@ -247,6 +247,33 @@ void PhyLogLogManager::RunPepochLogger() {
       // Call fsync
       LoggingUtil::FFlushFsync(file_handle);
     }
+  }
+
+  // Safely close the file
+  bool res = LoggingUtil::CloseFile(file_handle);
+  if (res == false) {
+    LOG_ERROR("Cannot close pepoch file");
+    exit(EXIT_FAILURE);
+  }
+
+}
+
+void PhyLogLogManager::RecoverPepoch() {
+  FileHandle file_handle;
+  std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
+  // Create a new file
+  if (LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle) == false) {
+    LOG_ERROR("Unable to open pepoch file %s\n", filename.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+  while (true) {
+    size_t persist_epoch_id = 0;
+    if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &persist_epoch_id, sizeof(persist_epoch_id)) == false) {
+      LOG_TRACE("Reach the end of the log file");
+      break;
+    }
+    printf("persist_epoch_id = %d\n", (int)persist_epoch_id);
   }
 
   // Safely close the file

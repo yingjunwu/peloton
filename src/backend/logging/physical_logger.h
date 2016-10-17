@@ -59,7 +59,7 @@ namespace logging {
 
     ~PhysicalLogger() {}
 
-    void StartRecover(size_t checkpoint_eid, size_t persist_eid) {
+    void StartRecovery(size_t checkpoint_eid, size_t persist_eid) {
       // Reuse the thread
       logger_thread_.reset(new std::thread(&PhysicalLogger::RunRecovery, this, checkpoint_eid, persist_eid));
     }

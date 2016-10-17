@@ -59,10 +59,7 @@ class PhyLogCheckpointManager : public CheckpointManager {
 
 
 public:
-  PhyLogCheckpointManager() : is_running_(false), checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL) {
-    max_checkpointer_count_ = std::thread::hardware_concurrency() / 2;
-    printf("max checkpointer count = %d\n", (int)max_checkpointer_count_);
-  }
+  PhyLogCheckpointManager() : is_running_(false), checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL) {}
   virtual ~PhyLogCheckpointManager() {}
 
   static PhyLogCheckpointManager& GetInstance() {
@@ -98,7 +95,15 @@ public:
   
   virtual void StopCheckpointing() override;
 
+  virtual void DoRecovery() override;
+
 private:
+  size_t RecoverPepoch();
+
+  void RecoverCheckpoint(const cid_t &epoch_id);
+
+  void RecoverCheckpointThread(const size_t &thread_id, const cid_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles);
+
   void Running();
 
   void PerformCheckpoint(const cid_t &begin_cid);
@@ -122,8 +127,6 @@ private:
   
   size_t checkpointer_count_;
   std::vector<std::string> checkpoint_dirs_;
-
-  size_t max_checkpointer_count_;
 
   const std::string checkpoint_filename_prefix_ = "checkpoint";
   

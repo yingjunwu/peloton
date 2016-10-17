@@ -36,9 +36,21 @@ void RunBenchmark() {
 
   // perform recovery
   if (state.recover_checkpoint == true) {
-    if (state.replay_log == true) {
+    CreateTPCCDatabase();
+    
+    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+    auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
+    checkpoint_manager.SetDirectories(state.checkpoint_directories);
+    checkpoint_manager.SetRecoveryThreadCount(state.recover_checkpoint_num);
 
+    checkpoint_manager.DoRecovery();
+
+    if (state.replay_log == true) {
+      auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+      log_manager.SetDirectories(state.log_directories);
+      log_manager.SetRecoveryThreadCount(state.replay_log_num);
     }
+
     return;
   }
 

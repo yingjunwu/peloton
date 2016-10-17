@@ -46,7 +46,6 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
   // Open the log dir
   struct dirent *file;
   DIR *dirp;
-
   dirp = opendir(this->log_dir_.c_str());
   if (dirp == nullptr) {
     LOG_ERROR("Can not open log direcotry %s\n", this->log_dir_.c_str());
@@ -56,13 +55,13 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
   // Filter out all log files
   std::string base_name = logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_";
   std::vector<int> file_ids;
-
   while ((file = readdir(dirp)) != nullptr) {
     if (strncmp(file->d_name, base_name.c_str(), base_name.length()) == 0) {
       // Find one log file
       LOG_TRACE("Logger %d find a log file %s\n", (int) logger_id_, file->d_name);
       // Get the file id
-      std::stoi(std::string(file->d_name + base_name.length()));
+      int file_id = std::stoi(std::string(file->d_name + base_name.length()));
+      file_ids.push_back(file_id);
     }
   }
 
@@ -316,6 +315,14 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
     }
     ReplayLogFile(file_handle, checkpoint_eid, persist_eid);
     next_file_id_ = std::max(next_file_id_, (size_t) fid);
+
+    // Safely close the file
+    res = LoggingUtil::CloseFile(file_handle);
+    if (res == false) {
+      LOG_ERROR("Cannot close pepoch file");
+      exit(EXIT_FAILURE);
+    }
+
   }
   recovery_done_ = true;
 }

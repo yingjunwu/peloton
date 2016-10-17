@@ -115,10 +115,10 @@ public:
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 
-
   void RunPepochLogger();
 
 private:
+  void RecoverPepoch();
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {

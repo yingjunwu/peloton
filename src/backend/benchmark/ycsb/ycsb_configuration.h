@@ -154,6 +154,10 @@ class configuration {
   bool recover_checkpoint;
 
   bool replay_log;
+
+  int recover_checkpoint_num = 1;
+  
+  int replay_log_num = 1;
 };
 
 extern configuration state;
