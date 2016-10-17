@@ -54,7 +54,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, physical, epoch, off\n"
+          "   -L --log_type          :  log type could be phylog, physical, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"

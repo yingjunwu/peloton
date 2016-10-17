@@ -14,7 +14,6 @@
 
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/logging/physical_log_manager.h"
-#include "backend/logging/epoch_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 #include "backend/logging/phylog_checkpoint_manager.h"
 #include "backend/logging/physical_checkpoint_manager.h"
@@ -32,8 +31,6 @@ class DurabilityFactory {
         return PhyLogLogManager::GetInstance();
       case LOGGING_TYPE_PHYSICAL:
         return PhysicalLogManager::GetInstance();
-      case LOGGING_TYPE_EPOCH:
-        return EpochLogManager::GetInstance();
       default:
         return DummyLogManager::GetInstance();
     }
@@ -70,9 +67,6 @@ class DurabilityFactory {
   static void StartTxnTimer(size_t eid, PhysicalWorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, PhysicalWorkerContext *worker_ctx);
   
-  static void StartTxnTimer(size_t eid, EpochWorkerContext *worker_ctx);
-  static void StopTimersByPepoch(size_t persist_eid, EpochWorkerContext *worker_ctx);
-
  private:
   static uint64_t GetCurrentTimeInUsec() {
     struct timeval tv;

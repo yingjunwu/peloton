@@ -90,9 +90,6 @@ class TsOrderN2OTxnManager : public TransactionManager {
     if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
       auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       ((logging::PhyLogLogManager*)(&log_manager))->FinishPendingTxn();
-    } else if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_EPOCH) {
-      auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-      ((logging::EpochLogManager*)(&log_manager))->FinishPendingTxn();
     }
 
     return txn;

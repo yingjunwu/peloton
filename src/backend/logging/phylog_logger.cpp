@@ -48,7 +48,7 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
   DIR *dirp;
   dirp = opendir(this->log_dir_.c_str());
   if (dirp == nullptr) {
-    LOG_ERROR("Can not open log direcotry %s\n", this->log_dir_.c_str());
+    LOG_ERROR("Can not open log directory %s\n", this->log_dir_.c_str());
     exit(EXIT_FAILURE);
   }
 
