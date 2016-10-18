@@ -12,10 +12,25 @@
 
 #pragma once
 
+#include <unordered_set>
+#include <unordered_map>
 #include <vector>
-#include <string>
+#include <thread>
+
+#include "backend/common/pool.h"
+#include "backend/common/types.h"
+#include "backend/common/logger.h"
+#include "backend/logging/logging_util.h"
 
 namespace peloton {
+
+namespace storage {
+  class Database;
+  class DataTable;
+  class TileGroup;
+  class TileGroupHeader;
+}
+
 namespace logging {
 
 class CheckpointManager {
@@ -27,13 +42,38 @@ class CheckpointManager {
 
 
 public:
-  CheckpointManager() {
+  CheckpointManager() : 
+    is_running_(false), 
+    checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL),
+    recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)) {
     recovery_thread_count_ = 1;
-    max_checkpointer_count_ = 1; //std::thread::hardware_concurrency() / 2;
+    max_checkpointer_count_ = 4; //std::thread::hardware_concurrency() / 2;
   }
   virtual ~CheckpointManager() {}
 
-  virtual void SetDirectories(const std::vector<std::string> &checkpoint_dirs) = 0;
+  void SetCheckpointInterval(const int &checkpoint_interval) {
+    checkpoint_interval_ = checkpoint_interval;
+  }
+
+  void SetDirectories(const std::vector<std::string> &checkpoint_dirs) {
+    if (checkpoint_dirs.size() > 0) {
+      ckpt_pepoch_dir_ = checkpoint_dirs.at(0);
+    }
+    // check the existence of checkpoint directories.
+    // if not exists, then create the directory.
+    for (auto checkpoint_dir : checkpoint_dirs) {
+      if (LoggingUtil::CheckDirectoryExistence(checkpoint_dir.c_str()) == false) {
+        LOG_INFO("Checkpoint directory %s is not accessible or does not exist", checkpoint_dir.c_str());
+        bool res = LoggingUtil::CreateDirectory(checkpoint_dir.c_str(), 0700);
+        if (res == false) {
+          LOG_ERROR("Cannot create directory: %s", checkpoint_dir.c_str());
+        }
+      }
+    }
+
+    checkpoint_dirs_ = checkpoint_dirs;
+    checkpointer_count_ = checkpoint_dirs_.size();
+  }
 
   void SetRecoveryThreadCount(const size_t &recovery_thread_count) {
     recovery_thread_count_ = recovery_thread_count;
@@ -43,13 +83,30 @@ public:
     }
   }
 
-  virtual void SetCheckpointInterval(const int &checkpoint_interval) = 0;
+  void StartCheckpointing(); 
+  void StopCheckpointing();
 
-  virtual void StartCheckpointing() = 0;
-  
-  virtual void StopCheckpointing() = 0;
+  void DoRecovery();
 
-  virtual void DoRecovery() {}
+protected:
+  std::string GetCheckpointFileFullPath(size_t checkpointer_id, size_t virtual_checkpointer_id, oid_t database_idx, oid_t table_idx, size_t epoch_id) {
+    return checkpoint_dirs_.at(checkpointer_id) + "/" + checkpoint_filename_prefix_ + "_" + std::to_string(virtual_checkpointer_id) + "_" + std::to_string(database_idx) + "_" + std::to_string(table_idx) + "_" + std::to_string(epoch_id);
+  }
+
+  // recover logic
+  size_t RecoverPepoch();
+  void RecoverCheckpoint(const size_t &epoch_id);
+  virtual void RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles) = 0;
+
+  // checkpointing logic
+
+  void Running();
+  void PerformCheckpoint(const cid_t &begin_cid);
+  void PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures, FileHandle ***file_handles);
+
+  virtual void CheckpointTable(storage::DataTable *, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) = 0;
+
+  bool IsVisible(const storage::TileGroupHeader *const tile_group_header, const oid_t &tuple_id, const cid_t &begin_cid);
 
 
 protected:
@@ -58,6 +115,24 @@ protected:
 
   size_t max_checkpointer_count_;
 
+  bool is_running_;
+
+  int checkpoint_interval_;
+
+  const int DEFAULT_CHECKPOINT_INTERVAL = 30;
+  
+  size_t checkpointer_count_;
+  std::vector<std::string> checkpoint_dirs_;
+
+  const std::string checkpoint_filename_prefix_ = "checkpoint";
+  
+  std::unique_ptr<std::thread> central_checkpoint_thread_;
+
+  std::string ckpt_pepoch_dir_;
+
+  const std::string ckpt_pepoch_filename_ = "checkpoint_pepoch";
+    
+  std::unique_ptr<VarlenPool> recovery_pool_;
 };
 
 }

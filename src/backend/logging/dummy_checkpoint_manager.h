@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// dummy_log_manager.h
+// dummy_checkpoint_manager.h
 //
-// Identification: src/backend/logging/loggers/dummy_log_manager.h
+// Identification: src/backend/logging/checkpoint/dummy_checkpoint_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -12,31 +12,33 @@
 
 #pragma once
 
-#include <string>
-
 #include "backend/logging/checkpoint_manager.h"
-#include "backend/common/macros.h"
 
 namespace peloton {
 namespace logging {
 
 class DummyCheckpointManager : public CheckpointManager {
-  DummyCheckpointManager() {}
+  // Deleted functions
+  DummyCheckpointManager(const DummyCheckpointManager &) = delete;
+  DummyCheckpointManager &operator=(const DummyCheckpointManager &) = delete;
+  DummyCheckpointManager(DummyCheckpointManager &&) = delete;
+  DummyCheckpointManager &operator=(const DummyCheckpointManager &&) = delete;
+
 
 public:
-  static DummyCheckpointManager &GetInstance() {
+  DummyCheckpointManager() {}
+  virtual ~DummyCheckpointManager() {}
+
+  static DummyCheckpointManager& GetInstance() {
     static DummyCheckpointManager checkpoint_manager;
     return checkpoint_manager;
   }
-  virtual ~DummyCheckpointManager() {}
 
+private:
 
-  virtual void SetDirectories(const std::vector<std::string> &logging_dirs UNUSED_ATTRIBUTE) final {}
+  virtual void RecoverCheckpointThread(const size_t &thread_id UNUSED_ATTRIBUTE, const size_t &epoch_id UNUSED_ATTRIBUTE, const std::vector<size_t> &database_structures UNUSED_ATTRIBUTE, FileHandle ***file_handles UNUSED_ATTRIBUTE) final {}
 
-  virtual void SetCheckpointInterval(const int &checkpoint_interval UNUSED_ATTRIBUTE) final {}
-
-  virtual void StartCheckpointing() final {};
-  virtual void StopCheckpointing() final {};
+  virtual void CheckpointTable(storage::DataTable * UNUSED_ATTRIBUTE, const size_t &tile_group_count UNUSED_ATTRIBUTE, const size_t &thread_id UNUSED_ATTRIBUTE, const cid_t &begin_cid UNUSED_ATTRIBUTE, FileHandle *file_handles UNUSED_ATTRIBUTE) final {}
 
 };
 
