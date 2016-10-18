@@ -62,6 +62,10 @@ class EpochManager {
     return (int)(epoch_duration_millisec_ * 1000 / 4);
   }
 
+  double GetEpochDurationMilliSecond() const {
+    return epoch_duration_millisec_;
+  }
+
   virtual size_t GetCurrentEpochId() = 0;
 
   // Get a eid that is larger than all the running transactions

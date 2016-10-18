@@ -49,13 +49,10 @@ namespace logging {
       logger_thread_(nullptr),
       is_running_(false),
       logger_output_buffer_(), 
-      file_handle_(),
-      next_file_id_(0),
       recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)),
       persist_epoch_id_(INVALID_EPOCH_ID),
       worker_map_lock_(), 
-      worker_map_()
-    {}
+      worker_map_() {}
 
     ~PhyLogLogger() {}
 
@@ -90,9 +87,9 @@ private:
   void RunRecovery(size_t checkpoint_eid, size_t persist_eid);
   void Run();
 
-  void PersistEpochBegin(const size_t epoch_id);
-  void PersistEpochEnd(const size_t epoch_id);
-  void PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer);
+  void PersistEpochBegin(FileHandle &file_handle, const size_t epoch_id);
+  void PersistEpochEnd(FileHandle &file_handle, const size_t epoch_id);
+  void PersistLogBuffer(FileHandle &file_handle, std::unique_ptr<LogBuffer> log_buffer);
 
   std::string GetLogFileFullPath(size_t epoch_id) {
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
@@ -116,8 +113,6 @@ private:
 
     /* File system related */
     CopySerializeOutput logger_output_buffer_;
-    FileHandle file_handle_;
-    size_t next_file_id_;
 
     /* Recovery */
     // TODO: Check if we can discard the recovery pool after the recovery is done. Since every thing is copied to the
@@ -136,6 +131,8 @@ private:
     const std::string logging_filename_prefix_ = "log";
 
     const size_t sleep_period_us_ = 40000;
+
+    const int new_file_interval_ = 2000; // 2000 milliseconds.
   };
 
 

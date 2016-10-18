@@ -326,7 +326,8 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
       exit(EXIT_FAILURE);
     }
     ReplayLogFile(file_handle, checkpoint_eid, persist_eid);
-    next_file_id_ = std::max(next_file_id_, (size_t) fid);
+    size_t next_file_eid = 0;
+    next_file_eid = std::max(next_file_eid, (size_t) fid);
 
     // Safely close the file
     res = LoggingUtil::CloseFile(file_handle);
@@ -342,17 +343,19 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
 
 void PhyLogLogger::Run() {
   // TODO: Ensure that we have called run recovery before
+  size_t next_file_eid = 0;
+  std::string filename = GetLogFileFullPath(next_file_eid);
 
-  // Get the file name
-  // for now, let's assume that each logger uses a single file to record logs. --YINGJUN
-  // SILO uses multiple files only to simplify the process of log truncation.
-  std::string filename = GetLogFileFullPath(next_file_id_);
+  FileHandle file_handle;
 
   // Create a new file
-  if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle_) == false) {
+  if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle) == false) {
     LOG_ERROR("Unable to create log file %s\n", filename.c_str());
     exit(EXIT_FAILURE);
   }
+
+
+  // int new_file_count = (int)(2000 / concurrency::EpochManagerFactory::GetInstance()::GetEpochDurationMilliSecond());
 
   /**
    *  Main loop
@@ -393,7 +396,7 @@ void PhyLogLogger::Run() {
             // just skip it.
             continue;
           }
-          PersistEpochBegin(epoch_id);
+          PersistEpochBegin(file_handle, epoch_id);
           // persist all the buffers.
           while (buffers.empty() == false) {
             // Check if the buffer is empty
@@ -401,14 +404,14 @@ void PhyLogLogger::Run() {
             if (buffers.top()->Empty()) {
               worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
             } else {
-              PersistLogBuffer(std::move(buffers.top()));
+              PersistLogBuffer(file_handle, std::move(buffers.top()));
             }
             PL_ASSERT(buffers.top() == nullptr);
             buffers.pop();
           }
-          PersistEpochEnd(epoch_id);
+          PersistEpochEnd(file_handle, epoch_id);
           // Call fsync
-          LoggingUtil::FFlushFsync(file_handle_);
+          LoggingUtil::FFlushFsync(file_handle);
         } // end for
 
         worker_ctx_ptr->persist_eid = worker_current_eid - 1;
@@ -437,14 +440,14 @@ void PhyLogLogger::Run() {
   // TODO: Seek and write the integrity information in the header
 
   // Safely close the file
-  bool res = LoggingUtil::CloseFile(file_handle_);
+  bool res = LoggingUtil::CloseFile(file_handle);
   if (res == false) {
     LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
     exit(EXIT_FAILURE);
   }
 }
 
-void PhyLogLogger::PersistEpochBegin(const size_t epoch_id) {
+void PhyLogLogger::PersistEpochBegin(FileHandle &file_handle, const size_t epoch_id) {
   // Write down the epoch begin record  
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_BEGIN, epoch_id);
 
@@ -458,10 +461,10 @@ void PhyLogLogger::PersistEpochBegin(const size_t epoch_id) {
 
   logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
 
-  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
+  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle.file);
 }
 
-void PhyLogLogger::PersistEpochEnd(const size_t epoch_id) {
+void PhyLogLogger::PersistEpochEnd(FileHandle &file_handle, const size_t epoch_id) {
   // Write down the epoch end record
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_END, epoch_id);
 
@@ -475,13 +478,13 @@ void PhyLogLogger::PersistEpochEnd(const size_t epoch_id) {
 
   logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
 
-  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
+  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle.file);
 
 }
 
-void PhyLogLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
+void PhyLogLogger::PersistLogBuffer(FileHandle &file_handle, std::unique_ptr<LogBuffer> log_buffer) {
 
-  fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle_.file);
+  fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle.file);
 
   // Return the buffer to the worker
   log_buffer->Reset();
