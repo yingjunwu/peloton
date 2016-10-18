@@ -185,7 +185,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   return true;
 }
 
-bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
+bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, UNUSED_ATTRIBUTE size_t checkpoint_eid, UNUSED_ATTRIBUTE size_t pepoch_eid) {
   PL_ASSERT(file_handle.file != nullptr && file_handle.fd != INVALID_FILE_DESCRIPTOR);
 
   // Status
@@ -204,7 +204,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
     }
     CopySerializeInputBE length_decode((const void *) &length_buf, 4);
     int length = length_decode.ReadInt();
-
+    printf("length = %d\n", length);
     // Adjust the buffer
     if ((size_t) length > buf_size) {
       buffer.reset(new char[(int)(length * 1.2)]);
@@ -236,6 +236,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
           return false;
         }
         current_eid = (size_t) record_decode.ReadLong();
+        printf("begin epoch id = %lu\n", current_eid);
         break;
       } case LOGRECORD_TYPE_EPOCH_END: {
         size_t eid = (size_t) record_decode.ReadLong();
@@ -243,6 +244,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
           LOG_ERROR("Mismatched epoch in log record");
           return false;
         }
+        printf("end epoch id = %lu\n", current_eid);
         current_eid = INVALID_EPOCH_ID;
         break;
       } case LOGRECORD_TYPE_TRANSACTION_BEGIN: {
@@ -266,6 +268,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
           LOG_ERROR("Mismatched txn in log record");
           return false;
         }
+        current_cid = INVALID_CID;
         break;
       } case LOGRECORD_TYPE_TUPLE_UPDATE:
         case LOGRECORD_TYPE_TUPLE_DELETE:
@@ -286,8 +289,16 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
         tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
 
+        // FILE *fp = fopen("in_file.txt", "a");
+        // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+        //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
+        //   fprintf(stdout, "%d, ", value);
+        // }
+        // fprintf(stdout, "\n");
+        // fclose(fp);
+
         // Install the record
-        InstallTupleRecord(record_type, tuple.get(), table, current_cid);
+        //InstallTupleRecord(record_type, tuple.get(), table, current_cid);
         break;
       }
       default:
@@ -308,6 +319,7 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
     // Replay a single file
     std::string filename = GetLogFileFullPath(fid);
     FileHandle file_handle;
+    std::cout<<"filename = " << filename << std::endl;
     bool res = LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle);
     if (res == false) {
       LOG_ERROR("Cannot open log file %s\n", filename.c_str());
@@ -437,7 +449,15 @@ void PhyLogLogger::PersistEpochBegin(const size_t epoch_id) {
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_BEGIN, epoch_id);
 
   logger_output_buffer_.Reset();
-  record.Serialize(logger_output_buffer_);
+
+  size_t start = logger_output_buffer_.Position();
+  logger_output_buffer_.WriteInt(0);
+
+  logger_output_buffer_.WriteEnumInSingleByte(LOGRECORD_TYPE_EPOCH_BEGIN);
+  logger_output_buffer_.WriteLong((uint64_t) epoch_id);
+
+  logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
+
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
 }
 
@@ -446,7 +466,15 @@ void PhyLogLogger::PersistEpochEnd(const size_t epoch_id) {
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_END, epoch_id);
 
   logger_output_buffer_.Reset();
-  record.Serialize(logger_output_buffer_);
+
+  size_t start = logger_output_buffer_.Position();
+  logger_output_buffer_.WriteInt(0);
+
+  logger_output_buffer_.WriteEnumInSingleByte(LOGRECORD_TYPE_EPOCH_END);
+  logger_output_buffer_.WriteLong((uint64_t) epoch_id);
+
+  logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
+
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
 
 }

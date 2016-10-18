@@ -203,7 +203,7 @@ void Tuple::DeserializeFrom(SerializeInputBE &input, VarlenPool *dataPool) {
   PL_ASSERT(tuple_schema);
   PL_ASSERT(tuple_data);
 
-  input.ReadInt();
+  // input.ReadInt();
   const int column_count = tuple_schema->GetColumnCount();
 
   for (int column_itr = 0; column_itr < column_count; column_itr++) {
@@ -237,6 +237,7 @@ void Tuple::DeserializeFrom(SerializeInputBE &input, VarlenPool *dataPool) {
 }
 
 void Tuple::DeserializeWithHeaderFrom(SerializeInputBE &input) {
+  LOG_ERROR("do not user this function!");
   PL_ASSERT(tuple_schema);
   PL_ASSERT(tuple_data);
 

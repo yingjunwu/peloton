@@ -17,6 +17,7 @@
 #include <vector>
 #include <thread>
 
+#include "backend/common/pool.h"
 #include "backend/common/types.h"
 #include "backend/common/logger.h"
 #include "backend/logging/logging_util.h"
@@ -59,7 +60,10 @@ class PhyLogCheckpointManager : public CheckpointManager {
 
 
 public:
-  PhyLogCheckpointManager() : is_running_(false), checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL) {}
+  PhyLogCheckpointManager() : 
+    is_running_(false), 
+    checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL),
+    recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)) {}
   virtual ~PhyLogCheckpointManager() {}
 
   static PhyLogCheckpointManager& GetInstance() {
@@ -135,6 +139,8 @@ private:
   std::string ckpt_pepoch_dir_;
 
   const std::string ckpt_pepoch_filename_ = "checkpoint_pepoch";
+    
+  std::unique_ptr<VarlenPool> recovery_pool_;
 };
 
 }

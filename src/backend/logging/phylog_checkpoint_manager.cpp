@@ -146,39 +146,46 @@ namespace logging {
         storage::DataTable *target_table = database->GetTable(table_idx);
         PL_ASSERT(target_table);
 
-        // size_t buf_size = 4096;
-        // std::unique_ptr<char[]> buffer(new char[buf_size]);
-        // char length_buf[sizeof(int32_t)];
+        auto schema = target_table->GetSchema();
 
         for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
           if (virtual_checkpointer_id % recovery_thread_count_ != thread_id) {
             continue;
           }
 
-          // FileHandle &file_handle = file_handles[database_idx][table_idx][virtual_checkpointer_id];
+          FileHandle &file_handle = file_handles[database_idx][table_idx][virtual_checkpointer_id];
           
-          // while (true) {
-          //   // Read the frame length
-          //   if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &length_buf, 4) == false) {
-          //     LOG_TRACE("Reach the end of the log file");
-          //     break;
-          //   }
-          //   CopySerializeInputBE length_decode((const void *) &length_buf, 4);
-          //   int length = length_decode.ReadInt();
-          //   printf("length = %d\n", length);
-          //   // Adjust the buffer
-          //   if ((size_t) length > buf_size) {
-          //     buffer.reset(new char[(int)(length * 1.2)]);
-          //     buf_size = (size_t) length;
-          //   }
+          char *buffer = new char[4096];
+          size_t tuple_size = 0;
+          while (true) {
+            // Read the frame length
+            if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &tuple_size, sizeof(size_t)) == false) {
+              LOG_TRACE("Reach the end of the log file");
+              break;
+            }
 
-          //   if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer.get(), length) == false) {
-          //     LOG_ERROR("Unexpected file eof");
-          //     // TODO: How to handle damaged log file?
-          //     return false;
-          //   }
-          // }
+            if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer, tuple_size) == false) {
+              LOG_ERROR("Unexpected file eof");
+              // TODO: How to handle damaged log file?
+              return false;
+            }
+            
+            CopySerializeInputBE record_decode((const void *) buffer, tuple_size);
 
+            std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
+            tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
+            
+            // FILE *fp = fopen("in_file.txt", "a");
+            // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+            //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
+            //   fprintf(fp, "%d, ", value);
+            // }
+            // fprintf(fp, "\n");
+
+          } // end while
+
+          delete[] buffer;
+          buffer = nullptr;
 
         }
 
@@ -233,7 +240,7 @@ namespace logging {
   }
 
   void PhyLogCheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
-    
+    std::cout<<"perform checkpoint..."<<std::endl;
     size_t epoch_id = begin_cid >> 32;
 
     // prepare database structures.
@@ -344,6 +351,9 @@ namespace logging {
 
 
   void PhyLogCheckpointManager::CheckpointTable(storage::DataTable *target_table, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) {
+
+    // auto schema = target_table->GetSchema();
+
     CopySerializeOutput output_buffer;
 
     for (size_t current_tile_group_offset = 0; current_tile_group_offset < tile_group_count; ++current_tile_group_offset) {
@@ -371,19 +381,26 @@ namespace logging {
           expression::ContainerTuple<storage::TileGroup> container_tuple(
             tile_group.get(), tuple_id);
           
+          // FILE *fp = fopen("out_file.txt", "a");
+          // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+          //   int value = ValuePeeker::PeekAsInteger(container_tuple.GetValue(i));
+          //   fprintf(fp, "%d, ", value);
+          // }
+          // fprintf(fp, "\n");
+          // fclose(fp);
+
           output_buffer.Reset();
 
           container_tuple.SerializeTo(output_buffer);
 
           size_t output_buffer_size = output_buffer.Size();
-          // fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handles[virtual_checkpointer_id].file);
+          fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handles[virtual_checkpointer_id].file);
           fwrite((const void *) (output_buffer.Data()), output_buffer_size, 1, file_handles[virtual_checkpointer_id].file);
 
         } // end if isvisible
       }   // end for
     }     // end while
     
-
   }
 
 

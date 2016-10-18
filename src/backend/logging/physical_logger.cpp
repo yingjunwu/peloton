@@ -430,7 +430,15 @@ void PhysicalLogger::PersistEpochBegin(const size_t epoch_id) {
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_BEGIN, epoch_id);
 
   logger_output_buffer_.Reset();
-  record.Serialize(logger_output_buffer_);
+
+  size_t start = logger_output_buffer_.Position();
+  logger_output_buffer_.WriteInt(0);
+
+  logger_output_buffer_.WriteEnumInSingleByte(LOGRECORD_TYPE_EPOCH_BEGIN);
+  logger_output_buffer_.WriteLong((uint64_t) epoch_id);
+
+  logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
+
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
 }
 
@@ -439,7 +447,15 @@ void PhysicalLogger::PersistEpochEnd(const size_t epoch_id) {
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_END, epoch_id);
 
   logger_output_buffer_.Reset();
-  record.Serialize(logger_output_buffer_);
+
+  size_t start = logger_output_buffer_.Position();
+  logger_output_buffer_.WriteInt(0);
+
+  logger_output_buffer_.WriteEnumInSingleByte(LOGRECORD_TYPE_EPOCH_END);
+  logger_output_buffer_.WriteLong((uint64_t) epoch_id);
+
+  logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
+
   fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
 
 }

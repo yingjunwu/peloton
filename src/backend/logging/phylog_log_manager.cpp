@@ -78,11 +78,17 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
       output.WriteLong(tg->GetDatabaseId());
       output.WriteLong(tg->GetTableId());
 
+      // size_t start = output.Position();
+      // output.WriteInt(0);
+
       // Write the full tuple into the buffer
       expression::ContainerTuple<storage::TileGroup> container_tuple(
         tg, tuple_pos.offset
       );
       container_tuple.SerializeTo(output);
+
+      // output.WriteIntAt(start, (int32_t)output.Size());
+
       break;
     }
     case LOGRECORD_TYPE_TRANSACTION_BEGIN:
@@ -109,7 +115,8 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
 
   // Add the frame length
   // XXX: We rely on the fact that the serializer treat a int32_t as 4 bytes
-  output.WriteIntAt(start, (int32_t) (output.Position() - start - sizeof(int32_t)));
+  int32_t length = output.Position() - start - sizeof(int32_t);
+  output.WriteIntAt(start, length);
 
   // Copy the output buffer into current buffer
   bool is_success = buffer_ptr->WriteData(output.Data(), output.Size());
