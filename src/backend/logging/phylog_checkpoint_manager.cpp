@@ -22,86 +22,64 @@
 namespace peloton {
 namespace logging {
 
-  void PhyLogCheckpointManager::RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles) {
-    cid_t current_cid = (epoch_id << 32) | 0x0;
+  void PhyLogCheckpointManager::RecoverTable(storage::DataTable *target_table, const size_t &thread_id, const cid_t &current_cid, FileHandle *file_handles) {
 
-    concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
+    auto schema = target_table->GetSchema();
 
-    auto &catalog_manager = catalog::Manager::GetInstance();
+    for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
 
-    // loop all databases
-    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
-      auto database = catalog_manager.GetDatabase(database_idx);
+      if (virtual_checkpointer_id % recovery_thread_count_ != thread_id) {
+        continue;
+      }
+
+      FileHandle &file_handle = file_handles[virtual_checkpointer_id];
       
-      // loop all tables
-      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
-        // Get the target table
-        storage::DataTable *target_table = database->GetTable(table_idx);
-        PL_ASSERT(target_table);
+      char *buffer = new char[4096];
+      size_t tuple_size = 0;
+      while (true) {
+        // Read the frame length
+        if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &tuple_size, sizeof(size_t)) == false) {
+          LOG_TRACE("Reach the end of the log file");
+          break;
+        }
 
-        auto schema = target_table->GetSchema();
+        if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer, tuple_size) == false) {
+          LOG_ERROR("Unexpected file eof");
+          // TODO: How to handle damaged log file?
+          return false;
+        }
+        
+        CopySerializeInputBE record_decode((const void *) buffer, tuple_size);
 
-        for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
-          if (virtual_checkpointer_id % recovery_thread_count_ != thread_id) {
-            continue;
-          }
+        std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
+        tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
+        
+        // FILE *fp = fopen("in_file.txt", "a");
+        // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+        //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
+        //   fprintf(stdout, "%d, ", value);
+        // }
+        // fprintf(stdout, "\n");
+        // fclose(fp);
 
-          FileHandle &file_handle = file_handles[database_idx][table_idx][virtual_checkpointer_id];
-          
-          char *buffer = new char[4096];
-          size_t tuple_size = 0;
-          while (true) {
-            // Read the frame length
-            if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &tuple_size, sizeof(size_t)) == false) {
-              LOG_TRACE("Reach the end of the log file");
-              break;
-            }
+        ItemPointer *itemptr_ptr = nullptr;
+        ItemPointer location;
+        location = target_table->InsertTuple(tuple.get(), &itemptr_ptr);
 
-            if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer, tuple_size) == false) {
-              LOG_ERROR("Unexpected file eof");
-              // TODO: How to handle damaged log file?
-              return false;
-            }
-            
-            CopySerializeInputBE record_decode((const void *) buffer, tuple_size);
+        if (location.block == INVALID_OID) {
+          LOG_ERROR("insertion failed!");
+        }
+        auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
 
-            std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
-            tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
-            
-            // FILE *fp = fopen("in_file.txt", "a");
-            // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
-            //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
-            //   fprintf(stdout, "%d, ", value);
-            // }
-            // fprintf(stdout, "\n");
-            // fclose(fp);
+        tile_group_header->SetBeginCommitId(location.offset, current_cid);
+        tile_group_header->SetEndCommitId(location.offset, MAX_CID);
+        tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
+      } // end while
 
-            ItemPointer *itemptr_ptr = nullptr;
-            ItemPointer location;
-            location = target_table->InsertTuple(tuple.get(), &itemptr_ptr);
+      delete[] buffer;
+      buffer = nullptr;
 
-            if (location.block == INVALID_OID) {
-              LOG_ERROR("insertion failed!");
-            }
-            auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
-
-            tile_group_header->SetBeginCommitId(location.offset, current_cid);
-            tile_group_header->SetEndCommitId(location.offset, MAX_CID);
-            tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
-          } // end while
-
-          delete[] buffer;
-          buffer = nullptr;
-
-        } // end for
-
-        size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
-        printf("num tuples = %lu\n", num_tuples);
-
-      } // end table looping
-    } // end database looping
-
-    delete concurrency::current_txn;
+    } // end for
   }
 
 

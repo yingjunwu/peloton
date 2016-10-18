@@ -210,6 +210,7 @@ void RunBenchmark() {
     CreateYCSBDatabase();
     
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+
     auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
     checkpoint_manager.SetDirectories(state.checkpoint_directories);
     checkpoint_manager.SetRecoveryThreadCount(state.recover_checkpoint_num);
@@ -220,6 +221,7 @@ void RunBenchmark() {
       auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       log_manager.SetDirectories(state.log_directories);
       log_manager.SetRecoveryThreadCount(state.replay_log_num);
+      // log_manager.DoRecovery();
     }
 
     return;

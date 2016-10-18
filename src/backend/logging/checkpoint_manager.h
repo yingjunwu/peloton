@@ -96,7 +96,9 @@ protected:
   // recover logic
   size_t RecoverPepoch();
   void RecoverCheckpoint(const size_t &epoch_id);
-  virtual void RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles) = 0;
+  void RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles);
+
+  virtual void RecoverTable(storage::DataTable *, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) = 0;
 
   // checkpointing logic
 

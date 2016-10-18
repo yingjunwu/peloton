@@ -286,8 +286,41 @@ namespace logging {
         CheckpointTable(target_table, tile_group_count, thread_id, begin_cid, file_handles[database_idx][table_idx]);
       }
     }
-    
+
   }
+
+
+  void CheckpointManager::RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles) {
+
+    cid_t current_cid = (epoch_id << 32) | 0x0;
+
+    concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
+
+    auto &catalog_manager = catalog::Manager::GetInstance();
+
+    // loop all databases
+    for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+      auto database = catalog_manager.GetDatabase(database_idx);
+      
+      // loop all tables
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+        // Get the target table
+        storage::DataTable *target_table = database->GetTable(table_idx);
+        PL_ASSERT(target_table);
+
+        RecoverTable(target_table, thread_id, current_cid, file_handles[database_idx][table_idx]);
+
+        size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
+        printf("num tuples = %lu\n", num_tuples);
+
+      } // end table looping
+    } // end database looping
+
+    delete concurrency::current_txn;
+    concurrency::current_txn = nullptr;
+  }
+
+
 
 
   // Visibility check
