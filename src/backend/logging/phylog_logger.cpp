@@ -185,7 +185,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   return true;
 }
 
-bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, UNUSED_ATTRIBUTE size_t checkpoint_eid, UNUSED_ATTRIBUTE size_t pepoch_eid) {
+bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
   PL_ASSERT(file_handle.file != nullptr && file_handle.fd != INVALID_FILE_DESCRIPTOR);
 
   // Status
@@ -204,7 +204,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, UNUSED_ATTRIBUTE size_
     }
     CopySerializeInputBE length_decode((const void *) &length_buf, 4);
     int length = length_decode.ReadInt();
-    printf("length = %d\n", length);
+    // printf("length = %d\n", length);
     // Adjust the buffer
     if ((size_t) length > buf_size) {
       buffer.reset(new char[(int)(length * 1.2)]);
@@ -236,7 +236,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, UNUSED_ATTRIBUTE size_
           return false;
         }
         current_eid = (size_t) record_decode.ReadLong();
-        printf("begin epoch id = %lu\n", current_eid);
+        // printf("begin epoch id = %lu\n", current_eid);
         break;
       } case LOGRECORD_TYPE_EPOCH_END: {
         size_t eid = (size_t) record_decode.ReadLong();
@@ -244,7 +244,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, UNUSED_ATTRIBUTE size_
           LOG_ERROR("Mismatched epoch in log record");
           return false;
         }
-        printf("end epoch id = %lu\n", current_eid);
+        // printf("end epoch id = %lu\n", current_eid);
         current_eid = INVALID_EPOCH_ID;
         break;
       } case LOGRECORD_TYPE_TRANSACTION_BEGIN: {
@@ -319,7 +319,7 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
     // Replay a single file
     std::string filename = GetLogFileFullPath(fid);
     FileHandle file_handle;
-    std::cout<<"filename = " << filename << std::endl;
+    // std::cout<<"filename = " << filename << std::endl;
     bool res = LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle);
     if (res == false) {
       LOG_ERROR("Cannot open log file %s\n", filename.c_str());

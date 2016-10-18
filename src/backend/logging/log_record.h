@@ -47,8 +47,6 @@ public:
 
   inline cid_t GetCommitId() { return cid_; }
 
-  // void Serialize(CopySerializeOutput &output);
-
 private:
   LogRecordType log_record_type_ = LOGRECORD_TYPE_INVALID;
 
