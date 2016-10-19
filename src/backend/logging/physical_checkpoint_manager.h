@@ -51,7 +51,8 @@ public:
   }
 
 private:
-  
+
+  virtual void PrepareTables(const std::vector<std::vector<size_t>> &database_structures);  
   virtual void RecoverTable(storage::DataTable *, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) final;
 
   virtual void CheckpointTable(storage::DataTable *, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) final;

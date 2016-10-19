@@ -22,7 +22,40 @@
 namespace peloton {
 namespace logging {
 
-  void PhysicalCheckpointManager::RecoverTable(storage::DataTable *target_table, const size_t &thread_id, const cid_t &current_cid, FileHandle *file_handles) {
+
+  void PhysicalCheckpointManager::PrepareTables(const std::vector<std::vector<size_t>> &database_structures) {
+
+    auto &catalog_manager = catalog::Manager::GetInstance();
+    auto database_count = catalog_manager.GetDatabaseCount();
+
+    if (database_count != database_structures.size()) {
+      LOG_ERROR("incorrect database state!");
+      exit(EXIT_FAILURE);
+    }
+
+    for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
+      auto database = catalog_manager.GetDatabase(database_idx);
+
+      auto table_count = database->GetTableCount();
+      if (table_count != database_structures.at(database_idx).size()) {
+        LOG_ERROR("incorrect database state!");
+        exit(EXIT_FAILURE);
+      }
+
+      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+  
+        storage::DataTable *target_table = database->GetTable(table_idx);
+
+        size_t tile_group_count = database_structures.at(database_idx).at(table_idx);
+        printf("recover tile group: <%lu, %lu>\n", target_table->GetTileGroupCount(), tile_group_count);
+        for (size_t tg_id = target_table->GetTileGroupCount(); tg_id < tile_group_count; ++tg_id) {
+          // target_table->AddDefaultTileGroup(tg_id);
+        }
+      }
+    }
+  }
+
+  void PhysicalCheckpointManager::RecoverTable(storage::DataTable *target_table, const size_t &thread_id, const cid_t &current_cid UNUSED_ATTRIBUTE, FileHandle *file_handles) {
 
     auto schema = target_table->GetSchema();
 
@@ -36,12 +69,29 @@ namespace logging {
       
       char *buffer = new char[4096];
       size_t tuple_size = 0;
+
+
       while (true) {
+        
+        ItemPointer item_pointer;
+        
+        if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &(item_pointer.block), sizeof(oid_t)) == false) {
+          LOG_TRACE("Reach the end of the log file");
+          break;
+        }
+        if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &(item_pointer.offset), sizeof(oid_t)) == false) {
+          LOG_TRACE("Reach the end of the log file");
+          break;
+        }
+
+        // printf("item_pointer : (%d, %d)", (int)item_pointer.block, (int)item_pointer.offset);
+
         // Read the frame length
         if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &tuple_size, sizeof(size_t)) == false) {
           LOG_TRACE("Reach the end of the log file");
           break;
         }
+        // printf("tuple size = %lu\n", tuple_size);
 
         if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer, tuple_size) == false) {
           LOG_ERROR("Unexpected file eof");
@@ -62,18 +112,20 @@ namespace logging {
         // fprintf(stdout, "\n");
         // fclose(fp);
 
-        ItemPointer *itemptr_ptr = nullptr;
-        ItemPointer location;
-        location = target_table->InsertTuple(tuple.get(), &itemptr_ptr);
+        
 
-        if (location.block == INVALID_OID) {
-          LOG_ERROR("insertion failed!");
-        }
-        auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
+        // ItemPointer *itemptr_ptr = nullptr;
+        // ItemPointer location;
+        // location = target_table->InsertTuple(tuple.get(), &itemptr_ptr);
 
-        tile_group_header->SetBeginCommitId(location.offset, current_cid);
-        tile_group_header->SetEndCommitId(location.offset, MAX_CID);
-        tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
+        // if (location.block == INVALID_OID) {
+        //   LOG_ERROR("insertion failed!");
+        // }
+        // auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
+
+        // tile_group_header->SetBeginCommitId(location.offset, current_cid);
+        // tile_group_header->SetEndCommitId(location.offset, MAX_CID);
+        // tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
       } // end while
 
       delete[] buffer;
@@ -98,9 +150,13 @@ namespace logging {
 
       size_t virtual_checkpointer_id = current_tile_group_offset % max_checkpointer_count_;
     
+      FileHandle &file_handle = file_handles[virtual_checkpointer_id];
 
       auto tile_group =
           target_table->GetTileGroup(current_tile_group_offset);
+
+      oid_t tile_group_id = tile_group->GetTileGroupId();
+
       auto tile_group_header = tile_group->GetHeader();
 
       oid_t active_tuple_count = tile_group->GetNextTupleSlot();
@@ -122,13 +178,16 @@ namespace logging {
           // fprintf(fp, "\n");
           // fclose(fp);
 
+          fwrite((const void *) (&tile_group_id), sizeof(tile_group_id), 1, file_handle.file);
+          fwrite((const void *) (&tuple_id), sizeof(tuple_id), 1, file_handle.file);
+
           output_buffer.Reset();
 
           container_tuple.SerializeTo(output_buffer);
 
           size_t output_buffer_size = output_buffer.Size();
-          fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handles[virtual_checkpointer_id].file);
-          fwrite((const void *) (output_buffer.Data()), output_buffer_size, 1, file_handles[virtual_checkpointer_id].file);
+          fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handle.file);
+          fwrite((const void *) (output_buffer.Data()), output_buffer_size, 1, file_handle.file);
 
         } // end if isvisible
       }   // end for

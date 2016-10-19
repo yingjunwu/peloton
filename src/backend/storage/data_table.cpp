@@ -677,7 +677,7 @@ oid_t DataTable::AddDefaultTileGroup(const size_t &tg_seq_id) {
   column_map_type column_map;
   oid_t tile_group_id = INVALID_OID;
 
-  // Figure out the partitioning for given tilegroup layout
+  // Figure out the partitioning for given tile group layout
   column_map = GetTileGroupLayout();
 
   // Create a tile group with that partitioning

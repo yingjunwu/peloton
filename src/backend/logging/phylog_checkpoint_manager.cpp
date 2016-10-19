@@ -98,6 +98,7 @@ namespace logging {
 
       size_t virtual_checkpointer_id = current_tile_group_offset % max_checkpointer_count_;
     
+      FileHandle &file_handle = file_handles[virtual_checkpointer_id];
 
       auto tile_group =
           target_table->GetTileGroup(current_tile_group_offset);
@@ -127,8 +128,8 @@ namespace logging {
           container_tuple.SerializeTo(output_buffer);
 
           size_t output_buffer_size = output_buffer.Size();
-          fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handles[virtual_checkpointer_id].file);
-          fwrite((const void *) (output_buffer.Data()), output_buffer_size, 1, file_handles[virtual_checkpointer_id].file);
+          fwrite((const void *) (&output_buffer_size), sizeof(output_buffer_size), 1, file_handle.file);
+          fwrite((const void *) (output_buffer.Data()), output_buffer_size, 1, file_handle.file);
 
         } // end if isvisible
       }   // end for

@@ -84,24 +84,6 @@ class TileGroupHeader : public Printable {
     }
   }
 
-  /**
-   * Used by logging
-   */
-  // TODO: rewrite the code!!!
-  bool FillInEmptyTupleSlot(const oid_t &tuple_slot_id) {
-    tile_header_lock.Lock();
-    if (tuple_slot_id < num_tuple_slots) {
-      if (next_tuple_slot <= tuple_slot_id) {
-        next_tuple_slot = tuple_slot_id + 1;
-      }
-      tile_header_lock.Unlock();
-      return true;
-    } else {
-      tile_header_lock.Unlock();
-      return false;
-    }
-  }
-
   oid_t GetCurrentNextTupleSlot() const {
     // Carefully check if the next_tuple_slot is out of boundary
     oid_t next_tid = next_tuple_slot;
@@ -245,10 +227,6 @@ class TileGroupHeader : public Printable {
 
   void PrintVisibility(txn_id_t txn_id, cid_t at_cid);
 
-  // Getter for spin lock
-
-  Spinlock &GetHeaderLock() { return tile_header_lock; }
-
   // Sync the contents
   void Sync();
 
@@ -309,8 +287,6 @@ private:
   // WARNING: this variable may not be the right boundary of the tile
   // IT MAY OUT OF BOUNDARY! ALWAYS CHECK IF IT EXCEEDS num_tuple_slots
   std::atomic<oid_t> next_tuple_slot;
-
-  Spinlock tile_header_lock;
 };
 
 }  // End storage namespace

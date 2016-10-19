@@ -88,23 +88,6 @@ class TileGroup : public Printable {
   // insert tuple at next available slot in tile if a slot exists
   oid_t InsertTuple(const Tuple *tuple);
 
-  // insert tuple at specific tuple slot
-  // used by recovery mode
-  oid_t InsertTupleFromRecovery(cid_t commit_id, oid_t tuple_slot_id,
-                                const Tuple *tuple);
-
-  // insert tuple at specific tuple slot
-  // used by recovery mode
-  oid_t DeleteTupleFromRecovery(cid_t commit_id, oid_t tuple_slot_id);
-
-  // insert tuple at specific tuple slot
-  // used by recovery mode
-  oid_t UpdateTupleFromRecovery(cid_t commit_id, oid_t tuple_slot_id,
-                                ItemPointer new_location);
-
-  oid_t InsertTupleFromCheckpoint(oid_t tuple_slot_id, const Tuple *tuple,
-                                  cid_t commit_id);
-
   //===--------------------------------------------------------------------===//
   // Utilities
   //===--------------------------------------------------------------------===//

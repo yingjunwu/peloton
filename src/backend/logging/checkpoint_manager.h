@@ -94,16 +94,18 @@ protected:
   }
 
   // recover logic
-  size_t RecoverPepoch();
-  void RecoverCheckpoint(const size_t &epoch_id);
-  void RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles);
+  size_t RecoverPepoch(std::vector<std::vector<size_t>> &database_structures);
+  void RecoverCheckpoint(const size_t &epoch_id, const std::vector<std::vector<size_t>> &database_structures);
+  void RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<std::vector<size_t>> &database_structures, FileHandle ***file_handles);
 
   virtual void RecoverTable(storage::DataTable *, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) = 0;
+
+  virtual void PrepareTables(const std::vector<std::vector<size_t>> &database_structures UNUSED_ATTRIBUTE) {}
 
   // checkpointing logic
 
   void Running();
-  void PerformCheckpoint(const cid_t &begin_cid);
+  void PerformCheckpoint(const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures);
   void PerformCheckpointThread(const size_t &thread_id, const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures, FileHandle ***file_handles);
 
   virtual void CheckpointTable(storage::DataTable *, const size_t &tile_group_count, const size_t &thread_id, const cid_t &begin_cid, FileHandle *file_handles) = 0;
@@ -133,7 +135,9 @@ protected:
   std::string ckpt_pepoch_dir_;
 
   const std::string ckpt_pepoch_filename_ = "checkpoint_pepoch";
-    
+
+  CopySerializeOutput ckpt_pepoch_buffer_;
+
   std::unique_ptr<VarlenPool> recovery_pool_;
 };
 

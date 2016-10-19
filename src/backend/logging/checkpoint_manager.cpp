@@ -23,13 +23,16 @@ namespace peloton {
 namespace logging {
 
   void CheckpointManager::DoRecovery() {
-    size_t persist_epoch_id = RecoverPepoch();
+
+    std::vector<std::vector<size_t>> database_structures;
+
+    size_t persist_epoch_id = RecoverPepoch(database_structures);
     
     // reload all the files with file name containing "persist epoch id"
-    RecoverCheckpoint(persist_epoch_id);
+    RecoverCheckpoint(persist_epoch_id, database_structures);
   }
 
-  size_t CheckpointManager::RecoverPepoch() {
+  size_t CheckpointManager::RecoverPepoch(std::vector<std::vector<size_t>> &database_structures) {
     FileHandle file_handle;
     std::string filename = ckpt_pepoch_dir_ + "/" + ckpt_pepoch_filename_;
     // Create a new file
@@ -38,14 +41,47 @@ namespace logging {
       exit(EXIT_FAILURE);
     }
 
-    size_t persist_epoch_id = 0;
+    size_t buf_size = 4096;
+    std::unique_ptr<char[]> buffer(new char[buf_size]);
+    char length_buf[sizeof(int32_t)];
+
+    
+    int length = 0;
     while (true) {
-      if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &persist_epoch_id, sizeof(persist_epoch_id)) == false) {
+      // Read the frame length
+      if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &length_buf, 4) == false) {
         LOG_TRACE("Reach the end of the log file");
         break;
       }
+
+      CopySerializeInputBE length_decode((const void *) &length_buf, 4);
+      length = length_decode.ReadInt();
+
+      if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer.get(), length) == false) {
+        LOG_ERROR("Unexpected file eof");
+        // TODO: How to handle damaged log file?
+        return false;
+      }
     }
-    LOG_INFO("checkpoint persist epoch id = %lu", persist_epoch_id);
+    CopySerializeInputBE record_decode((const void *) buffer.get(), length);
+
+    size_t persist_epoch_id = (size_t) record_decode.ReadLong();
+
+
+    int database_count = record_decode.ReadInt();
+
+    database_structures.resize(database_count);
+
+    for (oid_t database_idx = 0; database_idx < (oid_t)database_count; ++database_idx) {
+      
+      int table_count = record_decode.ReadInt();
+
+      for (oid_t table_idx = 0; table_idx < (oid_t)table_count; table_idx++) {
+        int tile_group_count = record_decode.ReadInt();
+
+        database_structures[database_idx].push_back(tile_group_count);
+      }
+    }
 
     // Safely close the file
     bool res = LoggingUtil::CloseFile(file_handle);
@@ -57,34 +93,16 @@ namespace logging {
     return persist_epoch_id;
   }
 
-  void CheckpointManager::RecoverCheckpoint(const size_t &epoch_id) {
-    // prepare database structures.
-    // each checkpoint thread must observe the same database structures.
-    // this guarantees that the workload can be partitioned consistently.
-    std::vector<size_t> database_structures;
-
-    auto &catalog_manager = catalog::Manager::GetInstance();
-    auto database_count = catalog_manager.GetDatabaseCount();
-
-    database_structures.resize(database_count);
-
-    // construct database structures
-    for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
-      auto database = catalog_manager.GetDatabase(database_idx);
-      auto table_count = database->GetTableCount();
-
-      database_structures[database_idx] = table_count;
-
-    }
+  void CheckpointManager::RecoverCheckpoint(const size_t &epoch_id, const std::vector<std::vector<size_t>> &database_structures) {
 
     // open files
     FileHandle ***file_handles = new FileHandle**[database_structures.size()];
     
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
     
-      file_handles[database_idx] = new FileHandle*[database_structures[database_idx]];
+      file_handles[database_idx] = new FileHandle*[database_structures[database_idx].size()];
 
-      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
         
         file_handles[database_idx][table_idx] = new FileHandle[max_checkpointer_count_];
 
@@ -103,7 +121,10 @@ namespace logging {
         }
       }
     }
-    
+
+    // before parallel recovery, we may need to prepare tables.
+    PrepareTables(database_structures);
+
     /////////////////////////////////////////////////////////////////////
     // after obtaining the database structures, we can start recovering checkpoints in parallel.
     std::vector<std::unique_ptr<std::thread>> recovery_threads;
@@ -118,7 +139,7 @@ namespace logging {
     // close files
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
       
-      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
     
         for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
           
@@ -165,12 +186,59 @@ namespace logging {
         auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
         cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
 
-        PerformCheckpoint(begin_cid);
+
+
+        // prepare database structures.
+        // each checkpoint thread must observe the same database structures.
+        // this guarantees that the workload can be partitioned consistently.
+        std::vector<std::vector<size_t>> database_structures;
+
+        auto &catalog_manager = catalog::Manager::GetInstance();
+        auto database_count = catalog_manager.GetDatabaseCount();
+
+        database_structures.resize(database_count);
+
+        for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
+          auto database = catalog_manager.GetDatabase(database_idx);
+          auto table_count = database->GetTableCount();
+
+          database_structures[database_idx].resize(table_count);
+
+          for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+      
+            storage::DataTable *target_table = database->GetTable(table_idx);
+
+            database_structures[database_idx][table_idx] = target_table->GetTileGroupCount();
+          }
+        }
+
+        PerformCheckpoint(begin_cid, database_structures);
         size_t epoch_id = begin_cid >> 32;
         // exit epoch.
         epoch_manager.ExitReadOnlyEpoch(epoch_id);
 
-        fwrite((const void *) (&epoch_id), sizeof(epoch_id), 1, file_handle.file);
+        ckpt_pepoch_buffer_.Reset();
+
+        size_t start = ckpt_pepoch_buffer_.Position();
+        ckpt_pepoch_buffer_.WriteInt(0);
+
+        ckpt_pepoch_buffer_.WriteLong((uint64_t) epoch_id);
+
+        ckpt_pepoch_buffer_.WriteInt(database_count);
+
+        for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
+
+          size_t table_count = database_structures[database_idx].size();
+          ckpt_pepoch_buffer_.WriteInt(table_count);
+  
+          for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+            ckpt_pepoch_buffer_.WriteInt((int)database_structures[database_idx][table_idx]);
+          }
+        }
+
+        ckpt_pepoch_buffer_.WriteIntAt(start, (int32_t) (ckpt_pepoch_buffer_.Position() - start - sizeof(int32_t)));
+
+        fwrite((const void *) (ckpt_pepoch_buffer_.Data()), ckpt_pepoch_buffer_.Size(), 1, file_handle.file);
         
         LoggingUtil::FFlushFsync(file_handle);
     
@@ -179,33 +247,9 @@ namespace logging {
     }
   }
 
-  void CheckpointManager::PerformCheckpoint(const cid_t &begin_cid) {
+  void CheckpointManager::PerformCheckpoint(const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
     std::cout<<"perform checkpoint..."<<std::endl;
     size_t epoch_id = begin_cid >> 32;
-
-    // prepare database structures.
-    // each checkpoint thread must observe the same database structures.
-    // this guarantees that the workload can be partitioned consistently.
-    std::vector<std::vector<size_t>> database_structures;
-
-    auto &catalog_manager = catalog::Manager::GetInstance();
-    auto database_count = catalog_manager.GetDatabaseCount();
-
-    database_structures.resize(database_count);
-
-    for (oid_t database_idx = 0; database_idx < database_count; ++database_idx) {
-      auto database = catalog_manager.GetDatabase(database_idx);
-      auto table_count = database->GetTableCount();
-
-      database_structures[database_idx].resize(table_count);
-
-      for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
-  
-        storage::DataTable *target_table = database->GetTable(table_idx);
-
-        database_structures[database_idx][table_idx] = target_table->GetTileGroupCount();
-      }
-    }
 
     // creating files
     FileHandle ***file_handles = new FileHandle**[database_structures.size()];
@@ -290,20 +334,20 @@ namespace logging {
   }
 
 
-  void CheckpointManager::RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<size_t> &database_structures, FileHandle ***file_handles) {
+  void CheckpointManager::RecoverCheckpointThread(const size_t &thread_id, const size_t &epoch_id, const std::vector<std::vector<size_t>> &database_structures, FileHandle ***file_handles) {
 
     cid_t current_cid = (epoch_id << 32) | 0x0;
 
     concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
 
     auto &catalog_manager = catalog::Manager::GetInstance();
-
+    
     // loop all databases
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
       auto database = catalog_manager.GetDatabase(database_idx);
-      
+    
       // loop all tables
-      for (oid_t table_idx = 0; table_idx < database_structures[database_idx]; table_idx++) {
+      for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
         // Get the target table
         storage::DataTable *target_table = database->GetTable(table_idx);
         PL_ASSERT(target_table);

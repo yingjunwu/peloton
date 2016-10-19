@@ -169,14 +169,15 @@ class DataTable : public AbstractTable {
 
   // Get a string representation for debugging
   const std::string GetInfo() const;
+  
+  // add a default unpartitioned tile group to table
+  oid_t AddDefaultTileGroup(const size_t &tg_seq_id);
 
  protected:
   //===--------------------------------------------------------------------===//
   // INTEGRITY CHECKS
   //===--------------------------------------------------------------------===//
 
-  // add a default unpartitioned tile group to table
-  oid_t AddDefaultTileGroup(const size_t &tg_seq_id);
 
   // get a partitioning with given layout type
   column_map_type GetTileGroupLayout();
