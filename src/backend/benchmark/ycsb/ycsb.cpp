@@ -201,6 +201,8 @@ void RunBenchmark() {
     
     auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
     log_manager.SetDirectories(state.log_directories);
+    log_manager.SetRecoveryThreadCount(state.replay_log_num);
+
     log_manager.DoRecovery(0);
     return;
   }
@@ -221,6 +223,7 @@ void RunBenchmark() {
       auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       log_manager.SetDirectories(state.log_directories);
       log_manager.SetRecoveryThreadCount(state.replay_log_num);
+      
       // log_manager.DoRecovery();
     }
 

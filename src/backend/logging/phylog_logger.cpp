@@ -46,7 +46,7 @@ void PhyLogLogger::DeregisterWorker(PhyLogWorkerContext *phylog_worker_ctx) {
 void PhyLogLogger::StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count) {
 
   GetSortedLogFileIdList(checkpoint_eid, persist_eid);
-
+  printf("recovery_thread_count = %lu\n", recovery_thread_count);
   recovery_pools_.resize(recovery_thread_count);
   recovery_threads_.resize(recovery_thread_count);
 
@@ -136,6 +136,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   std::vector<ItemPointer *> itemptr_ptrs;
   pindex->ScanKey(key.get(), itemptr_ptrs);
 
+
   if (itemptr_ptrs.empty()) {
     // Try to insert a new tuple
     std::function<bool (const void *)> fn = [](const void *t UNUSED_ATTRIBUTE) -> bool {return true;};
@@ -158,6 +159,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
     if (pindex->CondInsertEntryInTupleIndex(key.get(), itemptr_ptr, fn) == false) {
       // Already inserted by others (concurrently), fall back to the override approach
       delete itemptr_ptr;
+      itemptr_ptr = nullptr;
       UnlockTuple(insert_tg_header, insert_location.offset, old_txn_id);
       gc::GCManagerFactory::GetInstance().DirectRecycleTuple(table->GetOid(), insert_location);
 
@@ -223,7 +225,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   return true;
 }
 
-bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
+bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t persist_eid) {
   PL_ASSERT(file_handle.file != nullptr && file_handle.fd != INVALID_FILE_DESCRIPTOR);
 
   // Status
@@ -257,7 +259,7 @@ bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle
     CopySerializeInputBE record_decode((const void *) buffer.get(), length);
 
     // Check if we can skip this epoch
-    if (current_eid != INVALID_EPOCH_ID && (current_eid < checkpoint_eid || current_eid > pepoch_eid)) {
+    if (current_eid != INVALID_EPOCH_ID && (current_eid < checkpoint_eid || current_eid > persist_eid)) {
       // Skip the record if current epoch is before the checkpoint or after persistent epoch
       continue;
     }
@@ -295,6 +297,11 @@ bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle
           return false;
         }
         current_cid = (cid_t) record_decode.ReadLong();
+        
+        if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+          concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
+        }
+
         break;
       } case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
         if (current_eid == INVALID_EPOCH_ID) {
@@ -307,6 +314,12 @@ bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle
           return false;
         }
         current_cid = INVALID_CID;
+
+        if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+          delete concurrency::current_txn;
+          concurrency::current_txn = nullptr;
+        }
+
         break;
       } case LOGRECORD_TYPE_TUPLE_UPDATE:
         case LOGRECORD_TYPE_TUPLE_DELETE:
@@ -314,6 +327,10 @@ bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle
         if (current_cid == INVALID_CID || current_eid == INVALID_EPOCH_ID) {
           LOG_ERROR("Invalid txn tuple record");
           return false;
+        }
+
+        if (current_eid < checkpoint_eid || current_eid > persist_eid) {
+          break;
         }
 
         oid_t database_id = (oid_t) record_decode.ReadLong();
@@ -336,7 +353,7 @@ bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle
         // fclose(fp);
 
         // Install the record
-        //InstallTupleRecord(record_type, tuple.get(), table, current_cid);
+        InstallTupleRecord(record_type, tuple.get(), table, current_cid);
         break;
       }
       default:
@@ -354,6 +371,7 @@ void PhyLogLogger::RunRecoveryThread(const size_t thread_id, const size_t checkp
   while (true) {
 
     int replay_file_id = max_replay_file_id_.fetch_sub(1, std::memory_order_relaxed);
+    printf("replay file id = %d\n", replay_file_id);
     if (replay_file_id < 0) {
       break;
     }

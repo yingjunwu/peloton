@@ -186,7 +186,7 @@ void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
 
 void PhyLogLogManager::DoRecovery(const size_t &begin_eid){
   size_t end_eid = RecoverPepoch();
-
+  // printf("recovery_thread_count = %d, logger count = %d\n", (int)recovery_thread_count_, (int)logger_count_);
   size_t recovery_thread_per_logger = (size_t) ceil(recovery_thread_count_ * 1.0 / logger_count_);
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {

@@ -55,7 +55,7 @@ public:
 protected:
   size_t logger_count_;
 
-  size_t recovery_thread_count_;
+  size_t recovery_thread_count_ = 1;
 
   std::atomic<size_t> global_persist_epoch_id_;
 
