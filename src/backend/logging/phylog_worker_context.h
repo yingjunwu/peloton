@@ -33,6 +33,9 @@
 #include "backend/common/timer.h"
 
 namespace peloton {
+  namespace concurrency {
+    extern thread_local size_t lt_txn_worker_id;
+  }
 namespace logging {
 
   // the worker context is constructed when registering the worker to the logger.
@@ -47,10 +50,12 @@ namespace logging {
         reported_eid(INVALID_EPOCH_ID),
         current_cid(INVALID_CID), 
         worker_id(id),
+        transaction_worker_id(INVALID_TXN_WORKER_ID),
         cur_txn_start_time(0),
         pending_txn_timers(),
         txn_summary() {
       LOG_TRACE("Create worker %d", (int) worker_id);
+      transaction_worker_id = concurrency::lt_txn_worker_id;
     }
 
     ~PhylogWorkerContext() {
@@ -77,6 +82,9 @@ namespace logging {
 
     // worker thread id
     oid_t worker_id;
+
+    // transaction worker id
+    size_t transaction_worker_id;
 
     /* Statistics */
 

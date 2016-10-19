@@ -335,6 +335,8 @@ void PhyLogLogger::Run() {
     exit(EXIT_FAILURE);
   }
 
+  auto &epoch_mamager = concurrency::EpochManagerFactory::GetInstance();
+
   /**
    *  Main loop
    */
@@ -342,7 +344,9 @@ void PhyLogLogger::Run() {
     if (is_running_ == false) { break; }
 
     std::this_thread::sleep_for(
-       std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
+       std::chrono::microseconds(epoch_mamager.GetEpochLengthInMicroSecQuarter()));
+
+    size_t current_global_eid = epoch_mamager.GetCurrentEpochId();
 
     // Pull log records from workers per epoch buffer
     {
@@ -354,7 +358,10 @@ void PhyLogLogger::Run() {
         auto worker_ctx_ptr = worker_entry.second.get();
 
         size_t last_persist_eid = worker_ctx_ptr->persist_eid;
-        size_t worker_current_eid = worker_ctx_ptr->current_commit_eid;
+
+        // Since idle worker has MAX_EPOCH_ID, we need a std::min here
+        size_t worker_current_eid = std::min(epoch_mamager.GetRwTxnWorkerCurrentEid(worker_ctx_ptr->transaction_worker_id),
+                                             current_global_eid);
 
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 
