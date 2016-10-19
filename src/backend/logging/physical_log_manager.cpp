@@ -177,14 +177,14 @@ void PhysicalLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   WriteRecordToBuffer(record);
 }
 
-void PhysicalLogManager::DoRecovery(){
+void PhysicalLogManager::DoRecovery(const size_t &begin_eid){
   // TODO: Get the checkpoint eid
   // TODO: Get the pepoch eid
   // TODO: Get the number of logger -- Better be the same as the last run
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d for recovery", (int) logger_id);
     // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecovery(START_EPOCH_ID, MAX_EPOCH_ID);
+    loggers_[logger_id]->StartRecovery(begin_eid, MAX_EPOCH_ID);
   }
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {

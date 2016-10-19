@@ -184,14 +184,15 @@ void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::DoRecovery(){
-  // TODO: Get the checkpoint eid
-  // TODO: Get the pepoch eid
-  // TODO: Get the number of logger -- Better be the same as the last run
+void PhyLogLogManager::DoRecovery(const size_t &begin_eid){
+  size_t end_eid = RecoverPepoch();
+
+  size_t recovery_thread_per_logger = (size_t) ceil(recovery_thread_count_ * 1.0 / logger_count_);
+
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d for recovery", (int) logger_id);
     // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecovery(START_EPOCH_ID, MAX_EPOCH_ID);
+    loggers_[logger_id]->StartRecovery(begin_eid, end_eid, recovery_thread_per_logger);
   }
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
@@ -265,7 +266,7 @@ void PhyLogLogManager::RunPepochLogger() {
 
 }
 
-void PhyLogLogManager::RecoverPepoch() {
+size_t PhyLogLogManager::RecoverPepoch() {
   FileHandle file_handle;
   std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
   // Create a new file
@@ -273,9 +274,10 @@ void PhyLogLogManager::RecoverPepoch() {
     LOG_ERROR("Unable to open pepoch file %s\n", filename.c_str());
     exit(EXIT_FAILURE);
   }
+  
+  size_t persist_epoch_id = 0;
 
   while (true) {
-    size_t persist_epoch_id = 0;
     if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &persist_epoch_id, sizeof(persist_epoch_id)) == false) {
       LOG_TRACE("Reach the end of the log file");
       break;
@@ -290,6 +292,7 @@ void PhyLogLogManager::RecoverPepoch() {
     exit(EXIT_FAILURE);
   }
 
+  return persist_epoch_id;
 }
 
 }

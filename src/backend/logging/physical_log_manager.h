@@ -111,7 +111,7 @@ public:
   void FinishPendingTxn();
 
   // Logger side logic
-  virtual void DoRecovery() override;
+  virtual void DoRecovery(const size_t &begin_eid) override;
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 

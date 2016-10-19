@@ -42,7 +42,30 @@ void PhyLogLogger::DeregisterWorker(PhyLogWorkerContext *phylog_worker_ctx) {
   worker_map_lock_.Unlock();
 }
 
-std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
+
+void PhyLogLogger::StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count) {
+
+  GetSortedLogFileIdList(checkpoint_eid, persist_eid);
+
+  recovery_pools_.resize(recovery_thread_count);
+  recovery_threads_.resize(recovery_thread_count);
+
+  for (size_t i = 0; i < recovery_thread_count; ++i) {
+    
+    recovery_pools_[i].reset(new VarlenPool(BACKEND_TYPE_MM));
+    
+    recovery_threads_[i].reset(new std::thread(&PhyLogLogger::RunRecoveryThread, this, i, checkpoint_eid, persist_eid));
+  }
+}
+
+void PhyLogLogger::WaitForRecovery() {
+  for (auto &recovery_thread : recovery_threads_) {
+    recovery_thread->join();
+  }
+}
+
+
+void PhyLogLogger::GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid) {
   // Open the log dir
   struct dirent *file;
   DIR *dirp;
@@ -52,22 +75,37 @@ std::vector<int> PhyLogLogger::GetSortedLogFileIdList() {
     exit(EXIT_FAILURE);
   }
 
+
+  concurrency::EpochManager &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  size_t file_epoch_count = (size_t)(new_file_interval_ / epoch_manager.GetEpochDurationMilliSecond());
+
   // Filter out all log files
   std::string base_name = logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_";
-  std::vector<int> file_ids;
+
+  file_eids_.clear();
+
   while ((file = readdir(dirp)) != nullptr) {
     if (strncmp(file->d_name, base_name.c_str(), base_name.length()) == 0) {
       // Find one log file
       LOG_TRACE("Logger %d find a log file %s\n", (int) logger_id_, file->d_name);
-      // Get the file id
-      int file_id = std::stoi(std::string(file->d_name + base_name.length()));
-      file_ids.push_back(file_id);
+      // Get the file epoch id
+      size_t file_eid = (size_t)std::stoi(std::string(file->d_name + base_name.length()));
+
+      if (file_eid + file_epoch_count > checkpoint_eid && file_eid <= persist_eid) {
+        file_eids_.push_back(file_eid);
+      }
+
     }
   }
 
   // Sort in descending order
-  std::sort(file_ids.begin(), file_ids.end(), std::greater<int>());
-  return file_ids;
+  std::sort(file_eids_.begin(), file_eids_.end(), std::greater<size_t>());
+  max_replay_file_id_ = file_eids_.size() - 1;
+
+  for (auto &entry : file_eids_) {
+    printf("file id = %lu\n", entry);
+  }
+
 }
 
 txn_id_t PhyLogLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
@@ -185,7 +223,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
   return true;
 }
 
-bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
+bool PhyLogLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
   PL_ASSERT(file_handle.file != nullptr && file_handle.fd != INVALID_FILE_DESCRIPTOR);
 
   // Status
@@ -287,7 +325,7 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
 
         // Decode the tuple from the record
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
-        tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
+        tuple->DeserializeFrom(record_decode, this->recovery_pools_[thread_id].get());
 
         // FILE *fp = fopen("in_file.txt", "a");
         // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
@@ -311,13 +349,19 @@ bool PhyLogLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid,
   return true;
 }
 
-void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
-  // Get all log files, replay them in the reverse order
-  std::vector<int> file_ids = GetSortedLogFileIdList();
+void PhyLogLogger::RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid) {
 
-  for (auto fid : file_ids) {
+  while (true) {
+
+    int replay_file_id = max_replay_file_id_.fetch_sub(1, std::memory_order_relaxed);
+    if (replay_file_id < 0) {
+      break;
+    }
+
+    size_t file_eid = file_eids_.at(replay_file_id);
+    printf("start replaying file eid = %lu\n", file_eid);
     // Replay a single file
-    std::string filename = GetLogFileFullPath(fid);
+    std::string filename = GetLogFileFullPath(file_eid);
     FileHandle file_handle;
     // std::cout<<"filename = " << filename << std::endl;
     bool res = LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle);
@@ -325,9 +369,7 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
       LOG_ERROR("Cannot open log file %s\n", filename.c_str());
       exit(EXIT_FAILURE);
     }
-    ReplayLogFile(file_handle, checkpoint_eid, persist_eid);
-    size_t next_file_eid = 0;
-    next_file_eid = std::max(next_file_eid, (size_t) fid);
+    ReplayLogFile(thread_id, file_handle, checkpoint_eid, persist_eid);
 
     // Safely close the file
     res = LoggingUtil::CloseFile(file_handle);
@@ -337,7 +379,7 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
     }
 
   }
-  recovery_done_ = true;
+
 }
 
 
@@ -346,7 +388,7 @@ void PhyLogLogger::Run() {
 
   concurrency::EpochManager &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
 
-  size_t file_epoch_count = (size_t)(1000 / epoch_manager.GetEpochDurationMilliSecond());
+  size_t file_epoch_count = (size_t)(new_file_interval_ / epoch_manager.GetEpochDurationMilliSecond());
 
   std::list<std::pair<FileHandle*, size_t>> file_handles;
 

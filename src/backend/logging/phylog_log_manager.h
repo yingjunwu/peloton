@@ -111,14 +111,14 @@ public:
   void FinishPendingTxn();
 
   // Logger side logic
-  virtual void DoRecovery() override;
+  virtual void DoRecovery(const size_t &begin_eid) override;
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 
   void RunPepochLogger();
 
 private:
-  void RecoverPepoch();
+  size_t RecoverPepoch();
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {

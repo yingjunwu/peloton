@@ -37,7 +37,7 @@ public:
   virtual void RegisterWorker() final {};
   virtual void DeregisterWorker() final {};
 
-  virtual void DoRecovery() final {};
+  virtual void DoRecovery(const size_t &begin_eid UNUSED_ATTRIBUTE) final {};
 
   virtual void StartLoggers() final {};
   virtual void StopLoggers() final {};

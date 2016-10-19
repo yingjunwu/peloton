@@ -13,6 +13,7 @@
 #pragma once
 
 #include <string>
+#include <cmath>
 
 #include "backend/common/macros.h"
 #include "backend/concurrency/transaction.h"
@@ -37,16 +38,12 @@ public:
 
   void SetRecoveryThreadCount(const size_t &recovery_thread_count) {
     recovery_thread_count_ = recovery_thread_count;
-    // if (recovery_thread_count_ > max_checkpointer_count_) {
-    //   LOG_ERROR("# recovery thread cannot be larger than # max checkpointer");
-    //   exit(EXIT_FAILURE);
-    // }
   }
 
   virtual void RegisterWorker() = 0;
   virtual void DeregisterWorker() = 0;
 
-  virtual void DoRecovery() = 0;
+  virtual void DoRecovery(const size_t &begin_eid) = 0;
 
   virtual void StartLoggers() = 0;
   virtual void StopLoggers() = 0;

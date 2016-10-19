@@ -49,21 +49,14 @@ namespace logging {
       logger_thread_(nullptr),
       is_running_(false),
       logger_output_buffer_(), 
-      recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)),
       persist_epoch_id_(INVALID_EPOCH_ID),
       worker_map_lock_(), 
       worker_map_() {}
 
     ~PhyLogLogger() {}
 
-    void StartRecovery(size_t checkpoint_eid, size_t persist_eid) {
-      // Reuse the thread
-      logger_thread_.reset(new std::thread(&PhyLogLogger::RunRecovery, this, checkpoint_eid, persist_eid));
-    }
-
-    void WaitForRecovery() {
-      logger_thread_->join();
-    }
+    void StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
+    void WaitForRecovery();
 
     void StartLogging() {
       is_running_ = true;
@@ -84,7 +77,6 @@ namespace logging {
 
 
 private:
-  void RunRecovery(size_t checkpoint_eid, size_t persist_eid);
   void Run();
 
   void PersistEpochBegin(FileHandle &file_handle, const size_t epoch_id);
@@ -95,8 +87,11 @@ private:
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
   }
 
-  std::vector<int> GetSortedLogFileIdList();
-  bool ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
+  void GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid);
+  
+  void RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid);
+  
+  bool ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
   bool InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid);
 
   // Return value is the swapped txn id, either INVALID_TXNID or INITIAL_TXNID
@@ -106,6 +101,16 @@ private:
   private:
     size_t logger_id_;
     std::string log_dir_;
+
+    // recovery threads
+    std::vector<std::unique_ptr<std::thread>> recovery_threads_;
+    std::vector<size_t> file_eids_;
+    std::atomic<int> max_replay_file_id_;
+
+    /* Recovery */
+    // TODO: Check if we can discard the recovery pool after the recovery is done. Since every thing is copied to the
+    // tile group and tile group related pool
+    std::vector<std::unique_ptr<VarlenPool>> recovery_pools_;
     
     // logger thread
     std::unique_ptr<std::thread> logger_thread_;
@@ -113,12 +118,6 @@ private:
 
     /* File system related */
     CopySerializeOutput logger_output_buffer_;
-
-    /* Recovery */
-    // TODO: Check if we can discard the recovery pool after the recovery is done. Since every thing is copied to the
-    // tile gorup and tile group related pool
-    std::unique_ptr<VarlenPool> recovery_pool_;
-    bool recovery_done_ = false;
 
     /* Log buffers */
     size_t persist_epoch_id_;
