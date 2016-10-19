@@ -260,6 +260,36 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, ItemPointer **it
   return location;
 }
 
+void DataTable::InsertTupleFromCheckpoint(ItemPointer &location, const storage::Tuple *tuple, ItemPointer **itemptr_ptr) {
+
+  LOG_TRACE("Location: %u, %u", location.block, location.offset);
+
+  // Index checks and updates
+  if (InsertInIndexes(tuple, location, itemptr_ptr) == false) {
+    LOG_TRACE("Index constraint violated");
+    gc::GCManagerFactory::GetInstance().DirectRecycleTuple(table_oid, location);
+    return;
+  }
+
+  // Write down the master version's pointer into tile group header
+  auto tg_hdr = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
+  tg_hdr->SetMasterPointer(location.offset, *itemptr_ptr);
+
+  if (indexes_.size() != 0) {
+    PL_ASSERT((*itemptr_ptr)->block == location.block && (*itemptr_ptr)->offset == location.offset);
+  }
+
+  // Increase the table's number of tuples by 1
+  IncreaseNumberOfTuplesBy(1);
+  
+  // Increase the indexes' number of tuples by 1 as well
+  for (auto index : indexes_) {
+    index->IncreaseNumberOfTuplesBy(1);
+  }
+  return;
+}
+
+
 // For RB
 ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple, index::RBItemPointer **rb_itemptr_ptr) {
   assert(rb_itemptr_ptr != nullptr);

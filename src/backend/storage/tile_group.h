@@ -88,6 +88,8 @@ class TileGroup : public Printable {
   // insert tuple at next available slot in tile if a slot exists
   oid_t InsertTuple(const Tuple *tuple);
 
+  void InsertTupleFromCheckpoint(oid_t tuple_slot_id, const Tuple *tuple);
+
   //===--------------------------------------------------------------------===//
   // Utilities
   //===--------------------------------------------------------------------===//

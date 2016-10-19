@@ -49,13 +49,14 @@ namespace logging {
         size_t tile_group_count = database_structures.at(database_idx).at(table_idx);
         printf("recover tile group: <%lu, %lu>\n", target_table->GetTileGroupCount(), tile_group_count);
         for (size_t tg_id = target_table->GetTileGroupCount(); tg_id < tile_group_count; ++tg_id) {
-          // target_table->AddDefaultTileGroup(tg_id);
+          target_table->AddDefaultTileGroup(tg_id % NUM_PREALLOCATION);
         }
+        printf("final table tile group count = %lu\n", target_table->GetTileGroupCount());
       }
     }
   }
 
-  void PhysicalCheckpointManager::RecoverTable(storage::DataTable *target_table, const size_t &thread_id, const cid_t &current_cid UNUSED_ATTRIBUTE, FileHandle *file_handles) {
+  void PhysicalCheckpointManager::RecoverTable(storage::DataTable *target_table, const size_t &thread_id, const cid_t &current_cid, FileHandle *file_handles) {
 
     auto schema = target_table->GetSchema();
 
@@ -104,6 +105,18 @@ namespace logging {
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
         tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
         
+        auto &manager = catalog::Manager::GetInstance();
+        auto tile_group = manager.GetTileGroup(item_pointer.block);
+        auto tile_group_header = tile_group->GetHeader();
+
+        tile_group->InsertTupleFromCheckpoint(item_pointer.offset, tuple.get());
+
+        ItemPointer *itemptr_ptr = nullptr;
+        target_table->InsertTupleFromCheckpoint(item_pointer, tuple.get(), &itemptr_ptr);
+        tile_group_header->SetBeginCommitId(item_pointer.offset, current_cid);
+        tile_group_header->SetEndCommitId(item_pointer.offset, MAX_CID);
+        tile_group_header->SetTransactionId(item_pointer.offset, INITIAL_TXN_ID);
+
         // FILE *fp = fopen("in_file.txt", "a");
         // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
         //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
@@ -112,20 +125,6 @@ namespace logging {
         // fprintf(stdout, "\n");
         // fclose(fp);
 
-        
-
-        // ItemPointer *itemptr_ptr = nullptr;
-        // ItemPointer location;
-        // location = target_table->InsertTuple(tuple.get(), &itemptr_ptr);
-
-        // if (location.block == INVALID_OID) {
-        //   LOG_ERROR("insertion failed!");
-        // }
-        // auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
-
-        // tile_group_header->SetBeginCommitId(location.offset, current_cid);
-        // tile_group_header->SetEndCommitId(location.offset, MAX_CID);
-        // tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
       } // end while
 
       delete[] buffer;

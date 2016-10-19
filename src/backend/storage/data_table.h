@@ -83,6 +83,10 @@ class DataTable : public AbstractTable {
   
   // insert tuple in table
   ItemPointer InsertTuple(const Tuple *tuple, ItemPointer **itemptr_ptr = nullptr);
+
+
+  void InsertTupleFromCheckpoint(ItemPointer &location, const storage::Tuple *tuple, ItemPointer **itemptr_ptr);
+
   // For RB
   ItemPointer InsertTuple(const Tuple *tuple, index::RBItemPointer **rb_itemptr_ptr);
 
