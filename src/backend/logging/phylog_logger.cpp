@@ -343,19 +343,24 @@ void PhyLogLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
 
 void PhyLogLogger::Run() {
   // TODO: Ensure that we have called run recovery before
-  size_t next_file_eid = 0;
-  std::string filename = GetLogFileFullPath(next_file_eid);
 
-  FileHandle file_handle;
+  concurrency::EpochManager &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
 
+  size_t file_epoch_count = (size_t)(1000 / epoch_manager.GetEpochDurationMilliSecond());
+
+  std::list<std::pair<FileHandle*, size_t>> file_handles;
+
+  size_t current_file_eid = 0; //epoch_manager.GetCurrentEpochId();
+
+  FileHandle *new_file_handle = new FileHandle();
+  file_handles.push_back(std::make_pair(new_file_handle, current_file_eid));
+  
+  std::string filename = GetLogFileFullPath(current_file_eid);
   // Create a new file
-  if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle) == false) {
+  if (LoggingUtil::OpenFile(filename.c_str(), "wb", *new_file_handle) == false) {
     LOG_ERROR("Unable to create log file %s\n", filename.c_str());
     exit(EXIT_FAILURE);
   }
-
-
-  // int new_file_count = (int)(2000 / concurrency::EpochManagerFactory::GetInstance()::GetEpochDurationMilliSecond());
 
   /**
    *  Main loop
@@ -364,7 +369,7 @@ void PhyLogLogger::Run() {
     if (is_running_ == false) { break; }
 
     std::this_thread::sleep_for(
-       std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
+       std::chrono::microseconds(epoch_manager.GetEpochLengthInMicroSecQuarter()));
 
     // Pull log records from workers per epoch buffer
     {
@@ -381,12 +386,13 @@ void PhyLogLogger::Run() {
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 
         if (last_persist_eid == worker_current_eid) {
-          // The worker makes no progess
+          // The worker makes no progress
           continue;
         }
 
         for (size_t epoch_id = last_persist_eid + 1; epoch_id < worker_current_eid; ++epoch_id) {
-          size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
+
+          size_t epoch_idx = epoch_id % epoch_manager.GetEpochQueueCapacity();
           // get all the buffers that are associated with the epoch.
           auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
 
@@ -396,7 +402,35 @@ void PhyLogLogger::Run() {
             // just skip it.
             continue;
           }
-          PersistEpochBegin(file_handle, epoch_id);
+
+          // if we have something to write, then check whether we need to create new file.
+          FileHandle *file_handle = nullptr;
+          
+          for (auto &entry : file_handles) {
+            if (epoch_id >= entry.second && epoch_id < entry.second + file_epoch_count) {
+              file_handle = entry.first;
+            }
+          }
+          while (file_handle == nullptr) {
+            current_file_eid = current_file_eid + file_epoch_count;
+            printf("create new file with epoch id = %lu, last persist eid = %lu, current eid = %lu\n", current_file_eid, last_persist_eid, worker_current_eid);
+            FileHandle *new_file_handle = new FileHandle();
+            file_handles.push_back(std::make_pair(new_file_handle, current_file_eid));
+
+            std::string filename = GetLogFileFullPath(current_file_eid);
+            // Create a new file
+            if (LoggingUtil::OpenFile(filename.c_str(), "wb", *new_file_handle) == false) {
+              LOG_ERROR("Unable to create log file %s\n", filename.c_str());
+              exit(EXIT_FAILURE);
+            }
+            if (epoch_id >= current_file_eid && epoch_id < current_file_eid + file_epoch_count) {
+              file_handle = new_file_handle;
+              break;
+            }
+          }
+
+
+          PersistEpochBegin(*file_handle, epoch_id);
           // persist all the buffers.
           while (buffers.empty() == false) {
             // Check if the buffer is empty
@@ -404,14 +438,14 @@ void PhyLogLogger::Run() {
             if (buffers.top()->Empty()) {
               worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
             } else {
-              PersistLogBuffer(file_handle, std::move(buffers.top()));
+              PersistLogBuffer(*file_handle, std::move(buffers.top()));
             }
             PL_ASSERT(buffers.top() == nullptr);
             buffers.pop();
           }
-          PersistEpochEnd(file_handle, epoch_id);
+          PersistEpochEnd(*file_handle, epoch_id);
           // Call fsync
-          LoggingUtil::FFlushFsync(file_handle);
+          LoggingUtil::FFlushFsync(*file_handle);
         } // end for
 
         worker_ctx_ptr->persist_eid = worker_current_eid - 1;
@@ -432,6 +466,30 @@ void PhyLogLogger::Run() {
 
       persist_epoch_id_ = min_workers_persist_eid;
 
+      auto list_iter = file_handles.begin();
+
+      while (list_iter != file_handles.end()) {
+        if (list_iter->second + file_epoch_count <= persist_epoch_id_) {
+          FileHandle *file_handle = list_iter->first;
+        
+          // Safely close the file
+          bool res = LoggingUtil::CloseFile(*file_handle);
+          if (res == false) {
+            LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
+            exit(EXIT_FAILURE);
+          }
+          
+          delete file_handle;
+          file_handle = nullptr;
+
+          list_iter = file_handles.erase(list_iter);
+
+        } else {
+          ++list_iter;
+        }
+      }
+
+
       worker_map_lock_.Unlock();
     }
   }
@@ -439,11 +497,23 @@ void PhyLogLogger::Run() {
   // Close the log file
   // TODO: Seek and write the integrity information in the header
 
-  // Safely close the file
-  bool res = LoggingUtil::CloseFile(file_handle);
-  if (res == false) {
-    LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
-    exit(EXIT_FAILURE);
+  // Safely close all the files
+
+  auto list_iter = file_handles.begin();
+
+  while (list_iter != file_handles.end()) {
+    FileHandle *file_handle = list_iter->first;
+
+    bool res = LoggingUtil::CloseFile(*file_handle);
+    if (res == false) {
+      LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
+      exit(EXIT_FAILURE);
+    }
+
+    delete file_handle;
+    file_handle = nullptr;
+
+    list_iter = file_handles.erase(list_iter);
   }
 }
 
