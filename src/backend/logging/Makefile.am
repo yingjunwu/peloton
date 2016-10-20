@@ -16,7 +16,9 @@ logging_FILES = \
 			   backend/logging/phylog_logger.cpp \
 			   backend/logging/phylog_log_manager.cpp \
 			   backend/logging/physical_logger.cpp \
-			   backend/logging/physical_log_manager.cpp
+			   backend/logging/physical_log_manager.cpp \
+			   backend/logging/command_logger.cpp \
+			   backend/logging/command_log_manager.cpp
 
 logging_INCLUDES = \
                   -I$(srcdir)/logging

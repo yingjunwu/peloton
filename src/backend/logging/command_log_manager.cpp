@@ -23,7 +23,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local CommandWorkerContext* tl_command_worker_ctx = nullptr;
+thread_local WorkerContext* tl_command_worker_ctx = nullptr;
 
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
@@ -31,7 +31,7 @@ thread_local CommandWorkerContext* tl_command_worker_ctx = nullptr;
 void CommandLogManager::RegisterWorker() {
   PL_ASSERT(tl_command_worker_ctx == nullptr);
   // shuffle worker to logger
-  tl_command_worker_ctx = new CommandWorkerContext(worker_count_++);
+  tl_command_worker_ctx = new WorkerContext(worker_count_++);
   size_t logger_id = HashToLogger(tl_command_worker_ctx->worker_id);
 
   loggers_[logger_id]->RegisterWorker(tl_command_worker_ctx);
@@ -46,42 +46,11 @@ void CommandLogManager::DeregisterWorker() {
   loggers_[logger_id]->DeregisterWorker(tl_command_worker_ctx);
 }
 
-void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
-  CommandWorkerContext *ctx = tl_command_worker_ctx;
+void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
+  WorkerContext *ctx = tl_command_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);
-
-  // First serialize the epoch to current output buffer
-  // TODO: Eliminate this extra copy
-  auto &output = ctx->output_buffer;
-
-  // Reset the output buffer
-  output.Reset();
-
-  // Reserve for the frame length
-  size_t start = output.Position();
-  output.WriteInt(0);
-
-  LogRecordType type = record.GetType();
-  output.WriteEnumInSingleByte(type);
-
-  switch (type) {
-    case LOGRECORD_TYPE_TRANSACTION_BEGIN:
-    case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
-      output.WriteLong(ctx->current_cid);
-      break;
-    }
-    case LOGRECORD_TYPE_EPOCH_BEGIN:
-    case LOGRECORD_TYPE_EPOCH_END: {
-      output.WriteLong((uint64_t) ctx->current_eid);
-      break;
-    }
-    default: {
-      LOG_ERROR("Unsupported log record type");
-      PL_ASSERT(false);
-    }
-  }
 
   size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
   
@@ -89,31 +58,36 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
   PL_ASSERT(buffer_ptr);
 
-  // Add the frame length
-  // XXX: We rely on the fact that the serializer treat a int32_t as 4 bytes
-  int32_t length = output.Position() - start - sizeof(int32_t);
-  output.WriteIntAt(start, length);
-
   // Copy the output buffer into current buffer
-  bool is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+  bool is_success = buffer_ptr->WriteData((const char*)(&(ctx->current_cid)), sizeof(ctx->current_cid));
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
     buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
     // Write it again
-    is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+    is_success = buffer_ptr->WriteData((const char*)(&(ctx->current_cid)), sizeof(ctx->current_cid));
+    PL_ASSERT(is_success);
+  }
+  is_success = buffer_ptr->WriteData((const char*)(&transaction_type), sizeof(transaction_type));
+  if (is_success == false) {
+    // A buffer is full, pass it to the front end logger
+    // Get a new buffer and register it to current epoch
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    // Write it again
+    is_success = buffer_ptr->WriteData((const char*)(&transaction_type), sizeof(transaction_type));
     PL_ASSERT(is_success);
   }
 }
 
-void CommandLogManager::StartTxn(concurrency::Transaction *txn) {
+void CommandLogManager::PersistTxn(concurrency::Transaction *txn, const int transaction_type) {
   PL_ASSERT(tl_command_worker_ctx);
   size_t txn_eid = txn->GetEpochId();
 
   // Record the txn timer
   DurabilityFactory::StartTxnTimer(txn_eid, tl_command_worker_ctx);
 
-  PL_ASSERT(tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_command_worker_ctx->current_eid <= txn_eid);
+  PL_ASSERT(tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID || 
+    tl_command_worker_ctx->current_eid <= txn_eid);
 
   // Handle the epoch id
   if (tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID 
@@ -127,15 +101,7 @@ void CommandLogManager::StartTxn(concurrency::Transaction *txn) {
   cid_t txn_cid = txn->GetEndCommitId();
   tl_command_worker_ctx->current_cid = txn_cid;
 
-  // Log down the begin of a transaction
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
-  WriteRecordToBuffer(record);
-}
-
-void CommandLogManager::CommitCurrentTxn() {
-  PL_ASSERT(tl_command_worker_ctx);
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_command_worker_ctx->current_cid);
-  WriteRecordToBuffer(record);
+  WriteRecordToBuffer(transaction_type);
 }
 
 void CommandLogManager::FinishPendingTxn() {
@@ -145,21 +111,7 @@ void CommandLogManager::FinishPendingTxn() {
 }
 
 
-void CommandLogManager::DoRecovery(const size_t &begin_eid){
-  size_t end_eid = RecoverPepoch();
-  // printf("recovery_thread_count = %d, logger count = %d\n", (int)recovery_thread_count_, (int)logger_count_);
-  size_t recovery_thread_per_logger = (size_t) ceil(recovery_thread_count_ * 1.0 / logger_count_);
-
-  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
-    LOG_TRACE("Start logger %d for recovery", (int) logger_id);
-    // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecovery(begin_eid, end_eid, recovery_thread_per_logger);
-  }
-
-  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
-    loggers_[logger_id]->WaitForRecovery();
-  }
-}
+void CommandLogManager::DoRecovery(const size_t &begin_eid UNUSED_ATTRIBUTE){}
 
 void CommandLogManager::StartLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {

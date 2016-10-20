@@ -24,7 +24,7 @@
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
-#include "backend/logging/command_worker_context.h"
+#include "backend/logging/worker_context.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -55,9 +55,6 @@ namespace logging {
 
     ~CommandLogger() {}
 
-    void StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
-    void WaitForRecovery();
-
     void StartLogging() {
       is_running_ = true;
       logger_thread_.reset(new std::thread(&CommandLogger::Run, this));
@@ -68,8 +65,8 @@ namespace logging {
       logger_thread_->join();
     }
 
-    void RegisterWorker(CommandWorkerContext *command_worker_ctx);
-    void DeregisterWorker(CommandWorkerContext *command_worker_ctx);
+    void RegisterWorker(WorkerContext *command_worker_ctx);
+    void DeregisterWorker(WorkerContext *command_worker_ctx);
 
     size_t GetPersistEpochId() const {
       return persist_epoch_id_;
@@ -87,30 +84,10 @@ private:
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
   }
 
-  void GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid);
-  
-  void RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid);
-  
-  bool ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
-  bool InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid);
-
-  // Return value is the swapped txn id, either INVALID_TXNID or INITIAL_TXNID
-  txn_id_t LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
-  void UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id);
-
   private:
     size_t logger_id_;
     std::string log_dir_;
-
-    // recovery threads
-    std::vector<std::unique_ptr<std::thread>> recovery_threads_;
-    std::vector<size_t> file_eids_;
-    std::atomic<int> max_replay_file_id_;
-
-    /* Recovery */
-    // TODO: Check if we can discard the recovery pool after the recovery is done. Since every thing is copied to the
-    // tile group and tile group related pool
-    std::vector<std::unique_ptr<VarlenPool>> recovery_pools_;
+    
     
     // logger thread
     std::unique_ptr<std::thread> logger_thread_;
@@ -125,7 +102,7 @@ private:
     // The spin lock to protect the worker map. We only update this map when creating/terminating a new worker
     Spinlock worker_map_lock_;
     // map from worker id to the worker's context.
-    std::unordered_map<oid_t, std::shared_ptr<CommandWorkerContext>> worker_map_;
+    std::unordered_map<oid_t, std::shared_ptr<WorkerContext>> worker_map_;
   
     const std::string logging_filename_prefix_ = "log";
 

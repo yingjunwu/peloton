@@ -26,8 +26,8 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/physical_worker_context.h"
-#include "backend/logging/physical_logger.h"
+#include "backend/logging/worker_context.h"
+#include "backend/logging/command_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -56,7 +56,7 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local CommandWorkerContext* tl_command_worker_ctx;
+extern thread_local WorkerContext* tl_command_worker_ctx;
 
 class CommandLogManager : public LogManager {
   CommandLogManager(const CommandLogManager &) = delete;
@@ -103,8 +103,7 @@ public:
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
   
-  void StartTxn(concurrency::Transaction *txn);
-  void CommitCurrentTxn();
+  void PersistTxn(concurrency::Transaction *txn, const int transaction_type);
   void FinishPendingTxn();
 
   // Logger side logic
@@ -116,6 +115,7 @@ public:
   void RunPepochLogger();
 
 private:
+  size_t RecoverPepoch();
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
@@ -132,7 +132,7 @@ private:
     return ((size_t) worker_id) % logger_count_;
   }
 
-  void WriteRecordToBuffer(LogRecord &record);
+  void WriteRecordToBuffer(const int transaction_type);
 
 private:
   std::atomic<oid_t> worker_count_;
