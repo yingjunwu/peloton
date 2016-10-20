@@ -44,7 +44,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -n --disable_insert    :  disable insert\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, physical, off\n"
+          "   -L --log_type          :  log type could be phylog, physical, command, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"

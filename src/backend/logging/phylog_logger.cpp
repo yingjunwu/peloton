@@ -30,13 +30,13 @@
 namespace peloton {
 namespace logging {
 
-void PhyLogLogger::RegisterWorker(PhyLogWorkerContext *phylog_worker_ctx) {
+void PhyLogLogger::RegisterWorker(WorkerContext *phylog_worker_ctx) {
   worker_map_lock_.Lock();
   worker_map_[phylog_worker_ctx->worker_id].reset(phylog_worker_ctx);
   worker_map_lock_.Unlock();
 }
 
-void PhyLogLogger::DeregisterWorker(PhyLogWorkerContext *phylog_worker_ctx) {
+void PhyLogLogger::DeregisterWorker(WorkerContext *phylog_worker_ctx) {
   worker_map_lock_.Lock();
   worker_map_.erase(phylog_worker_ctx->worker_id);
   worker_map_lock_.Unlock();

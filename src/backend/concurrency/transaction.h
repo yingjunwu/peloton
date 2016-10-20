@@ -107,6 +107,14 @@ class Transaction : public Printable {
 
   inline void SetEpochId(const size_t eid) { epoch_id_ = eid; }
 
+  inline int GetTransactionType() {
+    return transaction_type_;
+  }
+
+  inline void SetTransactionType(const int transaction_type) {
+    transaction_type_ = transaction_type;
+  }
+
   void RecordRead(const ItemPointer &);
 
   void RecordUpdate(const ItemPointer &);
@@ -197,6 +205,8 @@ class Transaction : public Printable {
 
   bool is_written_;
   size_t insert_count_;
+
+  int transaction_type_;
 
 public:
   cid_t lower_bound_cid_;

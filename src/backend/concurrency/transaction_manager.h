@@ -176,7 +176,7 @@ class TransactionManager {
     return txn;
   }
 
-  virtual Transaction *BeginTransaction() = 0;
+  virtual Transaction *BeginTransaction(const int transaction_type = 0) = 0;
 
   Result EndReadonlyTransaction() {
     EpochManagerFactory::GetInstance().ExitReadOnlyEpoch(current_txn->GetEpochId());

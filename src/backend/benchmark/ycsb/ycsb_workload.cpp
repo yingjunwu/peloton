@@ -59,7 +59,7 @@
 
 #include "backend/logging/durability_factory.h"
 #include "backend/logging/worker_context.h"
-#include "backend/logging/phylog_worker_context.h"
+#include "backend/logging/worker_context.h"
 
 #include "backend/planner/abstract_plan.h"
 #include "backend/planner/materialization_plan.h"

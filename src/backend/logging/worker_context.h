@@ -107,5 +107,57 @@ namespace logging {
     }
   };
 
+  
+  // the worker context is constructed when registering the worker to the logger.
+  struct WorkerContext {
+
+    WorkerContext(oid_t id)
+      : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
+        buffer_pool(id), 
+        output_buffer(),
+        current_eid(START_EPOCH_ID), 
+        persist_eid(INVALID_EPOCH_ID),
+        reported_eid(INVALID_EPOCH_ID),
+        current_cid(INVALID_CID), 
+        worker_id(id),
+        cur_txn_start_time(0),
+        pending_txn_timers(),
+        txn_summary() {
+      LOG_TRACE("Create worker %d", (int) worker_id);
+    }
+
+    ~WorkerContext() {
+      LOG_TRACE("Destroy worker %d", (int) worker_id);
+    }
+
+
+    // Every epoch has a buffer stack
+    std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
+    // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
+    LogBufferPool buffer_pool;
+    // serialize each tuple to string.
+    CopySerializeOutput output_buffer;
+
+    // current epoch id
+    size_t current_eid;
+    // persisted epoch id
+    size_t persist_eid;
+    // reported epoch id
+    size_t reported_eid;
+
+    // current transaction id
+    cid_t current_cid;
+
+    // worker thread id
+    oid_t worker_id;
+
+    /* Statistics */
+
+    // XXX: Simulation of early lock release
+    uint64_t cur_txn_start_time;
+    std::map<size_t, std::vector<uint64_t>> pending_txn_timers;
+    TxnSummary txn_summary;
+  };
+
 }
 }

@@ -111,9 +111,15 @@ namespace tpcc {
 #define COL_IDX_S_REMOTE_CNT      15
 #define COL_IDX_S_DATA            16
 
+#define TPCC_TRANSACTION_TYPE_STOCK_LEVEL     0
+#define TPCC_TRANSACTION_TYPE_ORDER_STATUS    1
+#define TPCC_TRANSACTION_TYPE_DELIVERY        2
+#define TPCC_TRANSACTION_TYPE_PAYMENT         3
+#define TPCC_TRANSACTION_TYPE_NEW_ORDER       4
 
 
 extern configuration state;
+
 
 void RunWorkload();
 

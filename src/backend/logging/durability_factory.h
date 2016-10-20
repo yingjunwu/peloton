@@ -61,11 +61,8 @@ class DurabilityFactory {
 
 
   /* Statistics */
-  static void StartTxnTimer(size_t eid, PhyLogWorkerContext *worker_ctx);
-  static void StopTimersByPepoch(size_t persist_eid, PhyLogWorkerContext *worker_ctx);
-
-  static void StartTxnTimer(size_t eid, PhysicalWorkerContext *worker_ctx);
-  static void StopTimersByPepoch(size_t persist_eid, PhysicalWorkerContext *worker_ctx);
+  static void StartTxnTimer(size_t eid, WorkerContext *worker_ctx);
+  static void StopTimersByPepoch(size_t persist_eid, WorkerContext *worker_ctx);
   
  private:
   static uint64_t GetCurrentTimeInUsec() {

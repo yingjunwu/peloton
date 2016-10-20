@@ -23,7 +23,7 @@
 namespace peloton {
 namespace logging {
 
-thread_local PhysicalWorkerContext* tl_physical_worker_ctx = nullptr;
+thread_local WorkerContext* tl_physical_worker_ctx = nullptr;
 
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
@@ -31,7 +31,7 @@ thread_local PhysicalWorkerContext* tl_physical_worker_ctx = nullptr;
 void PhysicalLogManager::RegisterWorker() {
   PL_ASSERT(tl_physical_worker_ctx == nullptr);
   // shuffle worker to logger
-  tl_physical_worker_ctx = new PhysicalWorkerContext(worker_count_++);
+  tl_physical_worker_ctx = new WorkerContext(worker_count_++);
   size_t logger_id = HashToLogger(tl_physical_worker_ctx->worker_id);
 
   loggers_[logger_id]->RegisterWorker(tl_physical_worker_ctx);
@@ -47,7 +47,7 @@ void PhysicalLogManager::DeregisterWorker() {
 }
 
 void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {
-  PhysicalWorkerContext *ctx = tl_physical_worker_ctx;
+  WorkerContext *ctx = tl_physical_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);

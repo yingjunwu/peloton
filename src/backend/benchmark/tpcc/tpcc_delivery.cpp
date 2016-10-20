@@ -400,7 +400,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
-  auto txn = txn_manager.BeginTransaction();
+  auto txn = txn_manager.BeginTransaction(TPCC_TRANSACTION_TYPE_DELIVERY);
 
 
   for (int d_id = 0; d_id < state.districts_per_warehouse; ++d_id) {

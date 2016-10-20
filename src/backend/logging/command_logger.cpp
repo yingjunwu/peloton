@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// physical_logger.cpp
+// command_logger.cpp
 //
-// Identification: src/backend/logging/physical_logger.cpp
+// Identification: src/backend/logging/command_logger.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -25,53 +25,90 @@
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
 
-#include "backend/logging/physical_logger.h"
+#include "backend/logging/command_logger.h"
 
 namespace peloton {
 namespace logging {
 
-void PhysicalLogger::RegisterWorker(WorkerContext *physical_worker_ctx) {
+void CommandLogger::RegisterWorker(CommandWorkerContext *command_worker_ctx) {
   worker_map_lock_.Lock();
-  worker_map_[physical_worker_ctx->worker_id].reset(physical_worker_ctx);
+  worker_map_[command_worker_ctx->worker_id].reset(command_worker_ctx);
   worker_map_lock_.Unlock();
 }
 
-void PhysicalLogger::DeregisterWorker(WorkerContext *physical_worker_ctx) {
+void CommandLogger::DeregisterWorker(CommandWorkerContext *command_worker_ctx) {
   worker_map_lock_.Lock();
-  worker_map_.erase(physical_worker_ctx->worker_id);
+  worker_map_.erase(command_worker_ctx->worker_id);
   worker_map_lock_.Unlock();
 }
 
-std::vector<int> PhysicalLogger::GetSortedLogFileIdList() {
+
+void CommandLogger::StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count) {
+
+  GetSortedLogFileIdList(checkpoint_eid, persist_eid);
+  printf("recovery_thread_count = %lu\n", recovery_thread_count);
+  recovery_pools_.resize(recovery_thread_count);
+  recovery_threads_.resize(recovery_thread_count);
+
+  for (size_t i = 0; i < recovery_thread_count; ++i) {
+    
+    recovery_pools_[i].reset(new VarlenPool(BACKEND_TYPE_MM));
+    
+    recovery_threads_[i].reset(new std::thread(&CommandLogger::RunRecoveryThread, this, i, checkpoint_eid, persist_eid));
+  }
+}
+
+void CommandLogger::WaitForRecovery() {
+  for (auto &recovery_thread : recovery_threads_) {
+    recovery_thread->join();
+  }
+}
+
+
+void CommandLogger::GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid) {
   // Open the log dir
   struct dirent *file;
   DIR *dirp;
-
   dirp = opendir(this->log_dir_.c_str());
   if (dirp == nullptr) {
-    LOG_ERROR("Can not open log direcotry %s\n", this->log_dir_.c_str());
+    LOG_ERROR("Can not open log directory %s\n", this->log_dir_.c_str());
     exit(EXIT_FAILURE);
   }
 
+
+  concurrency::EpochManager &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  size_t file_epoch_count = (size_t)(new_file_interval_ / epoch_manager.GetEpochDurationMilliSecond());
+
   // Filter out all log files
   std::string base_name = logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_";
-  std::vector<int> file_ids;
+
+  file_eids_.clear();
 
   while ((file = readdir(dirp)) != nullptr) {
     if (strncmp(file->d_name, base_name.c_str(), base_name.length()) == 0) {
       // Find one log file
       LOG_TRACE("Logger %d find a log file %s\n", (int) logger_id_, file->d_name);
-      // Get the file id
-      std::stoi(std::string(file->d_name + base_name.length()));
+      // Get the file epoch id
+      size_t file_eid = (size_t)std::stoi(std::string(file->d_name + base_name.length()));
+
+      if (file_eid + file_epoch_count > checkpoint_eid && file_eid <= persist_eid) {
+        file_eids_.push_back(file_eid);
+      }
+
     }
   }
 
   // Sort in descending order
-  std::sort(file_ids.begin(), file_ids.end(), std::greater<int>());
-  return file_ids;
+  std::sort(file_eids_.begin(), file_eids_.end(), std::greater<size_t>());
+  max_replay_file_id_ = file_eids_.size() - 1;
+
+  for (auto &entry : file_eids_) {
+    printf("file id = %lu\n", entry);
+  }
+
 }
 
-txn_id_t PhysicalLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
+txn_id_t CommandLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
   txn_id_t txnid_logger = (START_TXN_ID + this->logger_id_);
   while (true) {
     // We use the txn_id field as a lock. However this field also stored information about whether a tuple is deleted or not.
@@ -82,12 +119,12 @@ txn_id_t PhysicalLogger::LockTuple(storage::TileGroupHeader *tg_header, oid_t tu
   }
 }
 
-void PhysicalLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id) {
+void CommandLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id) {
   PL_ASSERT(new_txn_id == INVALID_TXN_ID || new_txn_id == INITIAL_TXN_ID);
   tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), new_txn_id);
 }
 
-bool PhysicalLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
+bool CommandLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
   // First do an index look up, if current version is newer, skip this record
   auto pindex = table->GetIndexWithOid(table->GetPrimaryIndexOid());
   auto pindex_schema = pindex->GetKeySchema();
@@ -98,6 +135,7 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tupl
 
   std::vector<ItemPointer *> itemptr_ptrs;
   pindex->ScanKey(key.get(), itemptr_ptrs);
+
 
   if (itemptr_ptrs.empty()) {
     // Try to insert a new tuple
@@ -121,6 +159,7 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tupl
     if (pindex->CondInsertEntryInTupleIndex(key.get(), itemptr_ptr, fn) == false) {
       // Already inserted by others (concurrently), fall back to the override approach
       delete itemptr_ptr;
+      itemptr_ptr = nullptr;
       UnlockTuple(insert_tg_header, insert_location.offset, old_txn_id);
       gc::GCManagerFactory::GetInstance().DirectRecycleTuple(table->GetOid(), insert_location);
 
@@ -186,7 +225,7 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tupl
   return true;
 }
 
-bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid) {
+bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t persist_eid) {
   PL_ASSERT(file_handle.file != nullptr && file_handle.fd != INVALID_FILE_DESCRIPTOR);
 
   // Status
@@ -205,7 +244,7 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
     }
     CopySerializeInputBE length_decode((const void *) &length_buf, 4);
     int length = length_decode.ReadInt();
-
+    // printf("length = %d\n", length);
     // Adjust the buffer
     if ((size_t) length > buf_size) {
       buffer.reset(new char[(int)(length * 1.2)]);
@@ -220,7 +259,7 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
     CopySerializeInputBE record_decode((const void *) buffer.get(), length);
 
     // Check if we can skip this epoch
-    if (current_eid != INVALID_EPOCH_ID && (current_eid < checkpoint_eid || current_eid > pepoch_eid)) {
+    if (current_eid != INVALID_EPOCH_ID && (current_eid < checkpoint_eid || current_eid > persist_eid)) {
       // Skip the record if current epoch is before the checkpoint or after persistent epoch
       continue;
     }
@@ -237,6 +276,7 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
           return false;
         }
         current_eid = (size_t) record_decode.ReadLong();
+        // printf("begin epoch id = %lu\n", current_eid);
         break;
       } case LOGRECORD_TYPE_EPOCH_END: {
         size_t eid = (size_t) record_decode.ReadLong();
@@ -244,6 +284,7 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
           LOG_ERROR("Mismatched epoch in log record");
           return false;
         }
+        // printf("end epoch id = %lu\n", current_eid);
         current_eid = INVALID_EPOCH_ID;
         break;
       } case LOGRECORD_TYPE_TRANSACTION_BEGIN: {
@@ -256,6 +297,11 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
           return false;
         }
         current_cid = (cid_t) record_decode.ReadLong();
+        
+        if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+          concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
+        }
+
         break;
       } case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
         if (current_eid == INVALID_EPOCH_ID) {
@@ -267,6 +313,13 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
           LOG_ERROR("Mismatched txn in log record");
           return false;
         }
+        current_cid = INVALID_CID;
+
+        if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+          delete concurrency::current_txn;
+          concurrency::current_txn = nullptr;
+        }
+
         break;
       } case LOGRECORD_TYPE_TUPLE_UPDATE:
         case LOGRECORD_TYPE_TUPLE_DELETE:
@@ -274,6 +327,10 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
         if (current_cid == INVALID_CID || current_eid == INVALID_EPOCH_ID) {
           LOG_ERROR("Invalid txn tuple record");
           return false;
+        }
+
+        if (current_eid < checkpoint_eid || current_eid > persist_eid) {
+          break;
         }
 
         oid_t database_id = (oid_t) record_decode.ReadLong();
@@ -285,7 +342,15 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
 
         // Decode the tuple from the record
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
-        tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
+        tuple->DeserializeFrom(record_decode, this->recovery_pools_[thread_id].get());
+
+        // FILE *fp = fopen("in_file.txt", "a");
+        // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+        //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
+        //   fprintf(stdout, "%d, ", value);
+        // }
+        // fprintf(stdout, "\n");
+        // fclose(fp);
 
         // Install the record
         InstallTupleRecord(record_type, tuple.get(), table, current_cid);
@@ -301,36 +366,58 @@ bool PhysicalLogger::ReplayLogFile(FileHandle &file_handle, size_t checkpoint_ei
   return true;
 }
 
-void PhysicalLogger::RunRecovery(size_t checkpoint_eid, size_t persist_eid) {
-  // Get all log files, replay them in the reverse order
-  std::vector<int> file_ids = GetSortedLogFileIdList();
+void CommandLogger::RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid) {
 
-  for (auto fid : file_ids) {
+  while (true) {
+
+    int replay_file_id = max_replay_file_id_.fetch_sub(1, std::memory_order_relaxed);
+    printf("replay file id = %d\n", replay_file_id);
+    if (replay_file_id < 0) {
+      break;
+    }
+
+    size_t file_eid = file_eids_.at(replay_file_id);
+    printf("start replaying file eid = %lu\n", file_eid);
     // Replay a single file
-    std::string filename = GetLogFileFullPath(fid);
+    std::string filename = GetLogFileFullPath(file_eid);
     FileHandle file_handle;
+    // std::cout<<"filename = " << filename << std::endl;
     bool res = LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle);
     if (res == false) {
       LOG_ERROR("Cannot open log file %s\n", filename.c_str());
       exit(EXIT_FAILURE);
     }
-    ReplayLogFile(file_handle, checkpoint_eid, persist_eid);
-    next_file_id_ = std::max(next_file_id_, (size_t) fid);
+    ReplayLogFile(thread_id, file_handle, checkpoint_eid, persist_eid);
+
+    // Safely close the file
+    res = LoggingUtil::CloseFile(file_handle);
+    if (res == false) {
+      LOG_ERROR("Cannot close pepoch file");
+      exit(EXIT_FAILURE);
+    }
+
   }
-  recovery_done_ = true;
+
 }
 
 
-void PhysicalLogger::Run() {
+void CommandLogger::Run() {
   // TODO: Ensure that we have called run recovery before
 
-  // Get the file name
-  // for now, let's assume that each logger uses a single file to record logs. --YINGJUN
-  // SILO uses multiple files only to simplify the process of log truncation.
-  std::string filename = GetLogFileFullPath(next_file_id_);
+  concurrency::EpochManager &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
 
+  size_t file_epoch_count = (size_t)(new_file_interval_ / epoch_manager.GetEpochDurationMilliSecond());
+
+  std::list<std::pair<FileHandle*, size_t>> file_handles;
+
+  size_t current_file_eid = 0; //epoch_manager.GetCurrentEpochId();
+
+  FileHandle *new_file_handle = new FileHandle();
+  file_handles.push_back(std::make_pair(new_file_handle, current_file_eid));
+  
+  std::string filename = GetLogFileFullPath(current_file_eid);
   // Create a new file
-  if (LoggingUtil::OpenFile(filename.c_str(), "wb", file_handle_) == false) {
+  if (LoggingUtil::OpenFile(filename.c_str(), "wb", *new_file_handle) == false) {
     LOG_ERROR("Unable to create log file %s\n", filename.c_str());
     exit(EXIT_FAILURE);
   }
@@ -342,7 +429,7 @@ void PhysicalLogger::Run() {
     if (is_running_ == false) { break; }
 
     std::this_thread::sleep_for(
-       std::chrono::microseconds(concurrency::EpochManagerFactory::GetInstance().GetEpochLengthInMicroSecQuarter()));
+       std::chrono::microseconds(epoch_manager.GetEpochLengthInMicroSecQuarter()));
 
     // Pull log records from workers per epoch buffer
     {
@@ -359,12 +446,13 @@ void PhysicalLogger::Run() {
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 
         if (last_persist_eid == worker_current_eid) {
-          // The worker makes no progess
+          // The worker makes no progress
           continue;
         }
 
         for (size_t epoch_id = last_persist_eid + 1; epoch_id < worker_current_eid; ++epoch_id) {
-          size_t epoch_idx = epoch_id % concurrency::EpochManager::GetEpochQueueCapacity();
+
+          size_t epoch_idx = epoch_id % epoch_manager.GetEpochQueueCapacity();
           // get all the buffers that are associated with the epoch.
           auto &buffers = worker_ctx_ptr->per_epoch_buffer_ptrs[epoch_idx];
 
@@ -374,7 +462,35 @@ void PhysicalLogger::Run() {
             // just skip it.
             continue;
           }
-          PersistEpochBegin(epoch_id);
+
+          // if we have something to write, then check whether we need to create new file.
+          FileHandle *file_handle = nullptr;
+          
+          for (auto &entry : file_handles) {
+            if (epoch_id >= entry.second && epoch_id < entry.second + file_epoch_count) {
+              file_handle = entry.first;
+            }
+          }
+          while (file_handle == nullptr) {
+            current_file_eid = current_file_eid + file_epoch_count;
+            printf("create new file with epoch id = %lu, last persist eid = %lu, current eid = %lu\n", current_file_eid, last_persist_eid, worker_current_eid);
+            FileHandle *new_file_handle = new FileHandle();
+            file_handles.push_back(std::make_pair(new_file_handle, current_file_eid));
+
+            std::string filename = GetLogFileFullPath(current_file_eid);
+            // Create a new file
+            if (LoggingUtil::OpenFile(filename.c_str(), "wb", *new_file_handle) == false) {
+              LOG_ERROR("Unable to create log file %s\n", filename.c_str());
+              exit(EXIT_FAILURE);
+            }
+            if (epoch_id >= current_file_eid && epoch_id < current_file_eid + file_epoch_count) {
+              file_handle = new_file_handle;
+              break;
+            }
+          }
+
+
+          PersistEpochBegin(*file_handle, epoch_id);
           // persist all the buffers.
           while (buffers.empty() == false) {
             // Check if the buffer is empty
@@ -382,14 +498,14 @@ void PhysicalLogger::Run() {
             if (buffers.top()->Empty()) {
               worker_ctx_ptr->buffer_pool.PutBuffer(std::move(buffers.top()));
             } else {
-              PersistLogBuffer(std::move(buffers.top()));
+              PersistLogBuffer(*file_handle, std::move(buffers.top()));
             }
             PL_ASSERT(buffers.top() == nullptr);
             buffers.pop();
           }
-          PersistEpochEnd(epoch_id);
+          PersistEpochEnd(*file_handle, epoch_id);
           // Call fsync
-          LoggingUtil::FFlushFsync(file_handle_);
+          LoggingUtil::FFlushFsync(*file_handle);
         } // end for
 
         worker_ctx_ptr->persist_eid = worker_current_eid - 1;
@@ -410,6 +526,30 @@ void PhysicalLogger::Run() {
 
       persist_epoch_id_ = min_workers_persist_eid;
 
+      auto list_iter = file_handles.begin();
+
+      while (list_iter != file_handles.end()) {
+        if (list_iter->second + file_epoch_count <= persist_epoch_id_) {
+          FileHandle *file_handle = list_iter->first;
+        
+          // Safely close the file
+          bool res = LoggingUtil::CloseFile(*file_handle);
+          if (res == false) {
+            LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
+            exit(EXIT_FAILURE);
+          }
+          
+          delete file_handle;
+          file_handle = nullptr;
+
+          list_iter = file_handles.erase(list_iter);
+
+        } else {
+          ++list_iter;
+        }
+      }
+
+
       worker_map_lock_.Unlock();
     }
   }
@@ -417,15 +557,27 @@ void PhysicalLogger::Run() {
   // Close the log file
   // TODO: Seek and write the integrity information in the header
 
-  // Safely close the file
-  bool res = LoggingUtil::CloseFile(file_handle_);
-  if (res == false) {
-    LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
-    exit(EXIT_FAILURE);
+  // Safely close all the files
+
+  auto list_iter = file_handles.begin();
+
+  while (list_iter != file_handles.end()) {
+    FileHandle *file_handle = list_iter->first;
+
+    bool res = LoggingUtil::CloseFile(*file_handle);
+    if (res == false) {
+      LOG_ERROR("Cannot close log file under directory %s", log_dir_.c_str());
+      exit(EXIT_FAILURE);
+    }
+
+    delete file_handle;
+    file_handle = nullptr;
+
+    list_iter = file_handles.erase(list_iter);
   }
 }
 
-void PhysicalLogger::PersistEpochBegin(const size_t epoch_id) {
+void CommandLogger::PersistEpochBegin(FileHandle &file_handle, const size_t epoch_id) {
   // Write down the epoch begin record  
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_BEGIN, epoch_id);
 
@@ -439,10 +591,10 @@ void PhysicalLogger::PersistEpochBegin(const size_t epoch_id) {
 
   logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
 
-  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
+  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle.file);
 }
 
-void PhysicalLogger::PersistEpochEnd(const size_t epoch_id) {
+void CommandLogger::PersistEpochEnd(FileHandle &file_handle, const size_t epoch_id) {
   // Write down the epoch end record
   LogRecord record = LogRecordFactory::CreateEpochRecord(LOGRECORD_TYPE_EPOCH_END, epoch_id);
 
@@ -456,13 +608,13 @@ void PhysicalLogger::PersistEpochEnd(const size_t epoch_id) {
 
   logger_output_buffer_.WriteIntAt(start, (int32_t) (logger_output_buffer_.Position() - start - sizeof(int32_t)));
 
-  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle_.file);
+  fwrite((const void *) (logger_output_buffer_.Data()), logger_output_buffer_.Size(), 1, file_handle.file);
 
 }
 
-void PhysicalLogger::PersistLogBuffer(std::unique_ptr<LogBuffer> log_buffer) {
+void CommandLogger::PersistLogBuffer(FileHandle &file_handle, std::unique_ptr<LogBuffer> log_buffer) {
 
-  fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle_.file);
+  fwrite((const void *) (log_buffer->GetData()), log_buffer->GetSize(), 1, file_handle.file);
 
   // Return the buffer to the worker
   log_buffer->Reset();

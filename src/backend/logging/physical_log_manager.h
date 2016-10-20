@@ -56,7 +56,7 @@ namespace logging {
  */
 
 /* Per worker thread local context */
-extern thread_local PhysicalWorkerContext* tl_physical_worker_ctx;
+extern thread_local WorkerContext* tl_physical_worker_ctx;
 
 class PhysicalLogManager : public LogManager {
   PhysicalLogManager(const PhysicalLogManager &) = delete;

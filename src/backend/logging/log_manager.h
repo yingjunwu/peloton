@@ -17,7 +17,7 @@
 
 #include "backend/common/macros.h"
 #include "backend/concurrency/transaction.h"
-#include "backend/logging/phylog_worker_context.h"
+#include "backend/logging/worker_context.h"
 
 namespace peloton {
 namespace logging {

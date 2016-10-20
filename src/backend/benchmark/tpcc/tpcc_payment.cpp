@@ -437,7 +437,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   
-  auto txn = txn_manager.BeginTransaction();
+  auto txn = txn_manager.BeginTransaction(TPCC_TRANSACTION_TYPE_PAYMENT);
 
   
   std::vector<Value> customer;

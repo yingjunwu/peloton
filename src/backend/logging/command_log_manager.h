@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.h
+// command_log_manager.h
 //
-// Identification: src/backend/logging/phylog_log_manager.h
+// Identification: src/backend/logging/command_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -26,8 +26,8 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
-#include "backend/logging/worker_context.h"
-#include "backend/logging/phylog_logger.h"
+#include "backend/logging/physical_worker_context.h"
+#include "backend/logging/physical_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -46,36 +46,36 @@ namespace logging {
  * logging file layout :
  *
  *  -----------------------------------------------------------------------------
- *  | txn_cid | database_id | table_id | operation_type | data | ... | txn_end_flag
+ *  | txn_cid | txn_type
  *  -----------------------------------------------------------------------------
  *
- * NOTE: this layout is designed for physiological logging.
+ * NOTE: this layout is designed for physiological delta logging.
  *
  * NOTE: tuple length can be obtained from the table schema.
  *
  */
 
 /* Per worker thread local context */
-extern thread_local WorkerContext* tl_phylog_worker_ctx;
+extern thread_local CommandWorkerContext* tl_command_worker_ctx;
 
-class PhyLogLogManager : public LogManager {
-  PhyLogLogManager(const PhyLogLogManager &) = delete;
-  PhyLogLogManager &operator=(const PhyLogLogManager &) = delete;
-  PhyLogLogManager(PhyLogLogManager &&) = delete;
-  PhyLogLogManager &operator=(PhyLogLogManager &&) = delete;
+class CommandLogManager : public LogManager {
+  CommandLogManager(const CommandLogManager &) = delete;
+  CommandLogManager &operator=(const CommandLogManager &) = delete;
+  CommandLogManager(CommandLogManager &&) = delete;
+  CommandLogManager &operator=(CommandLogManager &&) = delete;
 
 protected:
 
-  PhyLogLogManager()
+  CommandLogManager()
     : worker_count_(0),
       is_running_(false) {}
 
 public:
-  static PhyLogLogManager &GetInstance() {
-    static PhyLogLogManager log_manager;
+  static CommandLogManager &GetInstance() {
+    static CommandLogManager log_manager;
     return log_manager;
   }
-  virtual ~PhyLogLogManager() {}
+  virtual ~CommandLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
     if (logging_dirs.size() > 0) {
@@ -95,17 +95,14 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new PhyLogLogger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new CommandLogger(i, logging_dirs.at(i)));
     }
   }
 
   // Worker side logic
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
-
-  void LogInsert(const ItemPointer &tuple_pos);
-  void LogUpdate(const ItemPointer &tuple_pos);
-  void LogDelete(const ItemPointer &tuple_pos_deleted);
+  
   void StartTxn(concurrency::Transaction *txn);
   void CommitCurrentTxn();
   void FinishPendingTxn();
@@ -115,19 +112,19 @@ public:
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 
+
   void RunPepochLogger();
 
 private:
-  size_t RecoverPepoch();
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_phylog_worker_ctx->worker_id, (int) tl_phylog_worker_ctx->current_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_command_worker_ctx->worker_id, (int) tl_command_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_phylog_worker_ctx);
-    size_t eid_idx = tl_phylog_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-    tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
-    return tl_phylog_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
+    PL_ASSERT(tl_command_worker_ctx);
+    size_t eid_idx = tl_command_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+    tl_command_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
+    return tl_command_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
   }
 
 
@@ -140,7 +137,7 @@ private:
 private:
   std::atomic<oid_t> worker_count_;
 
-  std::vector<std::shared_ptr<PhyLogLogger>> loggers_;
+  std::vector<std::shared_ptr<CommandLogger>> loggers_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;

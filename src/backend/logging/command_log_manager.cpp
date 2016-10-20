@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// phylog_log_manager.cpp
+// command_log_manager.cpp
 //
-// Identification: src/backend/logging/phylog_log_manager.cpp
+// Identification: src/backend/logging/command_log_manager.cpp
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -13,7 +13,7 @@
 #include <cstdio>
 
 #include "backend/concurrency/epoch_manager_factory.h"
-#include "backend/logging/phylog_log_manager.h"
+#include "backend/logging/command_log_manager.h"
 #include "backend/logging/durability_factory.h"
 #include "backend/catalog/manager.h"
 #include "backend/expression/container_tuple.h"
@@ -23,31 +23,31 @@
 namespace peloton {
 namespace logging {
 
-thread_local WorkerContext* tl_phylog_worker_ctx = nullptr;
+thread_local CommandWorkerContext* tl_command_worker_ctx = nullptr;
 
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
-void PhyLogLogManager::RegisterWorker() {
-  PL_ASSERT(tl_phylog_worker_ctx == nullptr);
+void CommandLogManager::RegisterWorker() {
+  PL_ASSERT(tl_command_worker_ctx == nullptr);
   // shuffle worker to logger
-  tl_phylog_worker_ctx = new WorkerContext(worker_count_++);
-  size_t logger_id = HashToLogger(tl_phylog_worker_ctx->worker_id);
+  tl_command_worker_ctx = new CommandWorkerContext(worker_count_++);
+  size_t logger_id = HashToLogger(tl_command_worker_ctx->worker_id);
 
-  loggers_[logger_id]->RegisterWorker(tl_phylog_worker_ctx);
+  loggers_[logger_id]->RegisterWorker(tl_command_worker_ctx);
 }
 
 // deregister worker threads.
-void PhyLogLogManager::DeregisterWorker() {
-  PL_ASSERT(tl_phylog_worker_ctx != nullptr);
+void CommandLogManager::DeregisterWorker() {
+  PL_ASSERT(tl_command_worker_ctx != nullptr);
 
-  size_t logger_id = HashToLogger(tl_phylog_worker_ctx->worker_id);
+  size_t logger_id = HashToLogger(tl_command_worker_ctx->worker_id);
 
-  loggers_[logger_id]->DeregisterWorker(tl_phylog_worker_ctx);
+  loggers_[logger_id]->DeregisterWorker(tl_command_worker_ctx);
 }
 
-void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
-  WorkerContext *ctx = tl_phylog_worker_ctx;
+void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
+  CommandWorkerContext *ctx = tl_command_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);
@@ -67,30 +67,6 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   output.WriteEnumInSingleByte(type);
 
   switch (type) {
-    case LOGRECORD_TYPE_TUPLE_INSERT:
-    case LOGRECORD_TYPE_TUPLE_DELETE:
-    case LOGRECORD_TYPE_TUPLE_UPDATE: {
-      auto &manager = catalog::Manager::GetInstance();
-      auto tuple_pos = record.GetItemPointer();
-      auto tg = manager.GetTileGroup(tuple_pos.block).get();
-
-      // Write down the database id and the table id
-      output.WriteLong(tg->GetDatabaseId());
-      output.WriteLong(tg->GetTableId());
-
-      // size_t start = output.Position();
-      // output.WriteInt(0);
-
-      // Write the full tuple into the buffer
-      expression::ContainerTuple<storage::TileGroup> container_tuple(
-        tg, tuple_pos.offset
-      );
-      container_tuple.SerializeTo(output);
-
-      // output.WriteIntAt(start, (int32_t)output.Size());
-
-      break;
-    }
     case LOGRECORD_TYPE_TRANSACTION_BEGIN:
     case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
       output.WriteLong(ctx->current_cid);
@@ -130,61 +106,46 @@ void PhyLogLogManager::WriteRecordToBuffer(LogRecord &record) {
   }
 }
 
-void PhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
-  PL_ASSERT(tl_phylog_worker_ctx);
+void CommandLogManager::StartTxn(concurrency::Transaction *txn) {
+  PL_ASSERT(tl_command_worker_ctx);
   size_t txn_eid = txn->GetEpochId();
 
   // Record the txn timer
-  DurabilityFactory::StartTxnTimer(txn_eid, tl_phylog_worker_ctx);
+  DurabilityFactory::StartTxnTimer(txn_eid, tl_command_worker_ctx);
 
-  PL_ASSERT(tl_phylog_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_phylog_worker_ctx->current_eid <= txn_eid);
+  PL_ASSERT(tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_command_worker_ctx->current_eid <= txn_eid);
 
   // Handle the epoch id
-  if (tl_phylog_worker_ctx->current_eid == INVALID_EPOCH_ID 
-    || tl_phylog_worker_ctx->current_eid != txn_eid) {
+  if (tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID 
+    || tl_command_worker_ctx->current_eid != txn_eid) {
     // if this is a new epoch, then write to a new buffer
-    tl_phylog_worker_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(tl_phylog_worker_ctx->buffer_pool.GetBuffer()));
+    tl_command_worker_ctx->current_eid = txn_eid;
+    RegisterNewBufferToEpoch(std::move(tl_command_worker_ctx->buffer_pool.GetBuffer()));
   }
 
   // Handle the commit id
   cid_t txn_cid = txn->GetEndCommitId();
-  tl_phylog_worker_ctx->current_cid = txn_cid;
+  tl_command_worker_ctx->current_cid = txn_cid;
 
   // Log down the begin of a transaction
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::CommitCurrentTxn() {
-  PL_ASSERT(tl_phylog_worker_ctx);
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_phylog_worker_ctx->current_cid);
+void CommandLogManager::CommitCurrentTxn() {
+  PL_ASSERT(tl_command_worker_ctx);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_command_worker_ctx->current_cid);
   WriteRecordToBuffer(record);
 }
 
-void PhyLogLogManager::FinishPendingTxn() {
-  PL_ASSERT(tl_phylog_worker_ctx);
+void CommandLogManager::FinishPendingTxn() {
+  PL_ASSERT(tl_command_worker_ctx);
   size_t glob_peid = global_persist_epoch_id_.load();
-  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_phylog_worker_ctx);
+  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_command_worker_ctx);
 }
 
-void PhyLogLogManager::LogInsert(const ItemPointer &tuple_pos) {
-  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos);
-  WriteRecordToBuffer(record);
-}
 
-void PhyLogLogManager::LogUpdate(const ItemPointer &tuple_pos) {
-  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_UPDATE, tuple_pos);
-  WriteRecordToBuffer(record);
-}
-
-void PhyLogLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
-  // Need the tuple value for the deleted tuple
-  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_DELETE, tuple_pos_deleted);
-  WriteRecordToBuffer(record);
-}
-
-void PhyLogLogManager::DoRecovery(const size_t &begin_eid){
+void CommandLogManager::DoRecovery(const size_t &begin_eid){
   size_t end_eid = RecoverPepoch();
   // printf("recovery_thread_count = %d, logger count = %d\n", (int)recovery_thread_count_, (int)logger_count_);
   size_t recovery_thread_per_logger = (size_t) ceil(recovery_thread_count_ * 1.0 / logger_count_);
@@ -200,16 +161,16 @@ void PhyLogLogManager::DoRecovery(const size_t &begin_eid){
   }
 }
 
-void PhyLogLogManager::StartLoggers() {
+void CommandLogManager::StartLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d", (int) logger_id);
     loggers_[logger_id]->StartLogging();
   }
   is_running_ = true;
-  pepoch_thread_.reset(new std::thread(&PhyLogLogManager::RunPepochLogger, this));
+  pepoch_thread_.reset(new std::thread(&CommandLogManager::RunPepochLogger, this));
 }
 
-void PhyLogLogManager::StopLoggers() {
+void CommandLogManager::StopLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     loggers_[logger_id]->StopLogging();
   }
@@ -217,7 +178,7 @@ void PhyLogLogManager::StopLoggers() {
   pepoch_thread_->join();
 }
 
-void PhyLogLogManager::RunPepochLogger() {
+void CommandLogManager::RunPepochLogger() {
   
   FileHandle file_handle;
   std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
@@ -266,7 +227,7 @@ void PhyLogLogManager::RunPepochLogger() {
 
 }
 
-size_t PhyLogLogManager::RecoverPepoch() {
+size_t CommandLogManager::RecoverPepoch() {
   FileHandle file_handle;
   std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
   // Create a new file
