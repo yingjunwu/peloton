@@ -218,6 +218,12 @@ void ValidateLoggingType(configuration &state) {
       exit(EXIT_FAILURE);
     }
   }
+  if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
@@ -337,6 +343,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
         } else if (strcmp(logging_proto, "physical") == 0) {
           state.logging_type = LOGGING_TYPE_PHYSICAL;
+        } else if (strcmp(logging_proto, "command") == 0) {
+          state.logging_type = LOGGING_TYPE_COMMAND;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

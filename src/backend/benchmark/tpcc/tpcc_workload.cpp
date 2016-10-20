@@ -346,9 +346,9 @@ void RunBackend(oid_t thread_id) {
   }
 
   if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
-    commit_latency_ref = logging::tl_phylog_worker_ctx->txn_summary.GetAverageLatencyInMs();
+    commit_latency_ref = logging::tl_worker_ctx->txn_summary.GetAverageLatencyInMs();
     if (thread_id == 0) {
-      lat_summary_ref = logging::tl_phylog_worker_ctx->txn_summary.GetLatSummary();
+      lat_summary_ref = logging::tl_worker_ctx->txn_summary.GetLatSummary();
     }
   }
 

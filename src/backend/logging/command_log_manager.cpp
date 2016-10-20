@@ -23,31 +23,29 @@
 namespace peloton {
 namespace logging {
 
-thread_local WorkerContext* tl_command_worker_ctx = nullptr;
-
 // register worker threads to the log manager before execution.
 // note that we always construct logger prior to worker.
 // this function is called by each worker thread.
 void CommandLogManager::RegisterWorker() {
-  PL_ASSERT(tl_command_worker_ctx == nullptr);
+  PL_ASSERT(tl_worker_ctx == nullptr);
   // shuffle worker to logger
-  tl_command_worker_ctx = new WorkerContext(worker_count_++);
-  size_t logger_id = HashToLogger(tl_command_worker_ctx->worker_id);
+  tl_worker_ctx = new WorkerContext(worker_count_++);
+  size_t logger_id = HashToLogger(tl_worker_ctx->worker_id);
 
-  loggers_[logger_id]->RegisterWorker(tl_command_worker_ctx);
+  loggers_[logger_id]->RegisterWorker(tl_worker_ctx);
 }
 
 // deregister worker threads.
 void CommandLogManager::DeregisterWorker() {
-  PL_ASSERT(tl_command_worker_ctx != nullptr);
+  PL_ASSERT(tl_worker_ctx != nullptr);
 
-  size_t logger_id = HashToLogger(tl_command_worker_ctx->worker_id);
+  size_t logger_id = HashToLogger(tl_worker_ctx->worker_id);
 
-  loggers_[logger_id]->DeregisterWorker(tl_command_worker_ctx);
+  loggers_[logger_id]->DeregisterWorker(tl_worker_ctx);
 }
 
 void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
-  WorkerContext *ctx = tl_command_worker_ctx;
+  WorkerContext *ctx = tl_worker_ctx;
   LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
   PL_ASSERT(ctx);
@@ -80,34 +78,34 @@ void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
 }
 
 void CommandLogManager::PersistTxn(concurrency::Transaction *txn, const int transaction_type) {
-  PL_ASSERT(tl_command_worker_ctx);
+  PL_ASSERT(tl_worker_ctx);
   size_t txn_eid = txn->GetEpochId();
 
   // Record the txn timer
-  DurabilityFactory::StartTxnTimer(txn_eid, tl_command_worker_ctx);
+  DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_ctx);
 
-  PL_ASSERT(tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID || 
-    tl_command_worker_ctx->current_eid <= txn_eid);
+  PL_ASSERT(tl_worker_ctx->current_eid == INVALID_EPOCH_ID || 
+    tl_worker_ctx->current_eid <= txn_eid);
 
   // Handle the epoch id
-  if (tl_command_worker_ctx->current_eid == INVALID_EPOCH_ID 
-    || tl_command_worker_ctx->current_eid != txn_eid) {
+  if (tl_worker_ctx->current_eid == INVALID_EPOCH_ID 
+    || tl_worker_ctx->current_eid != txn_eid) {
     // if this is a new epoch, then write to a new buffer
-    tl_command_worker_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(tl_command_worker_ctx->buffer_pool.GetBuffer()));
+    tl_worker_ctx->current_eid = txn_eid;
+    RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer()));
   }
 
   // Handle the commit id
   cid_t txn_cid = txn->GetEndCommitId();
-  tl_command_worker_ctx->current_cid = txn_cid;
+  tl_worker_ctx->current_cid = txn_cid;
 
   WriteRecordToBuffer(transaction_type);
 }
 
 void CommandLogManager::FinishPendingTxn() {
-  PL_ASSERT(tl_command_worker_ctx);
+  PL_ASSERT(tl_worker_ctx);
   size_t glob_peid = global_persist_epoch_id_.load();
-  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_command_worker_ctx);
+  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_worker_ctx);
 }
 
 

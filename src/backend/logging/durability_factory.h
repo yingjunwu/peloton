@@ -14,6 +14,7 @@
 
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/logging/physical_log_manager.h"
+#include "backend/logging/command_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 #include "backend/logging/phylog_checkpoint_manager.h"
 #include "backend/logging/physical_checkpoint_manager.h"
@@ -31,6 +32,8 @@ class DurabilityFactory {
         return PhyLogLogManager::GetInstance();
       case LOGGING_TYPE_PHYSICAL:
         return PhysicalLogManager::GetInstance();
+      case LOGGING_TYPE_COMMAND:
+        return CommandLogManager::GetInstance();
       default:
         return DummyLogManager::GetInstance();
     }

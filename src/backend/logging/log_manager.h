@@ -22,6 +22,10 @@
 namespace peloton {
 namespace logging {
 
+
+/* Per worker thread local context */
+extern thread_local WorkerContext* tl_worker_ctx;
+
 // loggers are created before workers.
 class LogManager {
   LogManager(const LogManager &) = delete;

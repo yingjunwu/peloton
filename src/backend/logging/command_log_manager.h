@@ -55,9 +55,6 @@ namespace logging {
  *
  */
 
-/* Per worker thread local context */
-extern thread_local WorkerContext* tl_command_worker_ctx;
-
 class CommandLogManager : public LogManager {
   CommandLogManager(const CommandLogManager &) = delete;
   CommandLogManager &operator=(const CommandLogManager &) = delete;
@@ -119,12 +116,12 @@ private:
 
   // Don't delete the returned pointer
   inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_command_worker_ctx->worker_id, (int) tl_command_worker_ctx->current_eid);
+    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_worker_ctx->worker_id, (int) tl_worker_ctx->current_eid);
     PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_command_worker_ctx);
-    size_t eid_idx = tl_command_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-    tl_command_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
-    return tl_command_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
+    PL_ASSERT(tl_worker_ctx);
+    size_t eid_idx = tl_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+    tl_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
+    return tl_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
   }
 
 
