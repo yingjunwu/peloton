@@ -201,6 +201,7 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
     if (update_ratio != 0) {
       LOG_ERROR("update ratio must be 0!");
     }
+    printf("Read only txn\n");
     txn = txn_manager.BeginReadonlyTransaction();
   } else {
     txn = txn_manager.BeginTransaction();

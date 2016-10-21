@@ -17,6 +17,7 @@
 #include <list>
 #include <stack>
 #include <unordered_map>
+#include <set>
 
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
@@ -95,7 +96,41 @@ public:
     static DepLogManager log_manager;
     return log_manager;
   }
-  virtual ~DepLogManager() {}
+  virtual ~DepLogManager() {
+    printf("Cannot commit due to dependency: %d\n", cannot_commit_due_to_dep);
+    printf("Commit due to dependency: %d\n", commit_epoch_in_advance);
+    double sum = 0.0;
+    int min_gap = std::numeric_limits<int>::max();
+    int max_gap = 0;
+    int self_dep = 0;
+    int next_dep = 0;
+
+    for (int i : dep_gaps) {
+      sum += i;
+      self_dep += (i == 0);
+      next_dep += (i == 1);
+      min_gap = std::min(min_gap, i);
+      max_gap = std::max(max_gap, i);
+    }
+    printf("Average dep gap: %f\n", sum / dep_gaps.size());
+    printf("Max gap: %d, Min gap: %d\n", max_gap, min_gap);
+    printf("Self dep: %d\n", self_dep);
+    printf("Next dep: %d\n", next_dep);
+
+    {
+      std::ofstream out("dep.summary");
+      out << "Worker1 dependency:" << std::endl;
+      for (auto itr : worker1_dep) {
+        out << "Epoch " << itr.first << " depends on:" << std::endl;
+        for (auto inner_itr : itr.second) {
+          out << "\t Epoch " << inner_itr << std::endl;
+        }
+      }
+
+      out.flush();
+      out.close();
+    }
+  }
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
     if (logging_dirs.size() > 0) {
@@ -181,6 +216,13 @@ private:
   // Concurrent accessible members
   std::atomic<size_t> pepoch_id_;
   std::vector<std::atomic<int>> per_epoch_status_;
+
+  // JX exp counter
+  int cannot_commit_due_to_dep;
+  int commit_epoch_in_advance;
+  std::vector<int> dep_gaps;
+  std::map<size_t, int> dep_epochs_;
+  std::map<size_t, std::set<size_t>> worker1_dep;
 };
 
 }
