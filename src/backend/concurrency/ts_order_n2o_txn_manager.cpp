@@ -576,6 +576,12 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   
   if (logging_type == LOGGING_TYPE_PHYLOG) {
     ((logging::PhyLogLogManager*)(&log_manager))->StartPersistTxn();
+  } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+  } else if (logging_type == LOGGING_TYPE_COMMAND) {
+    if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
+      ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn();
+    }
   }
   
   auto &rw_set = current_txn->GetRWSet();
@@ -622,7 +628,13 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         // add to log manager
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
-        } 
+        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+        } else if (logging_type == LOGGING_TYPE_COMMAND) {
+          if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
+            ((logging::CommandLogManager*)(&log_manager))->LogUpdate(new_version);
+          }
+        }
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
@@ -652,6 +664,12 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         // add to log manager
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+        } else if (logging_type == LOGGING_TYPE_COMMAND) {
+          if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
+            ((logging::CommandLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
+          }
         }
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
@@ -668,6 +686,12 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         // add to log manager
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+        } else if (logging_type == LOGGING_TYPE_COMMAND) {
+          if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
+            ((logging::CommandLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
+          }
         }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
@@ -691,6 +715,12 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 
   if (logging_type == LOGGING_TYPE_PHYLOG) {
     ((logging::PhyLogLogManager*)(&log_manager))->EndPersistTxn();
+  } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+  } else if (logging_type == LOGGING_TYPE_COMMAND) {
+    if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
+      ((logging::CommandLogManager*)(&log_manager))->EndPersistTxn();
+    }
   }
 
   EndTransaction();

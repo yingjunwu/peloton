@@ -319,6 +319,9 @@ struct DeliveryPlans {
 };
 
 
+
+
+
 NewOrderPlans PrepareNewOrderPlan();
 
 PaymentPlans PreparePaymentPlan();
@@ -328,11 +331,45 @@ DeliveryPlans PrepareDeliveryPlan();
 size_t GenerateWarehouseId(const size_t &thread_id);
 
 
-bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id);
+struct NewOrderParams {
+  int warehouse_id;
+  int district_id;
+  int customer_id;
+  int o_ol_cnt;
+  std::vector<int> i_ids;
+  std::vector<int> ol_w_ids;
+  std::vector<int> ol_qtys;
+  bool o_all_local;
+};
 
-bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id);
+void GenerateNewOrderParams(const size_t &thread_id, NewOrderParams &params);
 
-bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id);
+bool RunNewOrder(NewOrderPlans &new_order_plans, const NewOrderParams &params);
+
+
+struct PaymentParams {
+  int warehouse_id;
+  int district_id;
+  int customer_warehouse_id;
+  int customer_district_id;
+  int customer_id;
+  double h_amount;
+  std::string customer_lastname;
+};
+
+void GeneratePaymentParams(const size_t &thread_id, PaymentParams &params);
+
+bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params);
+
+
+struct DeliveryParams {
+  int warehouse_id;
+  int o_carrier_id;
+};
+
+void GenerateDeliveryParams(const size_t &thread_id, DeliveryParams &params);
+
+bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params);
 
 bool RunOrderStatus(const size_t &thread_id);
 

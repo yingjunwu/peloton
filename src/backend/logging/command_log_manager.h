@@ -104,7 +104,7 @@ public:
   void LogUpdate(const ItemPointer &tuple_pos);
   void LogDelete(const ItemPointer &tuple_pos_deleted);
 
-  void StartPersistTxn(const int transaction_type);
+  void StartPersistTxn();
   void EndPersistTxn();
 
   // Logger side logic

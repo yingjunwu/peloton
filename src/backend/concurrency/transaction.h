@@ -115,6 +115,8 @@ class Transaction : public Printable {
     transaction_type_ = transaction_type;
   }
 
+  // void SetTransactionParams(char *params, const int params_length) {}
+
   void RecordRead(const ItemPointer &);
 
   void RecordUpdate(const ItemPointer &);

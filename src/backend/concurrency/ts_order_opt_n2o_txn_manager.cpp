@@ -640,8 +640,11 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
 
   if (logging_type == LOGGING_TYPE_PHYLOG) {
     ((logging::PhyLogLogManager*)(&log_manager))->StartPersistTxn();
-  }
+  } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
 
+  } else if (logging_type == LOGGING_TYPE_COMMAND) {
+
+  }
 
   auto &rw_set = current_txn->GetRWSet();
 
@@ -698,6 +701,10 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // add to log manager
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
+        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+        } else if (logging_type == LOGGING_TYPE_COMMAND) {
+    
         }
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
@@ -728,6 +735,10 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // add to log manager
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+        } else if (logging_type == LOGGING_TYPE_COMMAND) {
+    
         }
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
@@ -744,6 +755,10 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // add to log manager
         if (logging_type == LOGGING_TYPE_PHYLOG) {
           ((logging::PhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+        } else if (logging_type == LOGGING_TYPE_COMMAND) {
+    
         }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
@@ -767,6 +782,10 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
 
   if (logging_type == LOGGING_TYPE_PHYLOG) {
     ((logging::PhyLogLogManager*)(&log_manager))->EndPersistTxn();
+  } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
+
+  } else if (logging_type == LOGGING_TYPE_COMMAND) {
+    
   }
 
   EndTransaction();

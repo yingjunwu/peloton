@@ -365,7 +365,12 @@ DeliveryPlans PrepareDeliveryPlan() {
 
 }
 
-bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
+void GenerateDeliveryParams(const size_t &thread_id, DeliveryParams &params) {
+  params.warehouse_id = GenerateWarehouseId(thread_id);
+  params.o_carrier_id = GetRandomInteger(orders_min_carrier_id, orders_max_carrier_id);
+}
+
+bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params){
 
   std::vector<expression::AbstractExpression *> runtime_keys;
   /*
@@ -381,13 +386,6 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
    */
 
   LOG_TRACE("-------------------------------------");
-
-  /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  int warehouse_id = GenerateWarehouseId(thread_id);
-  int o_carrier_id = GetRandomInteger(orders_min_carrier_id, orders_max_carrier_id);
-  //int64_t ol_delivery_d = time(0);
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -411,7 +409,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
     std::vector<Value> new_order_key_values;
     
     new_order_key_values.push_back(ValueFactory::GetIntegerValue(d_id));
-    new_order_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+    new_order_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
     new_order_key_values.push_back(ValueFactory::GetIntegerValue(-1));
 
     delivery_plans.new_order_index_scan_executor_->SetValues(new_order_key_values);
@@ -463,7 +461,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
 
     orders_key_values.push_back(no_o_id);
     orders_key_values.push_back(ValueFactory::GetIntegerValue(d_id));
-    orders_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+    orders_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
     delivery_plans.orders_index_scan_executor_->SetValues(orders_key_values);
 
@@ -490,7 +488,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
 
     order_line_key_values.push_back(no_o_id);
     order_line_key_values.push_back(ValueFactory::GetIntegerValue(d_id));
-    order_line_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+    order_line_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
     delivery_plans.order_line_index_scan_executor_->SetValues(order_line_key_values);
 
@@ -519,7 +517,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
     std::vector<Value> new_order_delete_key_values;
 
     new_order_delete_key_values.push_back(ValueFactory::GetIntegerValue(d_id));
-    new_order_delete_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+    new_order_delete_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
     new_order_delete_key_values.push_back(no_o_id);
 
     delivery_plans.new_order_delete_index_scan_executor_->SetValues(new_order_delete_key_values);
@@ -543,7 +541,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
     // Construct update executor
     TargetList orders_target_list;
 
-    Value orders_update_val = ValueFactory::GetIntegerValue(o_carrier_id);
+    Value orders_update_val = ValueFactory::GetIntegerValue(params.o_carrier_id);
 
     orders_target_list.emplace_back(
       COL_IDX_O_CARRIER_ID, expression::ExpressionUtil::ConstantValueFactory(orders_update_val)
@@ -593,7 +591,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const size_t &thread_id){
 
     customer_key_values.push_back(c_id);
     customer_key_values.push_back(ValueFactory::GetIntegerValue(d_id));
-    customer_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+    customer_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
     delivery_plans.customer_index_scan_executor_->SetValues(customer_key_values);
 

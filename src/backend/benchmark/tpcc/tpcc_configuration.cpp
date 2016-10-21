@@ -224,6 +224,15 @@ void ValidateLoggingType(configuration &state) {
       exit(EXIT_FAILURE);
     }
   }
+
+  if (state.recover_checkpoint == true && state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
+    LOG_ERROR("must set checkpoint type when performing checkpoint recovery!");
+    exit(EXIT_FAILURE);
+  }
+  if (state.replay_log == true && state.logging_type == LOGGING_TYPE_INVALID) {
+    LOG_ERROR("must set logging type when performing log replay!");
+    exit(EXIT_FAILURE);
+  }
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {

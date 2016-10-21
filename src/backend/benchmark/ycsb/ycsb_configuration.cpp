@@ -54,7 +54,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, physical, off\n"
+          "   -L --log_type          :  log type could be phylog, physical, command, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -308,6 +308,12 @@ void ValidateLoggingType(configuration &state) {
       exit(EXIT_FAILURE);
     }
   }
+  if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
 
   if (state.recover_checkpoint == true && state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
     LOG_ERROR("must set checkpoint type when performing checkpoint recovery!");
@@ -475,6 +481,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_PHYLOG;
         } else if (strcmp(logging_proto, "physical") == 0) {
           state.logging_type = LOGGING_TYPE_PHYSICAL;
+        } else if (strcmp(logging_proto, "command") == 0) {
+          state.logging_type = LOGGING_TYPE_COMMAND;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

@@ -370,13 +370,48 @@ PaymentPlans PreparePaymentPlan() {
 
 }
 
-bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
+void GeneratePaymentParams(const size_t &thread_id, PaymentParams &params) {
+  params.warehouse_id = GenerateWarehouseId(thread_id);
+  params.district_id = GetRandomInteger(0, state.districts_per_warehouse - 1);
+  params.customer_id = -1;
+  // std::string params.customer_lastname;
+  params.h_amount = GetRandomFixedPoint(2, payment_min_amount, payment_max_amount);
+  // WARN: Hard code the date as 0. may cause problem
+  //int h_date = 0;
+
+  int x = GetRandomInteger(1, 100);
+  // int y = GetRandomInteger(1, 100);
+
+  // 85%: paying through own warehouse ( or there is only 1 warehosue)
+  if (state.warehouse_count == 1 || x <= 85) {
+    params.customer_warehouse_id = params.warehouse_id;
+    params.customer_district_id = params.district_id;
+  }
+  // 15%: paying through another warehouse
+  else {
+    params.customer_warehouse_id = GetRandomIntegerExcluding(0, state.warehouse_count - 1, params.warehouse_id);
+    assert(params.customer_warehouse_id != params.warehouse_id);
+    params.customer_district_id = GetRandomInteger(0, state.districts_per_warehouse - 1);
+  }
+
+  // 60%: payment by last name
+  // if (y <= 60) {
+  //   params.customer_lastname = GetRandomLastName(state.customers_per_district);
+  // }
+  // // 40%: payment by id
+  // else {
+    params.customer_id = GetRandomInteger(0, state.customers_per_district - 1);
+  // }
+
+}
+
+bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params) {
   /*
      "PAYMENT": {
      "getWarehouse": "SELECT W_NAME, W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP FROM WAREHOUSE WHERE W_ID = ?", # w_id
-     "updateWarehouseBalance": "UPDATE WAREHOUSE SET W_YTD = W_YTD + ? WHERE W_ID = ?", # h_amount, w_id
+     "updateWarehouseBalance": "UPDATE WAREHOUSE SET W_YTD = W_YTD + ? WHERE W_ID = ?", # params.h_amount, w_id
      "getDistrict": "SELECT D_NAME, D_STREET_1, D_STREET_2, D_CITY, D_STATE, D_ZIP FROM DISTRICT WHERE D_W_ID = ? AND D_ID = ?", # w_id, d_id
-     "updateDistrictBalance": "UPDATE DISTRICT SET D_YTD = D_YTD + ? WHERE D_W_ID = ? AND D_ID = ?", # h_amount, d_w_id, d_id
+     "updateDistrictBalance": "UPDATE DISTRICT SET D_YTD = D_YTD + ? WHERE D_W_ID = ? AND D_ID = ?", # params.h_amount, d_w_id, d_id
      "getCustomerByCustomerId": "SELECT C_ID, C_FIRST, C_MIDDLE, C_LAST, C_STREET_1, C_STREET_2, C_CITY, C_STATE, C_ZIP, C_PHONE, C_SINCE, C_CREDIT, C_CREDIT_LIM, C_DISCOUNT, C_BALANCE, C_YTD_PAYMENT, C_PAYMENT_CNT, C_DATA FROM CUSTOMER WHERE C_W_ID = ? AND C_D_ID = ? AND C_ID = ?", # w_id, d_id, c_id
      "getCustomersByLastName": "SELECT C_ID, C_FIRST, C_MIDDLE, C_LAST, C_STREET_1, C_STREET_2, C_CITY, C_STATE, C_ZIP, C_PHONE, C_SINCE, C_CREDIT, C_CREDIT_LIM, C_DISCOUNT, C_BALANCE, C_YTD_PAYMENT, C_PAYMENT_CNT, C_DATA FROM CUSTOMER WHERE C_W_ID = ? AND C_D_ID = ? AND C_LAST = ? ORDER BY C_FIRST", # w_id, d_id, c_last
      "updateBCCustomer": "UPDATE CUSTOMER SET C_BALANCE = ?, C_YTD_PAYMENT = ?, C_PAYMENT_CNT = ?, C_DATA = ? WHERE C_W_ID = ? AND C_D_ID = ? AND C_ID = ?", # c_balance, c_ytd_payment, c_payment_cnt, c_data, c_w_id, c_d_id, c_id
@@ -386,45 +421,6 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
    */
 
   LOG_TRACE("-------------------------------------");
-
-  /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  int warehouse_id = GenerateWarehouseId(thread_id);
-  int district_id = GetRandomInteger(0, state.districts_per_warehouse - 1);
-  int customer_warehouse_id;
-  int customer_district_id;
-  int customer_id = -1;
-  std::string customer_lastname;
-  double h_amount = GetRandomFixedPoint(2, payment_min_amount, payment_max_amount);
-  // WARN: Hard code the date as 0. may cause problem
-  //int h_date = 0;
-
-  int x = GetRandomInteger(1, 100);
-  // int y = GetRandomInteger(1, 100);
-
-  // 85%: paying through own warehouse ( or there is only 1 warehosue)
-  if (state.warehouse_count == 1 || x <= 85) {
-    customer_warehouse_id = warehouse_id;
-    customer_district_id = district_id;
-  }
-  // 15%: paying through another warehouse
-  else {
-    customer_warehouse_id = GetRandomIntegerExcluding(0, state.warehouse_count - 1, warehouse_id);
-    assert(customer_warehouse_id != warehouse_id);
-    customer_district_id = GetRandomInteger(0, state.districts_per_warehouse - 1);
-  }
-
-  // 60%: payment by last name
-  // if (y <= 60) {
-  //   LOG_TRACE("By last name");
-  //   customer_lastname = GetRandomLastName(state.customers_per_district);
-  // }
-  // // 40%: payment by id
-  // else {
-    LOG_TRACE("By id");
-    customer_id = GetRandomInteger(0, state.customers_per_district - 1);
-  // }
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -442,16 +438,16 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   
   std::vector<Value> customer;
   
-  if (customer_id >= 0) {
-    LOG_TRACE("getCustomerByCustomerId:  WHERE C_W_ID = ? AND C_D_ID = ? AND C_ID = ? , # w_id = %d, d_id = %d, c_id = %d", warehouse_id, district_id, customer_id);
+  if (params.customer_id >= 0) {
+    LOG_TRACE("getCustomerByCustomerId:  WHERE C_W_ID = ? AND C_D_ID = ? AND C_ID = ? , # w_id = %d, d_id = %d, c_id = %d", params.warehouse_id, params.district_id, params.customer_id);
 
     payment_plans.customer_pindex_scan_executor_->ResetState();
 
     std::vector<Value> customer_pkey_values;
 
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_id));
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(district_id));
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.customer_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.district_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
     payment_plans.customer_pindex_scan_executor_->SetValues(customer_pkey_values);
 
@@ -471,17 +467,17 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
     customer = customer_list[0];
 
   } else {
-    assert(customer_lastname.empty() == false);
+    assert(params.customer_lastname.empty() == false);
 
-    LOG_TRACE("getCustomersByLastName: WHERE C_W_ID = ? AND C_D_ID = ? AND C_LAST = ? ORDER BY C_FIRST, # w_id = %d, d_id = %d, c_last = %s", warehouse_id, district_id, customer_lastname.c_str());
+    LOG_TRACE("getCustomersByLastName: WHERE C_W_ID = ? AND C_D_ID = ? AND C_LAST = ? ORDER BY C_FIRST, # w_id = %d, d_id = %d, c_last = %s", params.warehouse_id, params.district_id, params.customer_lastname.c_str());
 
     payment_plans.customer_index_scan_executor_->ResetState();
 
     std::vector<Value> customer_key_values;
 
-    customer_key_values.push_back(ValueFactory::GetIntegerValue(district_id));
-    customer_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
-    customer_key_values.push_back(ValueFactory::GetStringValue(customer_lastname));
+    customer_key_values.push_back(ValueFactory::GetIntegerValue(params.district_id));
+    customer_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
+    customer_key_values.push_back(ValueFactory::GetStringValue(params.customer_lastname));
 
     payment_plans.customer_index_scan_executor_->SetValues(customer_key_values);
 
@@ -495,7 +491,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
     }
 
     if (customer_list.size() < 1) {
-      LOG_INFO("C_W_ID=%d, C_D_ID=%d", warehouse_id, district_id);
+      LOG_INFO("C_W_ID=%d, C_D_ID=%d", params.warehouse_id, params.district_id);
       assert(false);
     }
 
@@ -505,7 +501,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   }
 
 
-  LOG_TRACE("getWarehouse:WHERE W_ID = ? # w_id = %d", warehouse_id);
+  LOG_TRACE("getWarehouse:WHERE W_ID = ? # w_id = %d", params.warehouse_id);
   // We get the original W_YTD from this query,
   // which is not the TPCC standard
 
@@ -513,7 +509,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
 
   std::vector<Value> warehouse_key_values;
 
-  warehouse_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+  warehouse_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
   payment_plans.warehouse_index_scan_executor_->SetValues(warehouse_key_values);
   
@@ -532,7 +528,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   }
 
 
-  LOG_TRACE("getDistrict: WHERE D_W_ID = ? AND D_ID = ?, # w_id = %d, d_id = %d", warehouse_id, district_id);
+  LOG_TRACE("getDistrict: WHERE D_W_ID = ? AND D_ID = ?, # w_id = %d, d_id = %d", params.warehouse_id, params.district_id);
   // We also retrieve the original D_YTD from this query,
   // which is not the standard TPCC approach
   
@@ -540,8 +536,8 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
 
   std::vector<Value> district_key_values;
 
-  district_key_values.push_back(ValueFactory::GetIntegerValue(district_id));
-  district_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+  district_key_values.push_back(ValueFactory::GetIntegerValue(params.district_id));
+  district_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
   payment_plans.district_index_scan_executor_->SetValues(district_key_values);
 
@@ -560,9 +556,9 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   }
 
   
-  double warehouse_new_balance = ValuePeeker::PeekDouble(warehouse_list[0][6]) + h_amount;
+  double warehouse_new_balance = ValuePeeker::PeekDouble(warehouse_list[0][6]) + params.h_amount;
 
-  LOG_TRACE("updateWarehouseBalance: UPDATE WAREHOUSE SET W_YTD = W_YTD + ? WHERE W_ID = ?,# h_amount = %f, w_id = %d", h_amount, warehouse_id);
+  LOG_TRACE("updateWarehouseBalance: UPDATE WAREHOUSE SET W_YTD = W_YTD + ? WHERE W_ID = ?,# params.h_amount = %f, w_id = %d", params.h_amount, params.warehouse_id);
 
   payment_plans.warehouse_update_index_scan_executor_->ResetState();
 
@@ -590,10 +586,10 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   }
 
 
-  double district_new_balance = ValuePeeker::PeekDouble(district_list[0][6]) + h_amount;
+  double district_new_balance = ValuePeeker::PeekDouble(district_list[0][6]) + params.h_amount;
 
-  LOG_TRACE("updateDistrictBalance: UPDATE DISTRICT SET D_YTD = D_YTD + ? WHERE D_W_ID = ? AND D_ID = ?,# h_amount = %f, d_w_id = %d, d_id = %d",
-           h_amount, district_id, warehouse_id);
+  LOG_TRACE("updateDistrictBalance: UPDATE DISTRICT SET D_YTD = D_YTD + ? WHERE D_W_ID = ? AND D_ID = ?,# params.h_amount = %f, d_w_id = %d, d_id = %d",
+           params.h_amount, params.district_id, params.warehouse_id);
 
   payment_plans.district_update_index_scan_executor_->ResetState();
 
@@ -623,11 +619,11 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
 
   std::string customer_credit = ValuePeeker::PeekStringCopyWithoutNull(customer[11]);
   
-  double customer_balance = ValuePeeker::PeekDouble(customer[14]) - h_amount;
-  double customer_ytd_payment = ValuePeeker::PeekDouble(customer[15]) + h_amount;
+  double customer_balance = ValuePeeker::PeekDouble(customer[14]) - params.h_amount;
+  double customer_ytd_payment = ValuePeeker::PeekDouble(customer[15]) + params.h_amount;
   int customer_payment_cnt = ValuePeeker::PeekInteger(customer[16]) + 1;
   
-  customer_id = ValuePeeker::PeekInteger(customer[0]);
+  int customer_id = ValuePeeker::PeekInteger(customer[0]);
 
   // NOTE: Workaround, we assign a constant to the customer's data field
   // auto customer_data = customer_data_constant;
@@ -636,7 +632,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   if (customer_credit == customers_bad_credit) {
     LOG_TRACE("updateBCCustomer:# c_balance = %f, c_ytd_payment = %f, c_payment_cnt = %d, c_data = %s, c_w_id = %d, c_d_id = %d, c_id = %d",
                customer_balance, customer_ytd_payment, customer_payment_cnt, data_constant.c_str(),
-               customer_warehouse_id, customer_district_id, customer_id);
+               params.customer_warehouse_id, params.customer_district_id, customer_id);
 
 
     payment_plans.customer_update_bc_index_scan_executor_->ResetState();
@@ -644,8 +640,8 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
     std::vector<Value> customer_pkey_values;
 
     customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_id));
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_district_id));
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_warehouse_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.customer_district_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.customer_warehouse_id));
 
     payment_plans.customer_update_bc_index_scan_executor_->SetValues(customer_pkey_values);
 
@@ -669,7 +665,7 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   else {
     LOG_TRACE("updateGCCustomer: # c_balance = %f, c_ytd_payment = %f, c_payment_cnt = %d, c_w_id = %d, c_d_id = %d, c_id = %d",
                customer_balance, customer_ytd_payment, customer_payment_cnt,
-               customer_warehouse_id, customer_district_id, customer_id);
+               params.customer_warehouse_id, params.customer_district_id, customer_id);
 
 
     payment_plans.customer_update_gc_index_scan_executor_->ResetState();
@@ -677,8 +673,8 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
     std::vector<Value> customer_pkey_values;
 
     customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_id));
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_district_id));
-    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(customer_warehouse_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.customer_district_id));
+    customer_pkey_values.push_back(ValueFactory::GetIntegerValue(params.customer_warehouse_id));
 
     payment_plans.customer_update_gc_index_scan_executor_->SetValues(customer_pkey_values);
 
@@ -714,17 +710,17 @@ bool RunPayment(PaymentPlans &payment_plans, const size_t &thread_id){
   // // H_C_ID
   // history_tuple->SetValue(0, ValueFactory::GetIntegerValue(customer_id), nullptr);
   // // H_C_D_ID
-  // history_tuple->SetValue(1, ValueFactory::GetIntegerValue(customer_district_id), nullptr);
+  // history_tuple->SetValue(1, ValueFactory::GetIntegerValue(params.customer_district_id), nullptr);
   // // H_C_W_ID
-  // history_tuple->SetValue(2, ValueFactory::GetIntegerValue(customer_warehouse_id), nullptr);
+  // history_tuple->SetValue(2, ValueFactory::GetIntegerValue(params.customer_warehouse_id), nullptr);
   // // H_D_ID
-  // history_tuple->SetValue(3, ValueFactory::GetIntegerValue(district_id), nullptr);
+  // history_tuple->SetValue(3, ValueFactory::GetIntegerValue(params.district_id), nullptr);
   // // H_W_ID
-  // history_tuple->SetValue(4, ValueFactory::GetIntegerValue(warehouse_id), nullptr);
+  // history_tuple->SetValue(4, ValueFactory::GetIntegerValue(params.warehouse_id), nullptr);
   // // H_DATE
   // history_tuple->SetValue(5, ValueFactory::GetTimestampValue(h_date), nullptr);
   // // H_AMOUNT
-  // history_tuple->SetValue(6, ValueFactory::GetDoubleValue(h_amount), nullptr);
+  // history_tuple->SetValue(6, ValueFactory::GetDoubleValue(params.h_amount), nullptr);
   // // H_DATA
   // history_tuple->SetValue(7, ValueFactory::GetStringValue(data_constant), context.get()->GetExecutorContextPool());
 

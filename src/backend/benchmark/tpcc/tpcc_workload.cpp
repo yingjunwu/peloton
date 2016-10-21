@@ -275,7 +275,9 @@ void RunBackend(oid_t thread_id) {
        }
      } 
      else if (rng_val <= DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
-       while (RunDelivery(delivery_plans, thread_id) == false) {
+      DeliveryParams delivery_params;
+      GenerateDeliveryParams(thread_id, delivery_params);
+       while (RunDelivery(delivery_plans, delivery_params) == false) {
           if (is_running == false) {
             break;
           }
@@ -297,7 +299,9 @@ void RunBackend(oid_t thread_id) {
        delivery_transaction_count_ref++;
      } 
       else if (rng_val <= PAYMENT_RATIO + DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
-       while (RunPayment(payment_plans, thread_id) == false) {
+       PaymentParams payment_params;
+       GeneratePaymentParams(thread_id, payment_params);
+       while (RunPayment(payment_plans, payment_params) == false) {
           if (is_running == false) {
             break;
           }
@@ -318,7 +322,9 @@ void RunBackend(oid_t thread_id) {
        }
        payment_transaction_count_ref++;
      } else {
-       while (RunNewOrder(new_order_plans, thread_id) == false) {
+       NewOrderParams new_order_params;
+       GenerateNewOrderParams(thread_id, new_order_params);
+       while (RunNewOrder(new_order_plans, new_order_params) == false) {
           if (is_running == false) {
             break;
           }

@@ -84,35 +84,6 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
 
   PL_ASSERT(ctx);
 
-  const int transaction_type = INVALID_TRANSACTION_TYPE;
-
-  size_t buffer_size = sizeof(ctx->current_cid) + sizeof(transaction_type);
-  
-  char *data_buffer = new char[buffer_size];
-  
-  memcpy(data_buffer, &(ctx->current_cid), sizeof(ctx->current_cid));
-  memcpy(data_buffer + sizeof(ctx->current_cid), &(transaction_type), sizeof(transaction_type));
-
-  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-
-  PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
-  LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
-  PL_ASSERT(buffer_ptr);
-
-  // Copy the output buffer into current buffer
-  bool is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
-  if (is_success == false) {
-    // A buffer is full, pass it to the front end logger
-    // Get a new buffer and register it to current epoch
-    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
-    // Write it again
-    is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
-    PL_ASSERT(is_success);
-  }
-
-  delete[] data_buffer;
-  data_buffer = nullptr;
-
   // First serialize the epoch to current output buffer
   // TODO: Eliminate this extra copy
   auto &output = ctx->output_buffer;
@@ -158,6 +129,11 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
     }
   }
 
+  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+  
+  PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
+  LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
+  PL_ASSERT(buffer_ptr);
 
   // Add the frame length
   // XXX: We rely on the fact that the serializer treat a int32_t as 4 bytes
@@ -165,7 +141,7 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
   output.WriteIntAt(start, length);
 
   // Copy the output buffer into current buffer
-  is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+  bool is_success = buffer_ptr->WriteData(output.Data(), output.Size());
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
@@ -176,8 +152,8 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
   }
 }
 
-void CommandLogManager::StartPersistTxn(const int transaction_type) {
-  WriteRecordToBuffer(transaction_type);
+void CommandLogManager::StartPersistTxn() {
+  WriteRecordToBuffer(INVALID_TRANSACTION_TYPE);
 }
 
 void CommandLogManager::EndPersistTxn() {
@@ -202,8 +178,6 @@ void CommandLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
   WriteRecordToBuffer(record);
 }
 
-
-void CommandLogManager::DoRecovery(const size_t &begin_eid UNUSED_ATTRIBUTE){}
 
 void CommandLogManager::StartLoggers() {
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
@@ -298,6 +272,12 @@ size_t CommandLogManager::RecoverPepoch() {
   }
 
   return persist_epoch_id;
+}
+
+
+
+void CommandLogManager::DoRecovery(const size_t &begin_eid UNUSED_ATTRIBUTE) {
+  // size_t end_eid = RecoverPepoch();
 }
 
 }

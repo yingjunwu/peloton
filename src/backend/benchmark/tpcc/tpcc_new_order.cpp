@@ -347,9 +347,33 @@ NewOrderPlans PrepareNewOrderPlan() {
   return new_order_plans;
 }
 
+void GenerateNewOrderParams(const size_t &thread_id, NewOrderParams &params) {
+  params.warehouse_id = GenerateWarehouseId(thread_id);
+  params.district_id = GetRandomInteger(0, state.districts_per_warehouse - 1);
+  params.customer_id = GetRandomInteger(0, state.customers_per_district - 1);
+  params.o_ol_cnt = GetRandomInteger(orders_min_ol_cnt, orders_max_ol_cnt);
+
+  params.o_all_local = true;
+
+  for (auto ol_itr = 0; ol_itr < params.o_ol_cnt; ol_itr++) {
+    // in the original TPC-C benchmark, it is possible to read an item that does not exist.
+    // for simplicity, we ignore this case.
+    // this essentially makes the processing of NewOrder transaction more time-consuming.
+    params.i_ids.push_back(GetRandomInteger(0, state.item_count - 1));
+    bool remote = GetRandomBoolean(new_order_remote_txns);
+    params.ol_w_ids.push_back(params.warehouse_id);
+
+    if(remote == true) {
+      params.ol_w_ids[ol_itr] = GetRandomIntegerExcluding(0, state.warehouse_count - 1, params.warehouse_id);
+      params.o_all_local = false;
+    }
+
+    params.ol_qtys.push_back(GetRandomInteger(0, order_line_max_ol_quantity));
+  }
+}
 
 
-bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
+bool RunNewOrder(NewOrderPlans &new_order_plans, const NewOrderParams &params){
   /*
      "NEW_ORDER": {
      "getWarehouseTaxRate": "SELECT W_TAX FROM WAREHOUSE WHERE W_ID = ?", # w_id
@@ -368,35 +392,6 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   LOG_TRACE("-------------------------------------");
 
   /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  int warehouse_id = GenerateWarehouseId(thread_id);
-  int district_id = GetRandomInteger(0, state.districts_per_warehouse - 1);
-  int customer_id = GetRandomInteger(0, state.customers_per_district - 1);
-  int o_ol_cnt = GetRandomInteger(orders_min_ol_cnt, orders_max_ol_cnt);
-  //auto o_entry_ts = GetTimeStamp();
-
-  std::vector<int> i_ids, ol_w_ids, ol_qtys;
-  bool o_all_local = true;
-
-  for (auto ol_itr = 0; ol_itr < o_ol_cnt; ol_itr++) {
-    // in the original TPC-C benchmark, it is possible to read an item that does not exist.
-    // for simplicity, we ignore this case.
-    // this essentially makes the processing of NewOrder transaction more time-consuming.
-    i_ids.push_back(GetRandomInteger(0, state.item_count - 1));
-    bool remote = GetRandomBoolean(new_order_remote_txns);
-    ol_w_ids.push_back(warehouse_id);
-
-    if(remote == true) {
-      ol_w_ids[ol_itr] = GetRandomIntegerExcluding(0, state.warehouse_count - 1, warehouse_id);
-      o_all_local = false;
-    }
-
-    ol_qtys.push_back(GetRandomInteger(0, order_line_max_ol_quantity));
-  }
-
-
-  /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
   /////////////////////////////////////////////////////////
 
@@ -411,7 +406,7 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
 
   
   //std::vector<float> i_prices;
-  for (auto item_id : i_ids) {
+  for (auto item_id : params.i_ids) {
     
     LOG_TRACE("getItemInfo: SELECT I_PRICE, I_NAME, I_DATA FROM ITEM WHERE I_ID = %d", item_id);
 
@@ -439,13 +434,13 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   }
 
 
-  LOG_TRACE("getWarehouseTaxRate: SELECT W_TAX FROM WAREHOUSE WHERE W_ID = %d", warehouse_id);
+  LOG_TRACE("getWarehouseTaxRate: SELECT W_TAX FROM WAREHOUSE WHERE W_ID = %d", params.warehouse_id);
   
   new_order_plans.warehouse_index_scan_executor_->ResetState();
 
   std::vector<Value> warehouse_key_values;
 
-  warehouse_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+  warehouse_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
   new_order_plans.warehouse_index_scan_executor_->SetValues(warehouse_key_values);
 
@@ -467,14 +462,14 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   LOG_TRACE("w_tax: %s", w_tax.GetInfo().c_str());
 
 
-  LOG_TRACE("getDistrict: SELECT D_TAX, D_NEXT_O_ID FROM DISTRICT WHERE D_ID = %d AND D_W_ID = %d", district_id, warehouse_id);
+  LOG_TRACE("getDistrict: SELECT D_TAX, D_NEXT_O_ID FROM DISTRICT WHERE D_ID = %d AND D_W_ID = %d", district_id, params.warehouse_id);
 
   new_order_plans.district_index_scan_executor_->ResetState();
 
   std::vector<Value> district_key_values;
 
-  district_key_values.push_back(ValueFactory::GetIntegerValue(district_id));
-  district_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+  district_key_values.push_back(ValueFactory::GetIntegerValue(params.district_id));
+  district_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
   new_order_plans.district_index_scan_executor_->SetValues(district_key_values);
 
@@ -497,15 +492,15 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   LOG_TRACE("d_tax: %s, d_next_o_id: %s", d_tax.GetInfo().c_str(), d_next_o_id.GetInfo().c_str());
   
 
-  LOG_TRACE("getCustomer: SELECT C_DISCOUNT, C_LAST, C_CREDIT FROM CUSTOMER WHERE C_W_ID = %d AND C_D_ID = %d AND C_ID = %d", warehouse_id, district_id, customer_id);
+  LOG_TRACE("getCustomer: SELECT C_DISCOUNT, C_LAST, C_CREDIT FROM CUSTOMER WHERE C_W_ID = %d AND C_D_ID = %d AND C_ID = %d", params.warehouse_id, params.district_id, params.customer_id);
 
   new_order_plans.customer_index_scan_executor_->ResetState();
 
   std::vector<Value> customer_key_values;
 
-  customer_key_values.push_back(ValueFactory::GetIntegerValue(customer_id));
-  customer_key_values.push_back(ValueFactory::GetIntegerValue(district_id));
-  customer_key_values.push_back(ValueFactory::GetIntegerValue(warehouse_id));
+  customer_key_values.push_back(ValueFactory::GetIntegerValue(params.customer_id));
+  customer_key_values.push_back(ValueFactory::GetIntegerValue(params.district_id));
+  customer_key_values.push_back(ValueFactory::GetIntegerValue(params.warehouse_id));
 
   new_order_plans.customer_index_scan_executor_->SetValues(customer_key_values);
 
@@ -532,7 +527,7 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   int district_update_value = ValuePeeker::PeekAsInteger(d_next_o_id) + 1;
   LOG_TRACE("district update value = %d", district_update_value);
 
-  LOG_TRACE("incrementNextOrderId: UPDATE DISTRICT SET D_NEXT_O_ID = %d WHERE D_ID = %d AND D_W_ID = %d", district_update_value, district_id, warehouse_id);
+  LOG_TRACE("incrementNextOrderId: UPDATE DISTRICT SET D_NEXT_O_ID = %d WHERE D_ID = %d AND D_W_ID = %d", district_update_value, params.district_id, params.warehouse_id);
 
   new_order_plans.district_update_index_scan_executor_->ResetState();
 
@@ -565,20 +560,20 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   // O_ID
   orders_tuple->SetValue(0, ValueFactory::GetIntegerValue(ValuePeeker::PeekAsInteger(d_next_o_id)), nullptr);
   // O_C_ID
-  orders_tuple->SetValue(1, ValueFactory::GetIntegerValue(customer_id), nullptr);
+  orders_tuple->SetValue(1, ValueFactory::GetIntegerValue(params.customer_id), nullptr);
   // O_D_ID
-  orders_tuple->SetValue(2, ValueFactory::GetIntegerValue(district_id), nullptr);
+  orders_tuple->SetValue(2, ValueFactory::GetIntegerValue(params.district_id), nullptr);
   // O_W_ID
-  orders_tuple->SetValue(3, ValueFactory::GetIntegerValue(warehouse_id), nullptr);
+  orders_tuple->SetValue(3, ValueFactory::GetIntegerValue(params.warehouse_id), nullptr);
   // O_ENTRY_D
   //auto o_entry_d = GetTimeStamp();
   orders_tuple->SetValue(4, ValueFactory::GetTimestampValue(1) , nullptr);
   // O_CARRIER_ID
   orders_tuple->SetValue(5, ValueFactory::GetIntegerValue(0), nullptr);
   // O_OL_CNT
-  orders_tuple->SetValue(6, ValueFactory::GetIntegerValue(o_ol_cnt), nullptr);
+  orders_tuple->SetValue(6, ValueFactory::GetIntegerValue(params.o_ol_cnt), nullptr);
   // O_ALL_LOCAL
-  orders_tuple->SetValue(7, ValueFactory::GetIntegerValue(o_all_local), nullptr);
+  orders_tuple->SetValue(7, ValueFactory::GetIntegerValue(params.o_all_local), nullptr);
 
   if (state.disable_insert == false) {
     planner::InsertPlan orders_node(orders_table, std::move(orders_tuple));
@@ -587,11 +582,11 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   }
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
-    LOG_TRACE("abort transaction when inserting order table, thread_id = %d, d_id = %d, next_o_id = %d", (int)thread_id, (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
+    LOG_TRACE("abort transaction when inserting order table, d_id = %d, next_o_id = %d", (int)params.district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
     txn_manager.AbortTransaction();
     return false;
   } else {
-    LOG_TRACE("successfully insert order table, thread_id = %d, d_id = %d, next_o_id = %d", (int)thread_id, (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
+    LOG_TRACE("successfully insert order table, d_id = %d, next_o_id = %d", (int)params.district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
   }
   
   LOG_TRACE("createNewOrder: INSERT INTO NEW_ORDER (NO_O_ID, NO_D_ID, NO_W_ID) VALUES (?, ?, ?)");
@@ -600,9 +595,9 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
   // NO_O_ID
   new_order_tuple->SetValue(0, ValueFactory::GetIntegerValue(ValuePeeker::PeekAsInteger(d_next_o_id)), nullptr);
   // NO_D_ID
-  new_order_tuple->SetValue(1, ValueFactory::GetIntegerValue(district_id), nullptr);
+  new_order_tuple->SetValue(1, ValueFactory::GetIntegerValue(params.district_id), nullptr);
   // NO_W_ID
-  new_order_tuple->SetValue(2, ValueFactory::GetIntegerValue(warehouse_id), nullptr);
+  new_order_tuple->SetValue(2, ValueFactory::GetIntegerValue(params.warehouse_id), nullptr);
 
   if (state.disable_insert == false) {
     planner::InsertPlan new_order_node(new_order_table, std::move(new_order_tuple));
@@ -616,10 +611,10 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
     return false;
   }
 
-  for (size_t i = 0; i < i_ids.size(); ++i) {
-    int item_id = i_ids.at(i);
-    int ol_w_id = ol_w_ids.at(i);
-    int ol_qty = ol_qtys.at(i);
+  for (size_t i = 0; i < params.i_ids.size(); ++i) {
+    int item_id = params.i_ids.at(i);
+    int ol_w_id = params.ol_w_ids.at(i);
+    int ol_qty = params.ol_qtys.at(i);
     
     LOG_TRACE("getStockInfo: SELECT S_QUANTITY, S_DATA, S_YTD, S_ORDER_CNT, S_REMOTE_CNT, S_DIST_? FROM STOCK WHERE S_I_ID = %d AND S_W_ID = %d", item_id, ol_w_id);
 
@@ -633,7 +628,7 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
     new_order_plans.stock_index_scan_executor_->SetValues(stock_key_values);
 
     // S_QUANTITY, S_DIST_%02d, S_YTD, S_ORDER_CNT, S_REMOTE_CNT, S_DATA
-    std::vector<oid_t> stock_column_ids = {2, oid_t(3 + district_id), 13, 14, 15, 16}; 
+    std::vector<oid_t> stock_column_ids = {2, oid_t(3 + params.district_id), 13, 14, 15, 16}; 
 
     new_order_plans.stock_index_scan_executor_->SetColumnIds(stock_column_ids);
 
@@ -666,7 +661,7 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
 
     int s_remote_cnt = ValuePeeker::PeekAsInteger(gsi_lists_values[0][4]);
 
-    if (ol_w_id != warehouse_id) {
+    if (ol_w_id != params.warehouse_id) {
       s_remote_cnt += 1;
     }
 
@@ -711,9 +706,9 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
     // OL_O_ID
     order_line_tuple->SetValue(0, ValueFactory::GetIntegerValue(ValuePeeker::PeekAsInteger(d_next_o_id)), nullptr);
     // OL_D_ID
-    order_line_tuple->SetValue(1, ValueFactory::GetIntegerValue(district_id), nullptr);
+    order_line_tuple->SetValue(1, ValueFactory::GetIntegerValue(params.district_id), nullptr);
     // OL_W_ID
-    order_line_tuple->SetValue(2, ValueFactory::GetIntegerValue(warehouse_id), nullptr);
+    order_line_tuple->SetValue(2, ValueFactory::GetIntegerValue(params.warehouse_id), nullptr);
     // OL_NUMBER
     order_line_tuple->SetValue(3, ValueFactory::GetIntegerValue(i), nullptr);
     // OL_I_ID
@@ -750,14 +745,14 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const size_t &thread_id){
 
   if (result == Result::RESULT_SUCCESS) {
     // transaction passed commitment.
-    LOG_TRACE("commit txn, thread_id = %d, d_id = %d, next_o_id = %d", (int)thread_id, (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
+    LOG_TRACE("commit txn, d_id = %d, next_o_id = %d", (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
     return true;
     
   } else {
     // transaction failed commitment.
     assert(result == Result::RESULT_ABORTED ||
            result == Result::RESULT_FAILURE);
-    LOG_TRACE("abort txn, thread_id = %d, d_id = %d, next_o_id = %d", (int)thread_id, (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
+    LOG_TRACE("abort txn, d_id = %d, next_o_id = %d", (int)district_id, (int)ValuePeeker::PeekAsInteger(d_next_o_id));
     return false;
   }
 }
