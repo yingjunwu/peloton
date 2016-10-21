@@ -340,6 +340,64 @@ struct NewOrderParams {
   std::vector<int> ol_w_ids;
   std::vector<int> ol_qtys;
   bool o_all_local;
+
+  void Serialize(ParamString &param_str) {
+    param_str.Allocate(4*sizeof(int) + i_ids.size()*3*sizeof(int) + sizeof(bool));
+    size_t offset = 0;
+    memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
+    offset += sizeof(warehouse_id);
+    memcpy(param_str.data + offset, &district_id, sizeof(district_id));
+    offset += sizeof(district_id);
+    memcpy(param_str.data + offset, &customer_id, sizeof(customer_id));
+    offset += sizeof(customer_id);
+    memcpy(param_str.data + offset, &o_ol_cnt, sizeof(o_ol_cnt));
+    offset += sizeof(o_ol_cnt);
+
+    size_t id_count = i_ids.size();
+    memcpy(param_str.data + offset, &id_count, sizeof(id_count));
+
+    for (size_t i = 0; i < id_count; ++i) {
+      memcpy(param_str.data + offset, &(i_ids.at(i)), sizeof(int));
+      offset += sizeof(int);
+      memcpy(param_str.data + offset, &(ol_w_ids.at(i)), sizeof(int));
+      offset += sizeof(int);
+      memcpy(param_str.data + offset, &(ol_qtys.at(i)), sizeof(int));
+      offset += sizeof(int);
+    }
+
+    memcpy(param_str.data + offset, &o_all_local, sizeof(o_all_local));
+  }
+
+  void Deserialize(const ParamString &param_str) {
+    size_t offset = 0;
+    memcpy(&warehouse_id, param_str.data + offset, sizeof(warehouse_id));
+    offset += sizeof(warehouse_id);
+    memcpy(&district_id, param_str.data + offset, sizeof(district_id));
+    offset += sizeof(district_id);
+    memcpy(&customer_id, param_str.data + offset, sizeof(customer_id));
+    offset += sizeof(customer_id);
+    memcpy(&o_ol_cnt, param_str.data + offset, sizeof(o_ol_cnt));
+    offset += sizeof(o_ol_cnt);
+
+    size_t id_count = 0;
+    memcpy(&id_count, param_str.data + offset, sizeof(id_count));
+    offset += sizeof(id_count);
+    
+    i_ids.resize(id_count);
+    ol_w_ids.resize(id_count);
+    ol_qtys.resize(id_count);
+    
+    for (size_t i = 0; i < id_count; ++i) {
+      memcpy(&(i_ids[i]), param_str.data + offset, sizeof(int));
+      offset += sizeof(int);
+      memcpy(&(ol_w_ids[i]), param_str.data + offset, sizeof(int));
+      offset += sizeof(int);
+      memcpy(&(ol_qtys[i]), param_str.data + offset, sizeof(int));
+      offset += sizeof(int);
+    }
+
+    memcpy(param_str.data + offset, &o_all_local, sizeof(o_all_local));
+  }
 };
 
 void GenerateNewOrderParams(const size_t &thread_id, NewOrderParams &params);
@@ -355,6 +413,37 @@ struct PaymentParams {
   int customer_id;
   double h_amount;
   std::string customer_lastname;
+
+  void Serialize(ParamString &param_str) {
+    param_str.Allocate(5*sizeof(int) + sizeof(double));
+    size_t offset = 0;
+    memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
+    offset += sizeof(warehouse_id);
+    memcpy(param_str.data + offset, &district_id, sizeof(district_id));
+    offset += sizeof(district_id);
+    memcpy(param_str.data + offset, &customer_warehouse_id, sizeof(customer_warehouse_id));
+    offset += sizeof(customer_warehouse_id);
+    memcpy(param_str.data + offset, &customer_district_id, sizeof(customer_district_id));
+    offset += sizeof(customer_district_id);
+    memcpy(param_str.data + offset, &customer_id, sizeof(customer_id));
+    offset += sizeof(customer_id);
+    memcpy(param_str.data + offset, &h_amount, sizeof(h_amount));
+  }
+
+  void Deserialize(const ParamString &param_str) {
+    size_t offset = 0;
+    memcpy(&warehouse_id, param_str.data + offset, sizeof(warehouse_id));
+    offset += sizeof(warehouse_id);
+    memcpy(&district_id, param_str.data + offset, sizeof(district_id));
+    offset += sizeof(district_id);
+    memcpy(&customer_warehouse_id, param_str.data + offset, sizeof(customer_warehouse_id));
+    offset += sizeof(customer_warehouse_id);
+    memcpy(&customer_district_id, param_str.data + offset, sizeof(customer_district_id));
+    offset += sizeof(customer_district_id);
+    memcpy(&customer_id, param_str.data + offset, sizeof(customer_id));
+    offset += sizeof(customer_id);
+    memcpy(&h_amount, param_str.data + offset, sizeof(h_amount));
+  }
 };
 
 void GeneratePaymentParams(const size_t &thread_id, PaymentParams &params);
@@ -365,6 +454,21 @@ bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params);
 struct DeliveryParams {
   int warehouse_id;
   int o_carrier_id;
+
+  void Serialize(ParamString &param_str) {
+    param_str.Allocate(2*sizeof(int));
+    size_t offset = 0;
+    memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
+    offset += sizeof(warehouse_id);
+    memcpy(param_str.data + offset, &o_carrier_id, sizeof(o_carrier_id));
+  }
+
+  void Deserialize(const ParamString &param_str) {
+    size_t offset = 0;
+    memcpy(&warehouse_id, param_str.data + offset, sizeof(warehouse_id));
+    offset += sizeof(warehouse_id);
+    memcpy(&o_carrier_id, param_str.data + offset, sizeof(o_carrier_id));
+  }
 };
 
 void GenerateDeliveryParams(const size_t &thread_id, DeliveryParams &params);

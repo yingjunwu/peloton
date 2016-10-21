@@ -25,6 +25,33 @@
 // GUC Variables
 //===--------------------------------------------------------------------===//
 
+struct ParamString {
+  ParamString() {
+    data = nullptr;
+    data_size = 0;
+  }
+
+  ~ParamString() {
+    if (data != nullptr) {
+      delete[] data;
+      data = nullptr;
+    }
+  }
+
+  void Allocate(const size_t &size) {
+    data = new char[size];
+    data_size = size;
+  }
+
+  void Release() {
+    delete[] data;
+    data = nullptr;
+  }
+
+  char *data;
+  size_t data_size;
+};
+
 
 const int INVALID_TRANSACTION_TYPE = 100;
 
