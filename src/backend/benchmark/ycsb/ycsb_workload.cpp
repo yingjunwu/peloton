@@ -145,7 +145,7 @@ void RunBackend(oid_t thread_id) {
     transaction_count_ref++;
   }
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_PHYLOG) {
+  if (logging::DurabilityFactory::GetLoggingType() != LOGGING_TYPE_INVALID) {
     commit_latency_ref = logging::tl_worker_ctx->txn_summary.GetAverageLatencyInMs();
     if (thread_id == 0) {
       commit_lat_summary_ref = logging::tl_worker_ctx->txn_summary.GetLatSummary();

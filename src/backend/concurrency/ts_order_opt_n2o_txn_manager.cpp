@@ -633,8 +633,13 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   auto logging_type = logging::DurabilityFactory::GetLoggingType();
+  
+  if (logging_type != LOGGING_TYPE_INVALID) {
+    log_manager.StartTxn(current_txn);
+  }
+
   if (logging_type == LOGGING_TYPE_PHYLOG) {
-    ((logging::PhyLogLogManager*)(&log_manager))->StartTxn(current_txn);
+    ((logging::PhyLogLogManager*)(&log_manager))->StartPersistTxn();
   }
 
 
@@ -761,7 +766,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
   gc::GCManagerFactory::GetInstance().EndGCContext();
 
   if (logging_type == LOGGING_TYPE_PHYLOG) {
-    ((logging::PhyLogLogManager*)(&log_manager))->CommitCurrentTxn();
+    ((logging::PhyLogLogManager*)(&log_manager))->EndPersistTxn();
   }
 
   EndTransaction();

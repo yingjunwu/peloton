@@ -121,42 +121,17 @@ void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {
   }
 }
 
-void PhysicalLogManager::StartTxn(concurrency::Transaction *txn) {
-  PL_ASSERT(tl_worker_ctx);
-  size_t txn_eid = txn->GetEpochId();
 
-  // Record the txn timer
-  DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_ctx);
-
-  PL_ASSERT(tl_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_worker_ctx->current_eid <= txn_eid);
-
-  // Handle the epoch id
-  if (tl_worker_ctx->current_eid == INVALID_EPOCH_ID 
-    || tl_worker_ctx->current_eid != txn_eid) {
-    // if this is a new epoch, then write to a new buffer
-    tl_worker_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer()));
-  }
-
-  // Handle the commit id
-  cid_t txn_cid = txn->GetEndCommitId();
-  tl_worker_ctx->current_cid = txn_cid;
-
+void PhysicalLogManager::StartPersistTxn() {
   // Log down the begin of a transaction
-  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, txn_cid);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_BEGIN, tl_worker_ctx->current_cid);
   WriteRecordToBuffer(record);
 }
 
-void PhysicalLogManager::CommitCurrentTxn() {
+void PhysicalLogManager::EndPersistTxn() {
   PL_ASSERT(tl_worker_ctx);
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_worker_ctx->current_cid);
   WriteRecordToBuffer(record);
-}
-
-void PhysicalLogManager::FinishPendingTxn() {
-  PL_ASSERT(tl_worker_ctx);
-  size_t glob_peid = global_persist_epoch_id_.load();
-  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_worker_ctx);
 }
 
 void PhysicalLogManager::LogInsert(const ItemPointer &tuple_pos) {

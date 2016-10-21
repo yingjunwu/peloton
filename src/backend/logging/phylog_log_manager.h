@@ -103,9 +103,10 @@ public:
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);
   void LogDelete(const ItemPointer &tuple_pos_deleted);
-  void StartTxn(concurrency::Transaction *txn);
-  void CommitCurrentTxn();
-  void FinishPendingTxn();
+
+  void StartPersistTxn();
+  void EndPersistTxn();
+
 
   // Logger side logic
   virtual void DoRecovery(const size_t &begin_eid) override;

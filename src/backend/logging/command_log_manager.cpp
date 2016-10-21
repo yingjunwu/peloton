@@ -50,14 +50,14 @@ void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
 
   PL_ASSERT(ctx);
 
-  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-
   size_t buffer_size = sizeof(ctx->current_cid) + sizeof(transaction_type);
   
   char *data_buffer = new char[buffer_size];
   
   memcpy(data_buffer, &(ctx->current_cid), sizeof(ctx->current_cid));
   memcpy(data_buffer + sizeof(ctx->current_cid), &(transaction_type), sizeof(transaction_type));
+
+  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
 
   PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
@@ -75,47 +75,131 @@ void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
   }
 
   delete[] data_buffer;
-  data_buffer;
+  data_buffer = nullptr;
 }
 
 void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
+  WorkerContext *ctx = tl_worker_ctx;
+  LOG_TRACE("Worker %d write a record", ctx->worker_id);
 
-}
+  PL_ASSERT(ctx);
 
-void CommandLogManager::StartTxn(concurrency::Transaction *txn, const int transaction_type) {
-  PL_ASSERT(tl_worker_ctx);
-  size_t txn_eid = txn->GetEpochId();
+  const int transaction_type = INVALID_TRANSACTION_TYPE;
 
-  // Record the txn timer
-  DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_ctx);
+  size_t buffer_size = sizeof(ctx->current_cid) + sizeof(transaction_type);
+  
+  char *data_buffer = new char[buffer_size];
+  
+  memcpy(data_buffer, &(ctx->current_cid), sizeof(ctx->current_cid));
+  memcpy(data_buffer + sizeof(ctx->current_cid), &(transaction_type), sizeof(transaction_type));
 
-  PL_ASSERT(tl_worker_ctx->current_eid == INVALID_EPOCH_ID || 
-    tl_worker_ctx->current_eid <= txn_eid);
+  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
 
-  // Handle the epoch id
-  if (tl_worker_ctx->current_eid == INVALID_EPOCH_ID 
-    || tl_worker_ctx->current_eid != txn_eid) {
-    // if this is a new epoch, then write to a new buffer
-    tl_worker_ctx->current_eid = txn_eid;
-    RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer()));
+  PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
+  LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
+  PL_ASSERT(buffer_ptr);
+
+  // Copy the output buffer into current buffer
+  bool is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
+  if (is_success == false) {
+    // A buffer is full, pass it to the front end logger
+    // Get a new buffer and register it to current epoch
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    // Write it again
+    is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
+    PL_ASSERT(is_success);
   }
 
-  // Handle the commit id
-  cid_t txn_cid = txn->GetEndCommitId();
-  tl_worker_ctx->current_cid = txn_cid;
+  delete[] data_buffer;
+  data_buffer = nullptr;
 
+  // First serialize the epoch to current output buffer
+  // TODO: Eliminate this extra copy
+  auto &output = ctx->output_buffer;
+
+  // Reset the output buffer
+  output.Reset();
+
+  // Reserve for the frame length
+  size_t start = output.Position();
+  output.WriteInt(0);
+
+  LogRecordType type = record.GetType();
+  output.WriteEnumInSingleByte(type);
+
+  switch (type) {
+    case LOGRECORD_TYPE_TUPLE_INSERT:
+    case LOGRECORD_TYPE_TUPLE_DELETE:
+    case LOGRECORD_TYPE_TUPLE_UPDATE: {
+      auto &manager = catalog::Manager::GetInstance();
+      auto tuple_pos = record.GetItemPointer();
+      auto tg = manager.GetTileGroup(tuple_pos.block).get();
+
+      // Write down the database id and the table id
+      output.WriteLong(tg->GetDatabaseId());
+      output.WriteLong(tg->GetTableId());
+
+      // Write the full tuple into the buffer
+      expression::ContainerTuple<storage::TileGroup> container_tuple(
+        tg, tuple_pos.offset
+      );
+      container_tuple.SerializeTo(output);
+
+      break;
+    }
+    case LOGRECORD_TYPE_TRANSACTION_BEGIN:
+    case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
+      output.WriteLong(ctx->current_cid);
+      break;
+    }
+    default: {
+      LOG_ERROR("Unsupported log record type");
+      PL_ASSERT(false);
+    }
+  }
+
+
+  // Add the frame length
+  // XXX: We rely on the fact that the serializer treat a int32_t as 4 bytes
+  int32_t length = output.Position() - start - sizeof(int32_t);
+  output.WriteIntAt(start, length);
+
+  // Copy the output buffer into current buffer
+  is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+  if (is_success == false) {
+    // A buffer is full, pass it to the front end logger
+    // Get a new buffer and register it to current epoch
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    // Write it again
+    is_success = buffer_ptr->WriteData(output.Data(), output.Size());
+    PL_ASSERT(is_success);
+  }
+}
+
+void CommandLogManager::StartPersistTxn(const int transaction_type) {
   WriteRecordToBuffer(transaction_type);
 }
 
-void CommandLogManager::LogInsert(const ItemPointer &tuple_pos) {}
-void CommandLogManager::LogUpdate(const ItemPointer &tuple_pos) {}
-void CommandLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {}
-void CommandLogManager::CommitCurrentTxn() {}
-
-void CommandLogManager::FinishPendingTxn() {
+void CommandLogManager::EndPersistTxn() {
   PL_ASSERT(tl_worker_ctx);
-  size_t glob_peid = global_persist_epoch_id_.load();
-  DurabilityFactory::StopTimersByPepoch(glob_peid, tl_worker_ctx);
+  LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_worker_ctx->current_cid);
+  WriteRecordToBuffer(record);
+}
+
+void CommandLogManager::LogInsert(const ItemPointer &tuple_pos) {
+  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos);
+  WriteRecordToBuffer(record);
+}
+
+void CommandLogManager::LogUpdate(const ItemPointer &tuple_pos) {
+  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_UPDATE, tuple_pos);
+  WriteRecordToBuffer(record);
+}
+
+void CommandLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
+  // Need the tuple value for the deleted tuple
+  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_DELETE, tuple_pos_deleted);
+  WriteRecordToBuffer(record);
 }
 
 

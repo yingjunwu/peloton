@@ -100,12 +100,12 @@ public:
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
   
-  void StartTxn(concurrency::Transaction *txn, const int transaction_type);
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);
   void LogDelete(const ItemPointer &tuple_pos_deleted);
-  void CommitCurrentTxn();
-  void FinishPendingTxn();
+
+  void StartPersistTxn(const int transaction_type);
+  void EndPersistTxn();
 
   // Logger side logic
   virtual void DoRecovery(const size_t &begin_eid) override;

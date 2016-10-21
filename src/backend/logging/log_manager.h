@@ -52,6 +52,10 @@ public:
   virtual void StartLoggers() = 0;
   virtual void StopLoggers() = 0;
 
+  void StartTxn(concurrency::Transaction *txn);
+
+  void FinishPendingTxn();
+
   size_t GetPersistEpochId() {
     return global_persist_epoch_id_.load();
   }

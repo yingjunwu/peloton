@@ -25,6 +25,9 @@
 // GUC Variables
 //===--------------------------------------------------------------------===//
 
+
+const int INVALID_TRANSACTION_TYPE = 100;
+
 // Logging type
 enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
