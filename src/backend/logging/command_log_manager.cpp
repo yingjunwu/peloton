@@ -51,33 +51,38 @@ void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
   PL_ASSERT(ctx);
 
   size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+
+  size_t buffer_size = sizeof(ctx->current_cid) + sizeof(transaction_type);
   
+  char *data_buffer = new char[buffer_size];
+  
+  memcpy(data_buffer, &(ctx->current_cid), sizeof(ctx->current_cid));
+  memcpy(data_buffer + sizeof(ctx->current_cid), &(transaction_type), sizeof(transaction_type));
+
   PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
   PL_ASSERT(buffer_ptr);
 
   // Copy the output buffer into current buffer
-  bool is_success = buffer_ptr->WriteData((const char*)(&(ctx->current_cid)), sizeof(ctx->current_cid));
+  bool is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
     buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
     // Write it again
-    is_success = buffer_ptr->WriteData((const char*)(&(ctx->current_cid)), sizeof(ctx->current_cid));
+    is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
     PL_ASSERT(is_success);
   }
-  is_success = buffer_ptr->WriteData((const char*)(&transaction_type), sizeof(transaction_type));
-  if (is_success == false) {
-    // A buffer is full, pass it to the front end logger
-    // Get a new buffer and register it to current epoch
-    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
-    // Write it again
-    is_success = buffer_ptr->WriteData((const char*)(&transaction_type), sizeof(transaction_type));
-    PL_ASSERT(is_success);
-  }
+
+  delete[] data_buffer;
+  data_buffer;
 }
 
-void CommandLogManager::PersistTxn(concurrency::Transaction *txn, const int transaction_type) {
+void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
+
+}
+
+void CommandLogManager::StartTxn(concurrency::Transaction *txn, const int transaction_type) {
   PL_ASSERT(tl_worker_ctx);
   size_t txn_eid = txn->GetEpochId();
 
@@ -101,6 +106,11 @@ void CommandLogManager::PersistTxn(concurrency::Transaction *txn, const int tran
 
   WriteRecordToBuffer(transaction_type);
 }
+
+void CommandLogManager::LogInsert(const ItemPointer &tuple_pos) {}
+void CommandLogManager::LogUpdate(const ItemPointer &tuple_pos) {}
+void CommandLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {}
+void CommandLogManager::CommitCurrentTxn() {}
 
 void CommandLogManager::FinishPendingTxn() {
   PL_ASSERT(tl_worker_ctx);

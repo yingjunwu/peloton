@@ -100,7 +100,11 @@ public:
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
   
-  void PersistTxn(concurrency::Transaction *txn, const int transaction_type);
+  void StartTxn(concurrency::Transaction *txn, const int transaction_type);
+  void LogInsert(const ItemPointer &tuple_pos);
+  void LogUpdate(const ItemPointer &tuple_pos);
+  void LogDelete(const ItemPointer &tuple_pos_deleted);
+  void CommitCurrentTxn();
   void FinishPendingTxn();
 
   // Logger side logic
@@ -108,28 +112,14 @@ public:
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 
-
   void RunPepochLogger();
 
 private:
   size_t RecoverPepoch();
 
-  // Don't delete the returned pointer
-  inline LogBuffer * RegisterNewBufferToEpoch(std::unique_ptr<LogBuffer> log_buffer_ptr) {
-    LOG_TRACE("Worker %d Register buffer to epoch %d", (int) tl_worker_ctx->worker_id, (int) tl_worker_ctx->current_eid);
-    PL_ASSERT(log_buffer_ptr && log_buffer_ptr->Empty());
-    PL_ASSERT(tl_worker_ctx);
-    size_t eid_idx = tl_worker_ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-    tl_worker_ctx->per_epoch_buffer_ptrs[eid_idx].push(std::move(log_buffer_ptr));
-    return tl_worker_ctx->per_epoch_buffer_ptrs[eid_idx].top().get();
-  }
-
-
-  inline size_t HashToLogger(oid_t worker_id) {
-    return ((size_t) worker_id) % logger_count_;
-  }
-
   void WriteRecordToBuffer(const int transaction_type);
+
+  void WriteRecordToBuffer(LogRecord &record);
 
 private:
   std::atomic<oid_t> worker_count_;
