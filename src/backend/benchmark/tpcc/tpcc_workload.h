@@ -479,7 +479,7 @@ bool RunOrderStatus(const size_t &thread_id);
 
 bool RunStockLevel(const size_t &thread_id, const int &order_range);
 
-bool RunScanStock();
+bool RunScanStock(bool read_only, int sleep_time);
 
 
 /////////////////////////////////////////////////////////

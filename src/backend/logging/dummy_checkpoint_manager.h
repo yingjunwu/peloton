@@ -34,8 +34,12 @@ public:
     return checkpoint_manager;
   }
 
+  virtual void StartCheckpointing() {}
+  virtual void StopCheckpointing() {}
+  virtual void DoRecovery() {}
+
 private:
-  
+
   virtual void RecoverTable(storage::DataTable * UNUSED_ATTRIBUTE, const size_t &thread_id UNUSED_ATTRIBUTE, const cid_t &begin_cid UNUSED_ATTRIBUTE, FileHandle *file_handles UNUSED_ATTRIBUTE) {}
 
   virtual void CheckpointTable(storage::DataTable * UNUSED_ATTRIBUTE, const size_t &tile_group_count UNUSED_ATTRIBUTE, const size_t &thread_id UNUSED_ATTRIBUTE, const cid_t &begin_cid UNUSED_ATTRIBUTE, FileHandle *file_handles UNUSED_ATTRIBUTE) final {}

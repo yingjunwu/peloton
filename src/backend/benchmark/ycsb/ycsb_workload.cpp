@@ -99,6 +99,7 @@ void RunBackend(oid_t thread_id) {
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
 
   epoch_manager.RegisterTxnWorker(false);
+
   log_manager.RegisterWorker();
 
   auto update_ratio = state.update_ratio;

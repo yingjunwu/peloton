@@ -21,7 +21,7 @@
 
 namespace peloton {
   namespace concurrency {
-    extern thread_local size_t lt_txn_worker_id;
+    extern thread_local size_t tl_txn_worker_id;
 
   class LocalizedEpochManager : public EpochManager {
       LocalizedEpochManager(const LocalizedEpochManager&) = delete;
@@ -99,30 +99,35 @@ namespace peloton {
       };
 
       virtual cid_t EnterReadOnlyEpoch() {
-        PL_ASSERT(lt_txn_worker_id != INVALID_TXN_WORKER_ID);
+        // checkpointer can have invalid worker id, but it's ok...
+        // PL_ASSERT(tl_txn_worker_id != INVALID_TXN_WORKER_ID);
         size_t eid = GetReadonlyEid();
-        ro_worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.current_epoch = eid;
+        ro_worker_current_epoch_ctxs_[tl_txn_worker_id].epoch_ctx.current_epoch = eid;
         // readonly txn cid's lower 32bits are all 1
         return (eid << 32) | low_32_bit_mask_;
       };
 
       // Return a timestamp, higher 32 bits are eid and lower 32 bits are tid within epoch
       virtual cid_t EnterEpoch() {
-        PL_ASSERT(lt_txn_worker_id != INVALID_TXN_WORKER_ID);
+        PL_ASSERT(tl_txn_worker_id != INVALID_TXN_WORKER_ID);
         size_t eid = GetCurrentEpochId();
-        worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.current_epoch = eid;
+        worker_current_epoch_ctxs_[tl_txn_worker_id].epoch_ctx.current_epoch = eid;
         uint32_t txn_id = txnid_generator_++;
         return (eid << 32) | txn_id;
       };
 
       virtual void ExitReadOnlyEpoch(UNUSED_ATTRIBUTE size_t epoch) {
-        PL_ASSERT(lt_txn_worker_id != INVALID_TXN_WORKER_ID);
-        ro_worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.Reset();
+        // PL_ASSERT(tl_txn_worker_id != INVALID_TXN_WORKER_ID);
+        if (tl_txn_worker_id == INVALID_TXN_WORKER_ID) {
+          // Checkpointer txn
+          return;
+        }
+        ro_worker_current_epoch_ctxs_[tl_txn_worker_id].epoch_ctx.Reset();
       };
 
       virtual void ExitEpoch(UNUSED_ATTRIBUTE size_t epoch) {
-        PL_ASSERT(lt_txn_worker_id != INVALID_TXN_WORKER_ID);
-        worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.Reset();
+        PL_ASSERT(tl_txn_worker_id != INVALID_TXN_WORKER_ID);
+        worker_current_epoch_ctxs_[tl_txn_worker_id].epoch_ctx.Reset();
       };
 
       // assume we store epoch_store max_store previously
@@ -136,20 +141,32 @@ namespace peloton {
       virtual void RegisterTxnWorker(bool read_only) {
         if (read_only == false) {
           // ro txn
-          lt_txn_worker_id = worker_id_generator_++;
-          ro_worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.Reset();
+          tl_txn_worker_id = worker_id_generator_++;
+          ro_worker_current_epoch_ctxs_[tl_txn_worker_id].epoch_ctx.Reset();
         } else {
           // rw txn
-          lt_txn_worker_id = worker_id_generator_++;
-          worker_current_epoch_ctxs_[lt_txn_worker_id].epoch_ctx.Reset();
+          tl_txn_worker_id = worker_id_generator_++;
+          worker_current_epoch_ctxs_[tl_txn_worker_id].epoch_ctx.Reset();
         }
+      }
+
+      virtual size_t GetRwTxnWorkerCurrentEid(size_t txn_worker_id) override {
+        return worker_current_epoch_ctxs_[txn_worker_id].epoch_ctx.current_epoch;
       }
 
     private:
       void Start() {
         while (finish_ == false) {
           std::this_thread::sleep_for(std::chrono::microseconds(size_t(epoch_duration_millisec_ * 1000)));
-          global_current_epoch_++;
+          // Check we don't overflow
+          size_t tail = GetMaxDeadEid();
+          size_t head = global_current_epoch_.load();
+
+          if (head - tail >= GetEpochQueueCapacity()) {
+            LOG_ERROR("Epoch queue over flow");
+          } else {
+            global_current_epoch_++;
+          }
         }
       }
 

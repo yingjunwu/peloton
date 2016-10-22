@@ -68,9 +68,19 @@ namespace peloton {
 namespace benchmark {
 namespace tpcc {
 
-bool RunScanStock() {
+bool RunScanStock(bool readonly, int sleep_time) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-  auto txn = txn_manager.BeginReadonlyTransaction();
+
+  concurrency::Transaction *txn;
+  if (readonly) {
+    txn = txn_manager.BeginReadonlyTransaction();
+  } else {
+    txn = txn_manager.BeginTransaction();
+  }
+
+  if (sleep_time != 0) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
+  }
 
   std::unique_ptr<executor::ExecutorContext> context(
     new executor::ExecutorContext(txn));
@@ -87,7 +97,15 @@ bool RunScanStock() {
 
   auto ret_result = ExecuteReadTest(&stock_seq_scan_executor);
 
-  txn_manager.EndReadonlyTransaction();
+  if (readonly) {
+    txn_manager.EndReadonlyTransaction();
+  } else {
+    if (txn->GetResult() != Result::RESULT_SUCCESS) {
+      txn_manager.AbortTransaction();
+      return false;
+    }
+    txn_manager.CommitTransaction();
+  }
 
   return true;
 }

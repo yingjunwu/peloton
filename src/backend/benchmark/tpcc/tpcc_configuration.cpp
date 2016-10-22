@@ -44,7 +44,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -n --disable_insert    :  disable insert\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, physical, command, off\n"
+          "   -L --log_type          :  log type could be phylog, physical, command, dep, off\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -55,6 +55,8 @@ void Usage(FILE *out) {
           "   -P --replay_log        :  replay log\n"
           "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
           "   -N --replay_log_num    :  # threads for replaying logs\n"
+          "   -W --mock_sleep        :  mock sleep time for each scan operation in ms. Default 0.\n"
+          "   -J --long_rw           :  treat scan txn as rw txn\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -87,6 +89,8 @@ static struct option opts[] = {
   { "replay_log", no_argument, NULL, 'P'},
   { "recover_ckpt_num", optional_argument, NULL, 'M'},
   { "replay_log_num", optional_argument, NULL, 'N'},
+  {"mock_sleep", optional_argument, NULL, 'W'},
+  {"long_rw", optional_argument, NULL, 'J'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -112,6 +116,11 @@ void ValidateBackendCount(const configuration &state) {
 }
 
 void ValidateDuration(const configuration &state) {
+  if (state.mock_sleep_millisec < 0) {
+    LOG_ERROR("Invalid mock sleep time :: %d", state.mock_sleep_millisec);
+    exit(EXIT_FAILURE);
+  }
+
   if (state.duration <= 0) {
     LOG_ERROR("Invalid duration :: %lf", state.duration);
     exit(EXIT_FAILURE);
@@ -194,13 +203,21 @@ void ValidateEpoch(const configuration &state) {
 }
 
 void ValidateEpochType(configuration &state) {
-  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
-    LOG_INFO("Use snapshot gc protocol");
-    if (state.epoch_type == EPOCH_LOCALIZED) {
-      LOG_INFO("Use localized snapshot epoch manager");
-      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+  if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
+    if (state.epoch_type != EPOCH_LOCALIZED && state.epoch_type != EPOCH_LOCALIZED_SNAPSHOT) {
+      LOG_ERROR("Dependency logging should use localized epoch manager");
+      exit(EXIT_FAILURE);
     } else {
+      LOG_INFO("Use dependency logging");
+    }
+  }
+
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
+    LOG_INFO("Use snapshot GC manager");
+    if (state.epoch_type == EPOCH_SINGLE_QUEUE) {
       state.epoch_type = EPOCH_SNAPSHOT;
+    } else {
+      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
     }
   }
 }
@@ -264,11 +281,13 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.replay_log = false;
   state.recover_checkpoint_num = 1;
   state.replay_log_num = 1;
+  state.normal_txn_for_scan = false;
+  state.mock_sleep_millisec = 0;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:J", opts, &idx);
 
     if (c == -1) break;
 
@@ -321,6 +340,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 'f':
         state.epoch_length = atoi(optarg);
         break;
+      case 'W':
+        state.mock_sleep_millisec = atoi(optarg);
+        break;
+      case 'J':
+        state.normal_txn_for_scan = true;
+        break;
       case 'E' : {
         char *epoch_type = optarg;
         if (strcmp(epoch_type, "queue") == 0) {
@@ -354,6 +379,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_PHYSICAL;
         } else if (strcmp(logging_proto, "command") == 0) {
           state.logging_type = LOGGING_TYPE_COMMAND;
+        } else if (strcmp(logging_proto, "dep") == 0) {
+          state.logging_type = LOGGING_TYPE_DEPENDENCY;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);

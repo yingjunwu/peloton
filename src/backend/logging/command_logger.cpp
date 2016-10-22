@@ -83,7 +83,7 @@ void CommandLogger::Run() {
         auto worker_ctx_ptr = worker_entry.second.get();
 
         size_t last_persist_eid = worker_ctx_ptr->persist_eid;
-        size_t worker_current_eid = worker_ctx_ptr->current_eid;
+        size_t worker_current_eid = worker_ctx_ptr->current_commit_eid;
 
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 

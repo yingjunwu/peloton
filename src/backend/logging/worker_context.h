@@ -32,6 +32,10 @@
 #include "backend/common/timer.h"
 
 namespace peloton {
+  namespace concurrency {
+    extern thread_local size_t tl_txn_worker_id;
+  }
+
 namespace logging {
 
   class TxnSummary {
@@ -115,15 +119,19 @@ namespace logging {
       : per_epoch_buffer_ptrs(concurrency::EpochManager::GetEpochQueueCapacity()),
         buffer_pool(id), 
         output_buffer(),
-        current_eid(START_EPOCH_ID), 
+        current_commit_eid(START_EPOCH_ID),
         persist_eid(INVALID_EPOCH_ID),
         reported_eid(INVALID_EPOCH_ID),
         current_cid(INVALID_CID), 
         worker_id(id),
+        transaction_worker_id(INVALID_TXN_WORKER_ID),
         cur_txn_start_time(0),
         pending_txn_timers(),
-        txn_summary() {
+        txn_summary(),
+        per_epoch_dependencies(concurrency::EpochManager::GetEpochQueueCapacity()) {
       LOG_TRACE("Create worker %d", (int) worker_id);
+      PL_ASSERT(concurrency::tl_txn_worker_id != INVALID_TXN_WORKER_ID);
+      transaction_worker_id = concurrency::tl_txn_worker_id;
     }
 
     ~WorkerContext() {
@@ -133,13 +141,14 @@ namespace logging {
 
     // Every epoch has a buffer stack
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
+
     // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
     LogBufferPool buffer_pool;
     // serialize each tuple to string.
     CopySerializeOutput output_buffer;
 
     // current epoch id
-    size_t current_eid;
+    size_t current_commit_eid;
     // persisted epoch id
     size_t persist_eid;
     // reported epoch id
@@ -150,6 +159,8 @@ namespace logging {
 
     // worker thread id
     oid_t worker_id;
+    // transaction worker id from the epoch manager's point of view
+    size_t transaction_worker_id;
 
     /* Statistics */
 
@@ -157,6 +168,10 @@ namespace logging {
     uint64_t cur_txn_start_time;
     std::map<size_t, std::vector<uint64_t>> pending_txn_timers;
     TxnSummary txn_summary;
+
+    // Note: Only used by dep log manager
+    // Per epoch dependency graph
+    std::vector<std::unordered_set<size_t>> per_epoch_dependencies;
   };
 
 }

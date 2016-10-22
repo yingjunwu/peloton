@@ -182,6 +182,10 @@ class configuration {
   int recover_checkpoint_num = 1;
   
   int replay_log_num = 1;
+
+  bool normal_txn_for_scan;
+
+  int mock_sleep_millisec;
 };
 
 extern configuration state;

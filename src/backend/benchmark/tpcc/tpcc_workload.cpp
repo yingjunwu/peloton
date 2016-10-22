@@ -131,10 +131,16 @@ size_t GenerateWarehouseId(const size_t &thread_id) {
   }
 }
 
-void RunScanBackend(oid_t thread_id) {
+void RunScanBackend(oid_t thread_id, bool read_only, int sleep_time) {
   PinToCore(thread_id);
+
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
-  epoch_manager.RegisterTxnWorker(true);
+  epoch_manager.RegisterTxnWorker(read_only);
+
+  if (read_only == false) {
+    log_manager.RegisterWorker();
+  }
 
   bool slept = false;
   auto SLEEP_TIME = std::chrono::milliseconds(500);
@@ -152,13 +158,17 @@ void RunScanBackend(oid_t thread_id) {
     if (thread_id == 0) {
       start_time = std::chrono::steady_clock::now();
     }
-    RunScanStock();
+    RunScanStock(read_only, sleep_time);
     if (thread_id == 0) {
       std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
       double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
       scan_stock_avg_latency = (scan_stock_avg_latency * scan_stock_count + diff) / (scan_stock_count + 1);
       scan_stock_count++;
     }
+  }
+
+  if (read_only == false) {
+    log_manager.DeregisterWorker();
   }
 }
 
@@ -351,7 +361,7 @@ void RunBackend(oid_t thread_id) {
 
   }
 
-  if (logging::DurabilityFactory::GetLoggingType() == LOGGING_TYPE_INVALID) {
+  if (logging::DurabilityFactory::GetLoggingType() != LOGGING_TYPE_INVALID) {
     commit_latency_ref = logging::tl_worker_ctx->txn_summary.GetAverageLatencyInMs();
     if (thread_id == 0) {
       lat_summary_ref = logging::tl_worker_ctx->txn_summary.GetLatSummary();
@@ -440,7 +450,7 @@ void RunWorkload() {
   }
 
   for (thread_itr = rw_backend_count; thread_itr < rw_backend_count + num_scan_threads; ++thread_itr) {
-    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr)));
+    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr, (!state.normal_txn_for_scan), state.mock_sleep_millisec)));
   }
 
   //////////////////////////////////////

@@ -27,18 +27,22 @@ class EpochManagerFactory {
  public:
   static EpochManager &GetInstance() {
     switch (epoch_type_) {
-      case EPOCH_SINGLE_QUEUE:
-        return SingleQueueEpochManager::GetInstance(epoch_length_);
-      case EPOCH_SNAPSHOT:
-        return SnapshotEpochManager::GetInstance(epoch_length_);
+//      case EPOCH_SINGLE_QUEUE:
+//        return SingleQueueEpochManager::GetInstance(epoch_length_);
+//      case EPOCH_SNAPSHOT:
+//        return SnapshotEpochManager::GetInstance(epoch_length_);
       case EPOCH_LOCALIZED:
         return LocalizedEpochManager::GetInstance(epoch_length_, max_worker_count_);
       case EPOCH_LOCALIZED_SNAPSHOT:
         return LocalizedSnapshotEpochManager::GetInstance(epoch_length_, max_worker_count_);
       default:
-        return SingleQueueEpochManager::GetInstance(epoch_length_);
+        return LocalizedEpochManager::GetInstance(epoch_length_, max_worker_count_);
 
     }
+  }
+
+  static bool IsLocalizedEpochManager() {
+    return epoch_type_ == EPOCH_LOCALIZED || epoch_type_ == EPOCH_LOCALIZED_SNAPSHOT;
   }
 
   static EpochType GetType() {
@@ -46,6 +50,11 @@ class EpochManagerFactory {
   }
 
   static void Configure(EpochType type, double epoch_length) {
+    if (type != EPOCH_LOCALIZED && type != EPOCH_LOCALIZED_SNAPSHOT) {
+      LOG_ERROR("We no longer support non localized epoch manager");
+      type = EPOCH_LOCALIZED;
+    }
+
     epoch_length_ = epoch_length;
     epoch_type_ = type;
   }

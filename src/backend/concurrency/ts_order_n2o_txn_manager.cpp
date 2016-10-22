@@ -221,14 +221,6 @@ bool TsOrderN2OTxnManager::PerformRead(const ItemPointer &location) {
   auto tile_group = manager.GetTileGroup(tile_group_id);
   auto tile_group_header = tile_group->GetHeader();
 
-  // cid_t begin_commit_cid = tile_group_header->GetBeginCommitId(location.offset);
-  // size_t read_epoch_id = begin_commit_cid >> 32;
-  // size_t persist_epoch_id = logging::DurabilityFactory::GetLoggerInstance().GetPersistEpochId();
-
-  // if (read_epoch_id > persist_epoch_id) {
-  //   EpochManagerFactory::GetInstance().RegisterEpochDependency(read_epoch_id);
-  // } 
-
   //auto last_reader_cid = GetLastReaderCid(tile_group_header, tuple_id);
   if (IsOwner(tile_group_header, tuple_id) == true) {
     // it is possible to be a blind write.
@@ -582,6 +574,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
       ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn();
     }
+  } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
+    ((logging::DepLogManager *) (&log_manager))->StartPersistTxn();
   }
   
   auto &rw_set = current_txn->GetRWSet();
@@ -595,7 +589,10 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     auto tile_group_header = tile_group->GetHeader();
     for (auto &tuple_entry : tile_group_entry.second) {
       auto tuple_slot = tuple_entry.first;
-      if (tuple_entry.second == RW_TYPE_UPDATE) {
+      if (logging_type == LOGGING_TYPE_DEPENDENCY && tuple_entry.second == RW_TYPE_READ) {
+        // Record read dependency
+        ((logging::DepLogManager*)(&log_manager))->RecordReadDependency(tile_group_header, tuple_slot);
+      } else if (tuple_entry.second == RW_TYPE_UPDATE) {
         // we must guarantee that, at any time point, only one version is
         // visible.
         ItemPointer new_version =
@@ -634,6 +631,10 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
             ((logging::CommandLogManager*)(&log_manager))->LogUpdate(new_version);
           }
+        } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
+          auto log_manager_ptr = ((logging::DepLogManager*)(&log_manager));
+          log_manager_ptr->RecordReadDependency(tile_group_header, tuple_slot);
+          log_manager_ptr->LogUpdate(new_version);
         }
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
@@ -670,6 +671,10 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
             ((logging::CommandLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
           }
+        } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
+          auto log_manager_ptr = ((logging::DepLogManager*)(&log_manager));
+          log_manager_ptr->RecordReadDependency(tile_group_header, tuple_slot);
+          log_manager_ptr->LogDelete(new_version);
         }
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
@@ -692,6 +697,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
             ((logging::CommandLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
           }
+        } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
+          auto log_manager_ptr = ((logging::DepLogManager*)(&log_manager));
+          log_manager_ptr->LogInsert(ItemPointer(tile_group_id, tuple_slot));
         }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
@@ -721,6 +729,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
       ((logging::CommandLogManager*)(&log_manager))->EndPersistTxn();
     }
+  } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
+    ((logging::DepLogManager *) (&log_manager))->EndPersistTxn();
   }
 
   EndTransaction();

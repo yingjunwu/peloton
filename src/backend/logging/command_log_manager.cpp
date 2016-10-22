@@ -57,7 +57,7 @@ void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
   memcpy(data_buffer, &(ctx->current_cid), sizeof(ctx->current_cid));
   memcpy(data_buffer + sizeof(ctx->current_cid), &(transaction_type), sizeof(transaction_type));
 
-  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+  size_t epoch_idx = ctx->current_commit_eid % concurrency::EpochManager::GetEpochQueueCapacity();
 
   PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
@@ -68,7 +68,7 @@ void CommandLogManager::WriteRecordToBuffer(const int transaction_type) {
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
-    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer(ctx->current_commit_eid))));
     // Write it again
     is_success = buffer_ptr->WriteData(data_buffer, buffer_size);
     PL_ASSERT(is_success);
@@ -129,7 +129,7 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
     }
   }
 
-  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+  size_t epoch_idx = ctx->current_commit_eid % concurrency::EpochManager::GetEpochQueueCapacity();
   
   PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
@@ -145,7 +145,7 @@ void CommandLogManager::WriteRecordToBuffer(LogRecord &record) {
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
-    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer(ctx->current_commit_eid))));
     // Write it again
     is_success = buffer_ptr->WriteData(output.Data(), output.Size());
     PL_ASSERT(is_success);

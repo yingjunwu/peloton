@@ -2,9 +2,9 @@
 //
 //                         Peloton
 //
-// physical_log_manager.h
+// dep_log_manager.h
 //
-// Identification: src/backend/logging/physical_log_manager.h
+// Identification: src/backend/logging/dep_log_manager.h
 //
 // Copyright (c) 2015-16, Carnegie Mellon University Database Group
 //
@@ -17,17 +17,18 @@
 #include <list>
 #include <stack>
 #include <unordered_map>
+#include <set>
 
 #include "libcuckoo/cuckoohash_map.hh"
 #include "backend/concurrency/transaction.h"
-#include "backend/concurrency/epoch_manager.h"
+#include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/logging/log_buffer.h"
 #include "backend/logging/log_record.h"
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
 #include "backend/logging/worker_context.h"
-#include "backend/logging/physical_logger.h"
+#include "backend/logging/dep_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -35,44 +36,64 @@
 
 
 namespace peloton {
+
+namespace storage {
+  class TileGroupHeader;
+}
+
+
 namespace logging {
 
 /**
  * logging file name layout :
- * 
+ *
  * dir_name + "/" + prefix + "_" + epoch_id
  *
  *
  * logging file layout :
  *
  *  -----------------------------------------------------------------------------
- *  | txn_cid | database_id | table_id | operation_type | column_count | columns | data | ... | txn_end_flag
+ *  | txn_cid | database_id | table_id | operation_type | data | ... | txn_end_flag
  *  -----------------------------------------------------------------------------
  *
- * NOTE: this layout is designed for physiological delta logging.
+ * NOTE: this layout is designed for physiological logging.
  *
  * NOTE: tuple length can be obtained from the table schema.
  *
  */
 
-class PhysicalLogManager : public LogManager {
-  PhysicalLogManager(const PhysicalLogManager &) = delete;
-  PhysicalLogManager &operator=(const PhysicalLogManager &) = delete;
-  PhysicalLogManager(PhysicalLogManager &&) = delete;
-  PhysicalLogManager &operator=(PhysicalLogManager &&) = delete;
+class DepLogManager : public LogManager {
+  DepLogManager(const DepLogManager &) = delete;
+  DepLogManager &operator=(const DepLogManager &) = delete;
+  DepLogManager(DepLogManager &&) = delete;
+  DepLogManager &operator=(DepLogManager &&) = delete;
 
 protected:
+  enum EpochStatus {
+    EPOCH_STAT_INVALID = 0,
+    EPOCH_STAT_NOT_COMMITABLE = 1,
+    EPOCH_STAT_COMMITABLE = 2, // Persisted + all dependent epoch persisted
+  };
 
-  PhysicalLogManager()
+  DepLogManager()
     : worker_count_(0),
-      is_running_(false) {}
+      is_running_(false),
+      per_epoch_complete_dependencies_(concurrency::EpochManager::GetEpochQueueCapacity()),
+      pepoch_id_(START_EPOCH_ID),
+      per_epoch_status_(concurrency::EpochManager::GetEpochQueueCapacity()) {
+        for (size_t i = 0; i < per_epoch_status_.size(); ++i) {
+          per_epoch_status_[i] = EPOCH_STAT_NOT_COMMITABLE;
+        }
+        PL_ASSERT(concurrency::EpochManagerFactory::IsLocalizedEpochManager() == true);
+      }
 
 public:
-  static PhysicalLogManager &GetInstance() {
-    static PhysicalLogManager log_manager;
+  static DepLogManager &GetInstance() {
+    // TODO: Enforce that we use localized epoch managers
+    static DepLogManager log_manager;
     return log_manager;
   }
-  virtual ~PhysicalLogManager() {}
+  virtual ~DepLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
     if (logging_dirs.size() > 0) {
@@ -92,7 +113,7 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new PhysicalLogger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new DepLogger(i, logging_dirs.at(i)));
     }
   }
 
@@ -100,16 +121,20 @@ public:
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
 
+  void RecordReadDependency(const storage::TileGroupHeader *tg_header, const oid_t tuple_slot);
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);
   void LogDelete(const ItemPointer &tuple_pos_deleted);
 
-  void StartPersistTxn();
+  void StartTxn(concurrency::Transaction *txn) override ;
+  void StartPersistTxn() ;
   void EndPersistTxn();
-
+  void FinishPendingTxn() override ;
 
   // Logger side logic
-  virtual void DoRecovery(const size_t &begin_eid) override;
+  virtual void DoRecovery(const size_t &begin_eid UNUSED_ATTRIBUTE) {
+    // TODO: Implement it
+  };
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 
@@ -117,13 +142,12 @@ public:
   void RunPepochLogger();
 
 private:
-
   void WriteRecordToBuffer(LogRecord &record);
 
 private:
   std::atomic<oid_t> worker_count_;
 
-  std::vector<std::shared_ptr<PhysicalLogger>> loggers_;
+  std::vector<std::shared_ptr<DepLogger>> loggers_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;
@@ -131,6 +155,18 @@ private:
   std::string pepoch_dir_;
 
   const std::string pepoch_filename_ = "pepoch";
+
+  // Pepoch thread should also know about all workers inorder to collect the dependency infomation
+  Spinlock log_workers_lock_;
+  std::unordered_map<size_t, std::shared_ptr<WorkerContext>> log_workers_;
+
+  // Epoch status map
+  // Epochs that still have running txns and are younger than the max dead epoch.
+  std::vector<std::unordered_set<size_t>> per_epoch_complete_dependencies_;
+
+  // Concurrent accessible members
+  std::atomic<size_t> pepoch_id_;
+  std::vector<std::atomic<int>> per_epoch_status_;
 };
 
 }

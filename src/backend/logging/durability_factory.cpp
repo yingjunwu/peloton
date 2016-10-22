@@ -49,13 +49,12 @@ namespace logging {
     auto itr = worker_ctx->pending_txn_timers.begin();
     while (itr != upper_itr) {
       for (uint64_t txn_start_us : itr->second) {
-        // printf("delta = %d\n", (int)(commit_time_usec - txn_start_us));
+        PL_ASSERT(commit_time_usec > txn_start_us);
         worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (timer_type_ == TIMER_DISTRIBUTION));
       }
       itr = worker_ctx->pending_txn_timers.erase(itr);
     }
     worker_ctx->reported_eid = persist_eid;
   }
-
 }
 }

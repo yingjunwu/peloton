@@ -15,6 +15,7 @@
 #include "backend/logging/phylog_log_manager.h"
 #include "backend/logging/physical_log_manager.h"
 #include "backend/logging/command_log_manager.h"
+#include "backend/logging/dep_log_manager.h"
 #include "backend/logging/dummy_log_manager.h"
 #include "backend/logging/phylog_checkpoint_manager.h"
 #include "backend/logging/physical_checkpoint_manager.h"
@@ -34,6 +35,8 @@ class DurabilityFactory {
         return PhysicalLogManager::GetInstance();
       case LOGGING_TYPE_COMMAND:
         return CommandLogManager::GetInstance();
+      case LOGGING_TYPE_DEPENDENCY:
+        return DepLogManager::GetInstance();
       default:
         return DummyLogManager::GetInstance();
     }
@@ -67,13 +70,13 @@ class DurabilityFactory {
   static void StartTxnTimer(size_t eid, WorkerContext *worker_ctx);
   static void StopTimersByPepoch(size_t persist_eid, WorkerContext *worker_ctx);
   
- private:
   static uint64_t GetCurrentTimeInUsec() {
     struct timeval tv;
     gettimeofday(&tv, 0);
     return ((uint64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
   }
 
+private:
   static LoggingType logging_type_;
   static CheckpointType checkpoint_type_;
   static TimerType  timer_type_;

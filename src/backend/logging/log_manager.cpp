@@ -26,14 +26,14 @@ namespace logging {
     // Record the txn timer
     DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_ctx);
 
-    PL_ASSERT(tl_worker_ctx->current_eid == INVALID_EPOCH_ID || tl_worker_ctx->current_eid <= txn_eid);
+    PL_ASSERT(tl_worker_ctx->current_commit_eid == INVALID_EPOCH_ID || tl_worker_ctx->current_commit_eid <= txn_eid);
 
     // Handle the epoch id
-    if (tl_worker_ctx->current_eid == INVALID_EPOCH_ID 
-      || tl_worker_ctx->current_eid != txn_eid) {
+    if (tl_worker_ctx->current_commit_eid == INVALID_EPOCH_ID
+      || tl_worker_ctx->current_commit_eid != txn_eid) {
       // if this is a new epoch, then write to a new buffer
-      tl_worker_ctx->current_eid = txn_eid;
-      RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer()));
+      tl_worker_ctx->current_commit_eid = txn_eid;
+      RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer(txn_eid)));
     }
 
     // Handle the commit id

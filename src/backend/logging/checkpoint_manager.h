@@ -83,10 +83,10 @@ public:
     }
   }
 
-  void StartCheckpointing(); 
-  void StopCheckpointing();
+  virtual void StartCheckpointing();
+  virtual void StopCheckpointing();
 
-  void DoRecovery();
+  virtual void DoRecovery();
 
 protected:
   std::string GetCheckpointFileFullPath(size_t checkpointer_id, size_t virtual_checkpointer_id, oid_t database_idx, oid_t table_idx, size_t epoch_id) {

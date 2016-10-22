@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "backend/common/macros.h"
+#include "backend/common/logger.h"
 #include "backend/common/types.h"
 #include "backend/common/platform.h"
 
@@ -87,6 +88,12 @@ class EpochManager {
   virtual void RegisterEpochDependency(UNUSED_ATTRIBUTE const size_t &epoch_id) {}
 
   virtual void RegisterTxnWorker(UNUSED_ATTRIBUTE bool read_only) {}
+
+  virtual size_t GetRwTxnWorkerCurrentEid(UNUSED_ATTRIBUTE size_t txn_worker_id) {
+    PL_ASSERT(false);
+    LOG_ERROR("JX thinks you are using a wrong epoch manager");
+    return INVALID_EPOCH_ID;
+  }
 
 protected:
   // queue size

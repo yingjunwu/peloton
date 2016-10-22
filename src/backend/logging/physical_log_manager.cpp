@@ -90,7 +90,7 @@ void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {
     }
     case LOGRECORD_TYPE_EPOCH_BEGIN:
     case LOGRECORD_TYPE_EPOCH_END: {
-      output.WriteLong((uint64_t) ctx->current_eid);
+      output.WriteLong((uint64_t) ctx->current_commit_eid);
       break;
     }
     default: {
@@ -99,7 +99,7 @@ void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {
     }
   }
 
-  size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+  size_t epoch_idx = ctx->current_commit_eid % concurrency::EpochManager::GetEpochQueueCapacity();
   
   PL_ASSERT(ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == false);
   LogBuffer* buffer_ptr = ctx->per_epoch_buffer_ptrs[epoch_idx].top().get();
@@ -114,7 +114,7 @@ void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {
   if (is_success == false) {
     // A buffer is full, pass it to the front end logger
     // Get a new buffer and register it to current epoch
-    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer())));
+    buffer_ptr = RegisterNewBufferToEpoch(std::move((ctx->buffer_pool.GetBuffer(ctx->current_commit_eid))));
     // Write it again
     is_success = buffer_ptr->WriteData(output.Data(), output.Size());
     PL_ASSERT(is_success);

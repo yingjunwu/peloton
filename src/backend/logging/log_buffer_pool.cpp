@@ -19,13 +19,13 @@ namespace logging {
   // Acquire a log buffer from the buffer pool.
   // This function will be blocked until there is an available buffer.
   // Note that only the corresponding worker thread can call this function.
-  std::unique_ptr<LogBuffer> LogBufferPool::GetBuffer() {
+  std::unique_ptr<LogBuffer> LogBufferPool::GetBuffer(size_t current_eid) {
     size_t head_idx = head_ % buffer_queue_size_;
     while (true) {
       if (head_.load() < tail_.load() - 1) {
         if (local_buffer_queue_[head_idx] == false) {
           // Not any buffer allocated now
-          local_buffer_queue_[head_idx].reset(new LogBuffer(worker_id_));
+          local_buffer_queue_[head_idx].reset(new LogBuffer(worker_id_, current_eid));
         }
         break;
       }
@@ -36,6 +36,7 @@ namespace logging {
     }
 
     head_.fetch_add(1, std::memory_order_relaxed);
+    local_buffer_queue_[head_idx]->eid_ = current_eid;
     return std::move(local_buffer_queue_[head_idx]);
   }
 
