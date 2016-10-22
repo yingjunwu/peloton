@@ -626,6 +626,13 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params){
 
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
+  ParamString *param_str = nullptr;
+  if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    param_str = new ParamString();
+    params.Serialize(*param_str);
+    txn->SetParamString(param_str);
+  }
+
   auto result = txn_manager.CommitTransaction();
 
   if (result == Result::RESULT_SUCCESS) {

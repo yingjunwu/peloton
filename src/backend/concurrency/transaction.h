@@ -115,7 +115,9 @@ class Transaction : public Printable {
     transaction_type_ = transaction_type;
   }
 
-  // void SetTransactionParams(char *params, const int params_length) {}
+  void SetParamString(ParamString *param_str) {
+    param_str_ = param_str;
+  }
 
   void RecordRead(const ItemPointer &);
 
@@ -209,6 +211,8 @@ class Transaction : public Printable {
   size_t insert_count_;
 
   int transaction_type_;
+
+  ParamString *param_str_;
 
 public:
   cid_t lower_bound_cid_;

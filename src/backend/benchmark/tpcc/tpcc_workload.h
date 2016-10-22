@@ -341,7 +341,7 @@ struct NewOrderParams {
   std::vector<int> ol_qtys;
   bool o_all_local;
 
-  void Serialize(ParamString &param_str) {
+  void Serialize(ParamString &param_str) const {
     param_str.Allocate(4*sizeof(int) + i_ids.size()*3*sizeof(int) + sizeof(bool));
     size_t offset = 0;
     memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
@@ -414,7 +414,7 @@ struct PaymentParams {
   double h_amount;
   std::string customer_lastname;
 
-  void Serialize(ParamString &param_str) {
+  void Serialize(ParamString &param_str) const {
     param_str.Allocate(5*sizeof(int) + sizeof(double));
     size_t offset = 0;
     memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
@@ -455,7 +455,7 @@ struct DeliveryParams {
   int warehouse_id;
   int o_carrier_id;
 
-  void Serialize(ParamString &param_str) {
+  void Serialize(ParamString &param_str) const {
     param_str.Allocate(2*sizeof(int));
     size_t offset = 0;
     memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
