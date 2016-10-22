@@ -172,6 +172,10 @@ class configuration {
   TimerType timer_type;
 
   EpochType epoch_type;
+
+  bool normal_txn_for_scan;
+
+  int mock_sleep_millisec;
 };
 
 extern configuration state;

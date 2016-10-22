@@ -210,6 +210,8 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
   // Mock sleep
   if (mock_sleep != 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(state.scan_mock_duration));
+    // JX debug:
+    // printf("Long running txn epoch: %d\n", (int)(txn->GetEpochId()));
   }
 
   std::unordered_set<uint64_t> lookup_map;
@@ -221,6 +223,10 @@ bool RunMixed(MixedPlans &mixed_plans, ZipfDistribution &zipf, fast_random &rng,
     // auto rng_val = rng.next_uniform();
 
     auto lookup_key = zipf.GetNextNumber();
+
+//    // Jx exp
+//    (void) zipf;
+//    auto lookup_key = txn->GetEpochId();
 
     if (lookup_map.find(lookup_key) != lookup_map.end()) {
       continue;
