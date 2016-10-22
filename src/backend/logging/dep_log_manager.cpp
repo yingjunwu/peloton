@@ -156,10 +156,6 @@ namespace peloton {
         // TODO: Pay attention to epoch overflow...
         size_t epoch_idx = txn_eid % concurrency::EpochManager::GetEpochQueueCapacity();
         tl_dep_worker_ctx->per_epoch_dependencies[epoch_idx].clear();
-//        // Jx exp: force dep
-//        if (txn_eid > 1) {
-//          tl_dep_worker_ctx->per_epoch_dependencies[epoch_idx].insert(txn_eid - 1);
-//        }
 
         RegisterNewBufferToEpoch(std::move(tl_dep_worker_ctx->buffer_pool.GetBuffer(txn_eid)));
       }
@@ -220,15 +216,6 @@ namespace peloton {
         return;
       }
 
-      // JX exp
-      if (ctx->worker_id == 0) {
-        auto itr = worker1_dep.find(ctx->current_eid);
-        if (itr == worker1_dep.end()) {
-          itr = worker1_dep.emplace(ctx->current_eid, std::set<size_t>()).first;
-        }
-        itr->second.insert(dep_eid);
-      }
-
       size_t epoch_idx = ctx->current_eid % concurrency::EpochManager::GetEpochQueueCapacity();
       ctx->per_epoch_dependencies[epoch_idx].insert(dep_eid);
     }
@@ -271,9 +258,6 @@ namespace peloton {
     }
 
     void DepLogManager::RunPepochLogger() {
-      // JX exp
-      cannot_commit_due_to_dep = 0;
-      commit_epoch_in_advance = 0;
 
       FileHandle file_handle;
       std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
@@ -351,10 +335,6 @@ namespace peloton {
         log_workers_lock_.Lock();
         {
           for (size_t ck_eid = new_pepoch_id + 1; ck_eid < pepoch_thread_cur_eid; ++ck_eid) {
-            // JX exp
-            if (ck_eid == new_pepoch_id + 1 && alive_worker_epochs.count(ck_eid) == 0) {
-              printf("Wrong new pepoch id\n");
-            }
 
             if (alive_worker_epochs.count(ck_eid) != 0) {
               // Alive epoch
@@ -368,25 +348,11 @@ namespace peloton {
               for (size_t dep_eid : dep_epochs) {
                 if (dep_eid > new_pepoch_id) {
                   // Only add valid dependency
-                  // per_epoch_complete_dependencies_[idx].insert(dep_eid);
-                  auto res = per_epoch_complete_dependencies_[idx].insert(dep_eid);
-                  if (res.second) {
-                    // JX exp
-                    auto itr_ = dep_epochs_.find(dep_eid);
-                    if (itr_ == dep_epochs_.end()) {
-                      dep_epochs_.emplace(dep_eid, 1);
-                    } else {
-                      itr_->second += 1;
-                    }
-                  }
+                  per_epoch_complete_dependencies_[idx].insert(dep_eid);
                 }
               }
             }
 
-//            // Jx exp
-//            if (ck_eid > 1 &&  per_epoch_complete_dependencies_[idx].count(ck_eid - 1) == 0) {
-//              printf("Lost exp dependency\n");
-//            }
 
             // TODO: Could have shrunk the critical region... but it's not often executed concurrently...
             // Check dependency
@@ -399,15 +365,9 @@ namespace peloton {
                   || per_epoch_status_[dep_epoch_idx] == EPOCH_STAT_COMMITABLE
                   || new_commitable_epochs.count(dep_eid) != 0) {
                 // 1. Dependent epoch is dead
-                // 2. Dependent epoch is commitable
+                // 2. Dependent epoch is commitablep
                 dep_itr = per_epoch_complete_dependencies_[idx].erase(dep_itr);
               } else {
-                cannot_commit_due_to_dep++;
-                if (ck_eid < dep_eid) {
-                  printf("Wrong dep\n");
-                } else {
-                  dep_gaps.push_back((int) ck_eid - (int) dep_eid);
-                }
                 commitable = false;
                 break;
               }
@@ -415,7 +375,6 @@ namespace peloton {
 
             // Mark in new commitable epochs
             if (commitable == true) {
-              commit_epoch_in_advance++;
               new_commitable_epochs.insert(ck_eid);
             }
           }
