@@ -57,7 +57,7 @@ void Usage(FILE *out) {
           "   -N --replay_log_num    :  # threads for replaying logs\n"
           "   -W --mock_sleep        :  mock sleep time for each scan operation in ms. Default 0.\n"
           "   -J --long_rw           :  treat scan txn as rw txn\n"
-          "   -A --ad_hoc            :  percentage of ad-hoc transactions\n"
+          "   -A --adhoc_ratio       :  percentage of ad-hoc transactions\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -90,9 +90,9 @@ static struct option opts[] = {
   { "replay_log", no_argument, NULL, 'P'},
   { "recover_ckpt_num", optional_argument, NULL, 'M'},
   { "replay_log_num", optional_argument, NULL, 'N'},
-  {"mock_sleep", optional_argument, NULL, 'W'},
-  {"long_rw", no_argument, NULL, 'J'},
-  {"ad_hoc", optional_argument, NULL, 'A'},
+  { "mock_sleep", optional_argument, NULL, 'W'},
+  { "long_rw", no_argument, NULL, 'J'},
+  { "adhoc_ratio", optional_argument, NULL, 'A'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -254,13 +254,13 @@ void ValidateLoggingType(configuration &state) {
   }
 }
 
-void ValidateAdHoc(const configuration &state) {
-  if (state.ad_hoc < 0 || state.ad_hoc > 1) {
-    LOG_ERROR("Invalid ad_hoc :: %lf", state.ad_hoc);
+void ValidateAdhocRatio(const configuration &state) {
+  if (state.adhoc_ratio < 0 || state.adhoc_ratio > 1) {
+    LOG_ERROR("Invalid adhoc_ratio :: %lf", state.adhoc_ratio);
     exit(EXIT_FAILURE);
   }
 
-  LOG_TRACE("%s : %lf", "ad_hoc", state.ad_hoc);
+  LOG_TRACE("%s : %lf", "adhoc_ratio", state.adhoc_ratio);
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
@@ -294,7 +294,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.replay_log_num = 1;
   state.normal_txn_for_scan = false;
   state.mock_sleep_millisec = 0;
-  state.ad_hoc = 0;
+  state.adhoc_ratio = 0;
 
   // Parse args
   while (1) {
@@ -305,7 +305,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
 
     switch (c) {
       case 'A':
-        state.ad_hoc = atof(optarg);
+        state.adhoc_ratio = atof(optarg);
         break;
       case 'M':
         state.recover_checkpoint_num = atoi(optarg);
@@ -560,7 +560,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateOrderRange(state);
   ValidateEpoch(state);
   ValidateEpochType(state);
-  ValidateAdHoc(state);
+  ValidateAdhocRatio(state);
   
   LOG_TRACE("%s : %d", "Run client affinity", state.run_affinity);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);

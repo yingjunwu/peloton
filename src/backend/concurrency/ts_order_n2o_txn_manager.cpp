@@ -575,6 +575,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
       ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn();
     } else {
       ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn(current_txn->transaction_type_, current_txn->txn_param_);
+      ((logging::CommandLogManager*)(&log_manager))->EndPersistTxn();
     }
   } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
     ((logging::DepLogManager *) (&log_manager))->StartPersistTxn();

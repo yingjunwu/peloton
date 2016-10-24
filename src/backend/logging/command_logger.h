@@ -25,6 +25,7 @@
 #include "backend/logging/log_buffer_pool.h"
 #include "backend/logging/log_manager.h"
 #include "backend/logging/worker_context.h"
+#include "backend/logging/command_logging_util.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -128,6 +129,11 @@ private:
     const size_t sleep_period_us_ = 40000;
 
     const int new_file_interval_ = 2000; // 2000 milliseconds.
+
+    std::vector<ParamWrapper> param_wrappers_[40];
+
+    std::vector<ParamWrapper> ordered_param_wrappers_;
+
   };
 
 }

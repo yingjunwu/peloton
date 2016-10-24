@@ -286,7 +286,7 @@ void RunBackend(oid_t thread_id) {
      } 
      else if (rng_val <= DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
       bool is_adhoc = false;
-      if (rng.next_uniform() < state.ad_hoc) {
+      if (rng.next_uniform() < state.adhoc_ratio) {
         is_adhoc = true;
       } else {
         is_adhoc = false;
@@ -317,7 +317,7 @@ void RunBackend(oid_t thread_id) {
      } 
      else if (rng_val <= PAYMENT_RATIO + DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
        bool is_adhoc = false;
-       if (rng.next_uniform() < state.ad_hoc) {
+       if (rng.next_uniform() < state.adhoc_ratio) {
          is_adhoc = true;
        } else {
          is_adhoc = false;
@@ -346,7 +346,7 @@ void RunBackend(oid_t thread_id) {
        payment_transaction_count_ref++;
      } else {
        bool is_adhoc = false;
-       if (rng.next_uniform() < state.ad_hoc) {
+       if (rng.next_uniform() < state.adhoc_ratio) {
          is_adhoc = true;
        } else {
          is_adhoc = false;

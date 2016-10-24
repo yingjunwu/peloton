@@ -116,7 +116,8 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
   size_t buf_size = 4096;
   std::unique_ptr<char[]> buffer(new char[buf_size]);
   char length_buf[sizeof(int32_t)];
-  UNUSED_ATTRIBUTE int transaction_type = INVALID_TRANSACTION_TYPE;
+  int transaction_type = INVALID_TRANSACTION_TYPE;
+  OperationSet *operation_set = nullptr;
 
   // TODO: Need some file integrity check. Now we just rely on the the pepoch id and the checkpoint eid
   while (true) {
@@ -154,6 +155,7 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
     LogRecordType record_type = (LogRecordType) (record_decode.ReadEnumInSingleByte());
     switch (record_type) {
       case LOGRECORD_TYPE_EPOCH_BEGIN: {
+        LOG_TRACE("epoch begin");
         if (current_eid != INVALID_EPOCH_ID) {
           LOG_ERROR("Incomplete epoch in log record");
           return false;
@@ -162,6 +164,7 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
         // printf("begin epoch id = %lu\n", current_eid);
         break;
       } case LOGRECORD_TYPE_EPOCH_END: {
+        LOG_TRACE("epoch end");
         size_t eid = (size_t) record_decode.ReadLong();
         if (eid != current_eid) {
           LOG_ERROR("Mismatched epoch in log record");
@@ -171,6 +174,7 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
         current_eid = INVALID_EPOCH_ID;
         break;
       } case LOGRECORD_TYPE_TRANSACTION_BEGIN: {
+        LOG_TRACE("transaction begin");
         if (current_eid == INVALID_EPOCH_ID) {
           LOG_ERROR("Invalid txn begin record");
           return false;
@@ -181,12 +185,13 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
         }
         current_cid = (cid_t) record_decode.ReadLong();
         
-        if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
-          concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
-        }
+        // if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+        //   concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
+        // }
 
         break;
       } case LOGRECORD_TYPE_TRANSACTION_COMMIT: {
+        LOG_TRACE("transaction end");
         if (current_eid == INVALID_EPOCH_ID) {
           LOG_ERROR("Invalid txn begin record");
           return false;
@@ -198,10 +203,21 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
         }
         current_cid = INVALID_CID;
 
+        // if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+        //   delete concurrency::current_txn;
+        //   concurrency::current_txn = nullptr;
+        // }
+
         if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
-          delete concurrency::current_txn;
-          concurrency::current_txn = nullptr;
+          if (transaction_type == INVALID_TRANSACTION_TYPE) {
+            PL_ASSERT(operation_set != nullptr);
+
+            param_wrappers_[thread_id].emplace_back(current_cid, transaction_type, operation_set);
+
+            operation_set = nullptr;
+          }
         }
+
 
         break;
       } case LOGRECORD_TYPE_TUPLE_UPDATE:
@@ -227,6 +243,8 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
         tuple->DeserializeFrom(record_decode, this->recovery_pools_[thread_id].get());
 
+        PL_ASSERT(operation_set != nullptr);
+        operation_set->emplace_back(record_type, tuple.get(), table);
         // FILE *fp = fopen("in_file.txt", "a");
         // for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
         //   int value = ValuePeeker::PeekAsInteger(tuple->GetValue(i));
@@ -244,6 +262,11 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
           return false;
         }
         transaction_type = record_decode.ReadLong();
+
+        if (transaction_type == INVALID_TRANSACTION_TYPE) {
+          operation_set = new OperationSet();
+        }
+
         break;
       } case LOGRECORD_TYPE_PARAMETER: {
         if (current_cid == INVALID_CID || current_eid == INVALID_EPOCH_ID) {
@@ -256,7 +279,13 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
           return false;
         }
 
-        UNUSED_ATTRIBUTE TransactionParameter *param = DeserializeParameter(transaction_type, record_decode);
+        if (current_eid < checkpoint_eid || current_eid > persist_eid) {
+          break;
+        }
+
+        TransactionParameter *param = DeserializeParameter(transaction_type, record_decode);
+
+        param_wrappers_[thread_id].emplace_back(current_cid, transaction_type, param);
 
         break;
       }
@@ -266,7 +295,7 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
       }
 
   }
-
+  printf("param wrapper count = %lu\n", param_wrappers_[thread_id].size());
   return true;
 }
 
