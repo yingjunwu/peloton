@@ -405,7 +405,7 @@ void GeneratePaymentParams(const size_t &thread_id, PaymentParams &params) {
 
 }
 
-bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params) {
+bool RunPayment(PaymentPlans &payment_plans, PaymentParams &params, bool is_adhoc) {
   /*
      "PAYMENT": {
      "getWarehouse": "SELECT W_NAME, W_STREET_1, W_STREET_2, W_CITY, W_STATE, W_ZIP FROM WAREHOUSE WHERE W_ID = ?", # w_id
@@ -433,7 +433,7 @@ bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params) {
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   
-  auto txn = txn_manager.BeginTransaction(TPCC_TRANSACTION_TYPE_PAYMENT);
+  auto txn = txn_manager.BeginTransaction();
 
   
   std::vector<Value> customer;
@@ -739,11 +739,13 @@ bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params) {
 
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
-  ParamString *param_str = nullptr;
   if (state.logging_type == LOGGING_TYPE_COMMAND) {
-    param_str = new ParamString();
-    params.Serialize(*param_str);
-    txn->SetParamString(param_str);
+    if (is_adhoc == false) {
+      txn->SetTransactionType(TPCC_TRANSACTION_TYPE_PAYMENT);
+      txn->SetTransactionParam(&params);
+    } else {
+      txn->SetTransactionType(INVALID_TRANSACTION_TYPE);
+    }
   }
 
   auto result = txn_manager.CommitTransaction();

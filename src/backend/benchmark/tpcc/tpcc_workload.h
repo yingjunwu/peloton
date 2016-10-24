@@ -331,7 +331,8 @@ DeliveryPlans PrepareDeliveryPlan();
 size_t GenerateWarehouseId(const size_t &thread_id);
 
 
-struct NewOrderParams {
+class NewOrderParams : public TransactionParameter {
+public:
   int warehouse_id;
   int district_id;
   int customer_id;
@@ -341,71 +342,51 @@ struct NewOrderParams {
   std::vector<int> ol_qtys;
   bool o_all_local;
 
-  void Serialize(ParamString &param_str) const {
-    param_str.Allocate(4*sizeof(int) + i_ids.size()*3*sizeof(int) + sizeof(bool));
-    size_t offset = 0;
-    memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
-    offset += sizeof(warehouse_id);
-    memcpy(param_str.data + offset, &district_id, sizeof(district_id));
-    offset += sizeof(district_id);
-    memcpy(param_str.data + offset, &customer_id, sizeof(customer_id));
-    offset += sizeof(customer_id);
-    memcpy(param_str.data + offset, &o_ol_cnt, sizeof(o_ol_cnt));
-    offset += sizeof(o_ol_cnt);
+  virtual void SerializeTo(SerializeOutput &output) override {
+
+    output.WriteLong(warehouse_id);
+    output.WriteLong(district_id);
+    output.WriteLong(customer_id);
+    output.WriteLong(o_ol_cnt);
 
     size_t id_count = i_ids.size();
-    memcpy(param_str.data + offset, &id_count, sizeof(id_count));
+    output.WriteLong(id_count);
 
     for (size_t i = 0; i < id_count; ++i) {
-      memcpy(param_str.data + offset, &(i_ids.at(i)), sizeof(int));
-      offset += sizeof(int);
-      memcpy(param_str.data + offset, &(ol_w_ids.at(i)), sizeof(int));
-      offset += sizeof(int);
-      memcpy(param_str.data + offset, &(ol_qtys.at(i)), sizeof(int));
-      offset += sizeof(int);
+      output.WriteLong(i_ids[i]);
+      output.WriteLong(ol_w_ids[i]);
+      output.WriteLong(ol_qtys[i]);
     }
-
-    memcpy(param_str.data + offset, &o_all_local, sizeof(o_all_local));
+    output.WriteBool(o_all_local);
   }
 
-  void Deserialize(const ParamString &param_str) {
-    size_t offset = 0;
-    memcpy(&warehouse_id, param_str.data + offset, sizeof(warehouse_id));
-    offset += sizeof(warehouse_id);
-    memcpy(&district_id, param_str.data + offset, sizeof(district_id));
-    offset += sizeof(district_id);
-    memcpy(&customer_id, param_str.data + offset, sizeof(customer_id));
-    offset += sizeof(customer_id);
-    memcpy(&o_ol_cnt, param_str.data + offset, sizeof(o_ol_cnt));
-    offset += sizeof(o_ol_cnt);
+  void DeserializeFrom(SerializeInputBE &input) {
 
-    size_t id_count = 0;
-    memcpy(&id_count, param_str.data + offset, sizeof(id_count));
-    offset += sizeof(id_count);
-    
+    warehouse_id = input.ReadLong();
+    district_id = input.ReadLong();
+    customer_id = input.ReadLong();
+    o_ol_cnt = input.ReadLong();
+
+    size_t id_count = input.ReadLong();
     i_ids.resize(id_count);
     ol_w_ids.resize(id_count);
     ol_qtys.resize(id_count);
-    
-    for (size_t i = 0; i < id_count; ++i) {
-      memcpy(&(i_ids[i]), param_str.data + offset, sizeof(int));
-      offset += sizeof(int);
-      memcpy(&(ol_w_ids[i]), param_str.data + offset, sizeof(int));
-      offset += sizeof(int);
-      memcpy(&(ol_qtys[i]), param_str.data + offset, sizeof(int));
-      offset += sizeof(int);
-    }
 
-    memcpy(param_str.data + offset, &o_all_local, sizeof(o_all_local));
+    for (size_t i = 0; i < id_count; ++i) {
+      i_ids[i] = input.ReadLong();
+      ol_w_ids[i] = input.ReadLong();
+      ol_qtys[i] = input.ReadLong();
+    }
+    o_all_local = input.ReadBool();
   }
 };
 
 void GenerateNewOrderParams(const size_t &thread_id, NewOrderParams &params);
 
-bool RunNewOrder(NewOrderPlans &new_order_plans, const NewOrderParams &params);
+bool RunNewOrder(NewOrderPlans &new_order_plans, NewOrderParams &params, bool is_adhoc = false);
 
 
-struct PaymentParams {
+struct PaymentParams : public TransactionParameter {
   int warehouse_id;
   int district_id;
   int customer_warehouse_id;
@@ -414,66 +395,50 @@ struct PaymentParams {
   double h_amount;
   std::string customer_lastname;
 
-  void Serialize(ParamString &param_str) const {
-    param_str.Allocate(5*sizeof(int) + sizeof(double));
-    size_t offset = 0;
-    memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
-    offset += sizeof(warehouse_id);
-    memcpy(param_str.data + offset, &district_id, sizeof(district_id));
-    offset += sizeof(district_id);
-    memcpy(param_str.data + offset, &customer_warehouse_id, sizeof(customer_warehouse_id));
-    offset += sizeof(customer_warehouse_id);
-    memcpy(param_str.data + offset, &customer_district_id, sizeof(customer_district_id));
-    offset += sizeof(customer_district_id);
-    memcpy(param_str.data + offset, &customer_id, sizeof(customer_id));
-    offset += sizeof(customer_id);
-    memcpy(param_str.data + offset, &h_amount, sizeof(h_amount));
+  virtual void SerializeTo(SerializeOutput &output) override {
+
+    output.WriteLong(warehouse_id);
+    output.WriteLong(district_id);
+    output.WriteLong(customer_warehouse_id);
+    output.WriteLong(customer_district_id);
+    output.WriteLong(customer_id);
+    output.WriteDouble(h_amount);
   }
 
-  void Deserialize(const ParamString &param_str) {
-    size_t offset = 0;
-    memcpy(&warehouse_id, param_str.data + offset, sizeof(warehouse_id));
-    offset += sizeof(warehouse_id);
-    memcpy(&district_id, param_str.data + offset, sizeof(district_id));
-    offset += sizeof(district_id);
-    memcpy(&customer_warehouse_id, param_str.data + offset, sizeof(customer_warehouse_id));
-    offset += sizeof(customer_warehouse_id);
-    memcpy(&customer_district_id, param_str.data + offset, sizeof(customer_district_id));
-    offset += sizeof(customer_district_id);
-    memcpy(&customer_id, param_str.data + offset, sizeof(customer_id));
-    offset += sizeof(customer_id);
-    memcpy(&h_amount, param_str.data + offset, sizeof(h_amount));
+  void DeserializeFrom(SerializeInputBE &input) {
+
+    warehouse_id = input.ReadLong();
+    district_id = input.ReadLong();
+    customer_warehouse_id = input.ReadLong();
+    customer_district_id = input.ReadLong();
+    customer_id = input.ReadLong();
+    h_amount = input.ReadDouble();
   }
 };
 
 void GeneratePaymentParams(const size_t &thread_id, PaymentParams &params);
 
-bool RunPayment(PaymentPlans &payment_plans, const PaymentParams &params);
+bool RunPayment(PaymentPlans &payment_plans, PaymentParams &params, bool is_adhoc = false);
 
 
-struct DeliveryParams {
+struct DeliveryParams : public TransactionParameter {
   int warehouse_id;
   int o_carrier_id;
 
-  void Serialize(ParamString &param_str) const {
-    param_str.Allocate(2*sizeof(int));
-    size_t offset = 0;
-    memcpy(param_str.data + offset, &warehouse_id, sizeof(warehouse_id));
-    offset += sizeof(warehouse_id);
-    memcpy(param_str.data + offset, &o_carrier_id, sizeof(o_carrier_id));
+  virtual void SerializeTo(SerializeOutput &output) override {
+    output.WriteLong(warehouse_id);
+    output.WriteLong(o_carrier_id);
   }
 
-  void Deserialize(const ParamString &param_str) {
-    size_t offset = 0;
-    memcpy(&warehouse_id, param_str.data + offset, sizeof(warehouse_id));
-    offset += sizeof(warehouse_id);
-    memcpy(&o_carrier_id, param_str.data + offset, sizeof(o_carrier_id));
+  void DeserializeFrom(SerializeInputBE &input) {
+    warehouse_id = input.ReadLong();
+    o_carrier_id = input.ReadLong();
   }
 };
 
 void GenerateDeliveryParams(const size_t &thread_id, DeliveryParams &params);
 
-bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params);
+bool RunDelivery(DeliveryPlans &delivery_plans, DeliveryParams &params, bool is_adhoc = false);
 
 bool RunOrderStatus(const size_t &thread_id);
 

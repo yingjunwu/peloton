@@ -167,6 +167,8 @@ class configuration {
 
   int epoch_length;
 
+  double ad_hoc;
+
   double commit_latency;
   LatSummary latency_summary;
 
@@ -213,6 +215,8 @@ void ValidateOrderRange(const configuration &state);
 void ValidateEpochType(configuration &state);
 
 void ValidateLoggingType(configuration &state);
+
+void ValidateAdHoc(const configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 

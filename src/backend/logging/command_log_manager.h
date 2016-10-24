@@ -105,10 +105,12 @@ public:
   void LogDelete(const ItemPointer &tuple_pos_deleted);
 
   void StartPersistTxn();
+  void StartPersistTxn(const int transaction_type, TransactionParameter *txn_param);
   void EndPersistTxn();
 
   // Logger side logic
   virtual void DoRecovery(const size_t &begin_eid) override;
+
   virtual void StartLoggers() override;
   virtual void StopLoggers() override;
 
@@ -116,8 +118,10 @@ public:
 
 private:
   size_t RecoverPepoch();
+  
+  void GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid);
 
-  void WriteRecordToBuffer(const int transaction_type);
+  void WriteRecordToBuffer(const int transaction_type, TransactionParameter *txn_param);
 
   void WriteRecordToBuffer(LogRecord &record);
 

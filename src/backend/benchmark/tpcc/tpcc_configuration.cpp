@@ -57,6 +57,7 @@ void Usage(FILE *out) {
           "   -N --replay_log_num    :  # threads for replaying logs\n"
           "   -W --mock_sleep        :  mock sleep time for each scan operation in ms. Default 0.\n"
           "   -J --long_rw           :  treat scan txn as rw txn\n"
+          "   -A --ad_hoc            :  percentage of ad-hoc transactions\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -90,7 +91,8 @@ static struct option opts[] = {
   { "recover_ckpt_num", optional_argument, NULL, 'M'},
   { "replay_log_num", optional_argument, NULL, 'N'},
   {"mock_sleep", optional_argument, NULL, 'W'},
-  {"long_rw", optional_argument, NULL, 'J'},
+  {"long_rw", no_argument, NULL, 'J'},
+  {"ad_hoc", optional_argument, NULL, 'A'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -252,6 +254,15 @@ void ValidateLoggingType(configuration &state) {
   }
 }
 
+void ValidateAdHoc(const configuration &state) {
+  if (state.ad_hoc < 0 || state.ad_hoc > 1) {
+    LOG_ERROR("Invalid ad_hoc :: %lf", state.ad_hoc);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %lf", "ad_hoc", state.ad_hoc);
+}
+
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
@@ -283,15 +294,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.replay_log_num = 1;
   state.normal_txn_for_scan = false;
   state.mock_sleep_millisec = 0;
+  state.ad_hoc = 0;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:J", opts, &idx);
+    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:A:J", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'A':
+        state.ad_hoc = atof(optarg);
+        break;
       case 'M':
         state.recover_checkpoint_num = atoi(optarg);
         break;
@@ -545,6 +560,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateOrderRange(state);
   ValidateEpoch(state);
   ValidateEpochType(state);
+  ValidateAdHoc(state);
   
   LOG_TRACE("%s : %d", "Run client affinity", state.run_affinity);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);

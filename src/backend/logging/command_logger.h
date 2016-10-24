@@ -55,6 +55,9 @@ namespace logging {
 
     ~CommandLogger() {}
 
+    void StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
+    void WaitForRecovery();
+
     void StartLogging() {
       is_running_ = true;
       logger_thread_.reset(new std::thread(&CommandLogger::Run, this));
@@ -84,10 +87,25 @@ private:
     return log_dir_ + "/" + logging_filename_prefix_ + "_" + std::to_string(logger_id_) + "_" + std::to_string(epoch_id);
   }
 
+  void GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid);
+  
+  void RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid);
+
+  bool ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
+
   private:
     size_t logger_id_;
     std::string log_dir_;
     
+    // recovery threads
+    std::vector<std::unique_ptr<std::thread>> recovery_threads_;
+    std::vector<size_t> file_eids_;
+    std::atomic<int> max_replay_file_id_;
+    
+    /* Recovery */
+    // TODO: Check if we can discard the recovery pool after the recovery is done. Since every thing is copied to the
+    // tile group and tile group related pool
+    std::vector<std::unique_ptr<VarlenPool>> recovery_pools_;
     
     // logger thread
     std::unique_ptr<std::thread> logger_thread_;
@@ -110,7 +128,6 @@ private:
 
     const int new_file_interval_ = 2000; // 2000 milliseconds.
   };
-
 
 }
 }

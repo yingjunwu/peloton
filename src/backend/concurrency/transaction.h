@@ -23,7 +23,17 @@
 #include "backend/common/types.h"
 #include "backend/common/exception.h"
 
+#include "backend/common/serializer.h"
+
+
 namespace peloton {
+
+class TransactionParameter {
+public:
+  virtual void SerializeTo(SerializeOutput &output) = 0;
+  // void DeserializeFrom(SerializeInputBE &input) = 0;
+};
+
 namespace concurrency {
 
 //===--------------------------------------------------------------------===//
@@ -115,8 +125,8 @@ class Transaction : public Printable {
     transaction_type_ = transaction_type;
   }
 
-  void SetParamString(ParamString *param_str) {
-    param_str_ = param_str;
+  inline void SetTransactionParam(TransactionParameter *txn_param) {
+    txn_param_ = txn_param;
   }
 
   void RecordRead(const ItemPointer &);
@@ -176,6 +186,13 @@ class Transaction : public Printable {
     return is_written_ == false && insert_count_ == 0;
   }
 
+ public:
+
+  int transaction_type_;
+
+  TransactionParameter *txn_param_;
+
+
  private:
   //===--------------------------------------------------------------------===//
   // Data members
@@ -209,10 +226,6 @@ class Transaction : public Printable {
 
   bool is_written_;
   size_t insert_count_;
-
-  int transaction_type_;
-
-  ParamString *param_str_;
 
 public:
   cid_t lower_bound_cid_;

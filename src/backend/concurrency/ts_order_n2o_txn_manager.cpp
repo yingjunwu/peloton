@@ -573,6 +573,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
   } else if (logging_type == LOGGING_TYPE_COMMAND) {
     if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
       ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn();
+    } else {
+      ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn(current_txn->transaction_type_, current_txn->txn_param_);
     }
   } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
     ((logging::DepLogManager *) (&log_manager))->StartPersistTxn();

@@ -79,12 +79,11 @@ class TsOrderOptN2OTxnManager : public TransactionManager {
 
   virtual Result AbortTransaction();
 
-  virtual Transaction *BeginTransaction(const int transaction_type) {
+  virtual Transaction *BeginTransaction() {
     txn_id_t txn_id = GetNextTransactionId();
     cid_t begin_cid = EpochManagerFactory::GetInstance().EnterEpoch();
     Transaction *txn = new Transaction(txn_id, begin_cid);
     txn->SetEpochId(EpochManager::GetEidFromCid(begin_cid));
-    txn->SetTransactionType(transaction_type);
 
     current_txn = txn;
 

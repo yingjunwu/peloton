@@ -79,10 +79,10 @@ namespace tpcc {
 // WORKLOAD
 /////////////////////////////////////////////////////////
 
-#define STOCK_LEVEL_RATIO     0.04
-#define ORDER_STATUS_RATIO    0.04
+#define STOCK_LEVEL_RATIO     0.00
+#define ORDER_STATUS_RATIO    0.00
 #define DELIVERY_RATIO        0.00
-#define PAYMENT_RATIO         0.46
+#define PAYMENT_RATIO         0.5
 
 volatile bool is_running = true;
 
@@ -285,9 +285,16 @@ void RunBackend(oid_t thread_id) {
        }
      } 
      else if (rng_val <= DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+      bool is_adhoc = false;
+      if (rng.next_uniform() < state.ad_hoc) {
+        is_adhoc = true;
+      } else {
+        is_adhoc = false;
+      }
+
       DeliveryParams delivery_params;
       GenerateDeliveryParams(thread_id, delivery_params);
-       while (RunDelivery(delivery_plans, delivery_params) == false) {
+       while (RunDelivery(delivery_plans, delivery_params, is_adhoc) == false) {
           if (is_running == false) {
             break;
           }
@@ -308,10 +315,16 @@ void RunBackend(oid_t thread_id) {
        }
        delivery_transaction_count_ref++;
      } 
-      else if (rng_val <= PAYMENT_RATIO + DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+     else if (rng_val <= PAYMENT_RATIO + DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
+       bool is_adhoc = false;
+       if (rng.next_uniform() < state.ad_hoc) {
+         is_adhoc = true;
+       } else {
+         is_adhoc = false;
+       }
        PaymentParams payment_params;
        GeneratePaymentParams(thread_id, payment_params);
-       while (RunPayment(payment_plans, payment_params) == false) {
+       while (RunPayment(payment_plans, payment_params, is_adhoc) == false) {
           if (is_running == false) {
             break;
           }
@@ -332,9 +345,15 @@ void RunBackend(oid_t thread_id) {
        }
        payment_transaction_count_ref++;
      } else {
+       bool is_adhoc = false;
+       if (rng.next_uniform() < state.ad_hoc) {
+         is_adhoc = true;
+       } else {
+         is_adhoc = false;
+       }
        NewOrderParams new_order_params;
        GenerateNewOrderParams(thread_id, new_order_params);
-       while (RunNewOrder(new_order_plans, new_order_params) == false) {
+       while (RunNewOrder(new_order_plans, new_order_params, is_adhoc) == false) {
           if (is_running == false) {
             break;
           }

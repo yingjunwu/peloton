@@ -373,7 +373,7 @@ void GenerateNewOrderParams(const size_t &thread_id, NewOrderParams &params) {
 }
 
 
-bool RunNewOrder(NewOrderPlans &new_order_plans, const NewOrderParams &params){
+bool RunNewOrder(NewOrderPlans &new_order_plans, NewOrderParams &params, bool is_adhoc){
   /*
      "NEW_ORDER": {
      "getWarehouseTaxRate": "SELECT W_TAX FROM WAREHOUSE WHERE W_ID = ?", # w_id
@@ -402,7 +402,7 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const NewOrderParams &params){
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
-  auto txn = txn_manager.BeginTransaction(TPCC_TRANSACTION_TYPE_NEW_ORDER);
+  auto txn = txn_manager.BeginTransaction();
 
   
   //std::vector<float> i_prices;
@@ -741,11 +741,13 @@ bool RunNewOrder(NewOrderPlans &new_order_plans, const NewOrderParams &params){
   // transaction passed execution.
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
-  ParamString *param_str = nullptr;
   if (state.logging_type == LOGGING_TYPE_COMMAND) {
-    param_str = new ParamString();
-    params.Serialize(*param_str);
-    txn->SetParamString(param_str);
+    if (is_adhoc == false) {
+      txn->SetTransactionType(TPCC_TRANSACTION_TYPE_NEW_ORDER);
+      txn->SetTransactionParam(&params);
+    } else {
+      txn->SetTransactionType(INVALID_TRANSACTION_TYPE);
+    }
   }
 
   auto result = txn_manager.CommitTransaction();

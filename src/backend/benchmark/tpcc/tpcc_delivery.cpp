@@ -370,9 +370,7 @@ void GenerateDeliveryParams(const size_t &thread_id, DeliveryParams &params) {
   params.o_carrier_id = GetRandomInteger(orders_min_carrier_id, orders_max_carrier_id);
 }
 
-bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params){
-
-  std::vector<expression::AbstractExpression *> runtime_keys;
+bool RunDelivery(DeliveryPlans &delivery_plans, DeliveryParams &params, bool is_adhoc){
   /*
    "DELIVERY": {
    "getNewOrder": "SELECT NO_O_ID FROM NEW_ORDER WHERE NO_D_ID = ? AND NO_W_ID = ? AND NO_O_ID > -1 LIMIT 1", #
@@ -398,7 +396,7 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params){
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
-  auto txn = txn_manager.BeginTransaction(TPCC_TRANSACTION_TYPE_DELIVERY);
+  auto txn = txn_manager.BeginTransaction();
 
 
   for (int d_id = 0; d_id < state.districts_per_warehouse; ++d_id) {
@@ -626,11 +624,13 @@ bool RunDelivery(DeliveryPlans &delivery_plans, const DeliveryParams &params){
 
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
-  ParamString *param_str = nullptr;
   if (state.logging_type == LOGGING_TYPE_COMMAND) {
-    param_str = new ParamString();
-    params.Serialize(*param_str);
-    txn->SetParamString(param_str);
+    if (is_adhoc == false) {
+      txn->SetTransactionType(TPCC_TRANSACTION_TYPE_DELIVERY);
+      txn->SetTransactionParam(&params);
+    } else {
+      txn->SetTransactionType(INVALID_TRANSACTION_TYPE);
+    }
   }
 
   auto result = txn_manager.CommitTransaction();

@@ -25,32 +25,6 @@
 // GUC Variables
 //===--------------------------------------------------------------------===//
 
-struct ParamString {
-  ParamString() {
-    data = nullptr;
-    data_size = 0;
-  }
-
-  ~ParamString() {
-    if (data != nullptr) {
-      delete[] data;
-      data = nullptr;
-    }
-  }
-
-  void Allocate(const size_t &size) {
-    data = new char[size];
-    data_size = size;
-  }
-
-  void Release() {
-    delete[] data;
-    data = nullptr;
-  }
-
-  char *data;
-  size_t data_size;
-};
 
 
 const int INVALID_TRANSACTION_TYPE = 100;
@@ -745,6 +719,10 @@ enum LogRecordType {
   // Epoch related records
   LOGRECORD_TYPE_EPOCH_BEGIN = 21,
   LOGRECORD_TYPE_EPOCH_END = 22,
+
+  // command logging related records
+  LOGRECORD_TYPE_TRANSACTION_TYPE = 31,
+  LOGRECORD_TYPE_PARAMETER = 32,
 
 };
 
