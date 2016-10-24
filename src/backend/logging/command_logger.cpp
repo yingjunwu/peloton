@@ -251,12 +251,12 @@ bool CommandLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_handl
           return false;
         }
 
+        if (transaction_type == INVALID_TRANSACTION_TYPE) {
+          LOG_ERROR("Invalid transaction parameter");
+          return false;
+        }
 
-
-        // TransactionParameter *txn_param = new TransactionParameter();
-        // txn_param = 
-
-        // record_decode.ReadBytes(param_str->data, param_str->data_size);
+        UNUSED_ATTRIBUTE TransactionParameter *param = DeserializeParameter(transaction_type, record_decode);
 
         break;
       }

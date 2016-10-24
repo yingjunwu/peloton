@@ -490,7 +490,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         } else if (strcmp(logging_proto, "physical") == 0) {
           state.logging_type = LOGGING_TYPE_PHYSICAL;
         } else if (strcmp(logging_proto, "command") == 0) {
-          state.logging_type = LOGGING_TYPE_COMMAND;
+          LOG_ERROR("command logging not allowed for YCSB!");
+          state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "dep") == 0) {
           state.logging_type = LOGGING_TYPE_DEPENDENCY;
         } else {

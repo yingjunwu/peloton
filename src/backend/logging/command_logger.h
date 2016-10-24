@@ -75,7 +75,6 @@ namespace logging {
       return persist_epoch_id_;
     }
 
-
 private:
   void Run();
 
@@ -92,6 +91,8 @@ private:
   void RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid);
 
   bool ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
+
+  virtual TransactionParameter* DeserializeParameter(UNUSED_ATTRIBUTE const int transaction_type, UNUSED_ATTRIBUTE CopySerializeInputBE &input) { return nullptr; }
 
   private:
     size_t logger_id_;

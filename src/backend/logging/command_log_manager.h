@@ -125,7 +125,7 @@ private:
 
   void WriteRecordToBuffer(LogRecord &record);
 
-private:
+protected:
   std::atomic<oid_t> worker_count_;
 
   std::vector<std::shared_ptr<CommandLogger>> loggers_;

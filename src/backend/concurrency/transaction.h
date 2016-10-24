@@ -31,7 +31,7 @@ namespace peloton {
 class TransactionParameter {
 public:
   virtual void SerializeTo(SerializeOutput &output) = 0;
-  // void DeserializeFrom(SerializeInputBE &input) = 0;
+  virtual void DeserializeFrom(SerializeInputBE &input) = 0;
 };
 
 namespace concurrency {

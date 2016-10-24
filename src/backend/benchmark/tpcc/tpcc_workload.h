@@ -360,7 +360,7 @@ public:
     output.WriteBool(o_all_local);
   }
 
-  void DeserializeFrom(SerializeInputBE &input) {
+  virtual void DeserializeFrom(SerializeInputBE &input) override {
 
     warehouse_id = input.ReadLong();
     district_id = input.ReadLong();
@@ -405,7 +405,7 @@ struct PaymentParams : public TransactionParameter {
     output.WriteDouble(h_amount);
   }
 
-  void DeserializeFrom(SerializeInputBE &input) {
+  virtual void DeserializeFrom(SerializeInputBE &input) override {
 
     warehouse_id = input.ReadLong();
     district_id = input.ReadLong();
@@ -430,7 +430,7 @@ struct DeliveryParams : public TransactionParameter {
     output.WriteLong(o_carrier_id);
   }
 
-  void DeserializeFrom(SerializeInputBE &input) {
+  virtual void DeserializeFrom(SerializeInputBE &input) override {
     warehouse_id = input.ReadLong();
     o_carrier_id = input.ReadLong();
   }
