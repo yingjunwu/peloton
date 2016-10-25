@@ -4,7 +4,7 @@
 //
 // workload.cpp
 //
-// Identification: benchmark/tpcc/workload.cpp
+// Identification: benchmark/smallbank/workload.cpp
 //
 // Copyright (c) 2015, Carnegie Mellon University Database Group
 //

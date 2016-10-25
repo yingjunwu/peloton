@@ -4,7 +4,7 @@
 //
 // workload.h
 //
-// Identification: benchmark/tpcc/workload.h
+// Identification: benchmark/smallbank/workload.h
 //
 // Copyright (c) 2015, Carnegie Mellon University Database Group
 //
@@ -53,10 +53,6 @@ size_t GenerateAmount();
 /////////////////////////////////////////////////////////
 void GenerateAndCacheQuery(ZipfDistribution& zipf);
 void GenerateALLAndCache(ZipfDistribution& zipf);
-// void GenerateALLAndCache(bool new_order);
-bool EnqueueCachedUpdate(
-    std::chrono::system_clock::time_point& delay_start_time);
-std::unordered_map<int, ClusterRegion> ClusterAnalysis();
 
 /////////////////////////////////////////////////////////
 
@@ -67,6 +63,6 @@ void ExecuteUpdateTest(executor::AbstractExecutor* executor);
 
 void ExecuteDeleteTest(executor::AbstractExecutor* executor);
 
-}  // namespace tpcc
+}  // namespace smallbank
 }  // namespace benchmark
 }  // namespace peloton

@@ -4,7 +4,7 @@
 //
 // loader.cpp
 //
-// Identification: benchmark/tpcc/loader.cpp
+// Identification: benchmark/smallbank/loader.cpp
 //
 // Copyright (c) 2015, Carnegie Mellon University Database Group
 //
@@ -251,7 +251,7 @@ void CreateCheckingTable() {
   checking_table->AddIndex(pkey_index);
 }
 
-void CreateSmallBankDatabase() {
+void CreateSmallbankDatabase() {
 
   // Clean up
   delete smallbank_database;
@@ -479,7 +479,7 @@ void LoadChecking() {
   txn_manager.CommitTransaction();
 }
 
-void LoadSmallBankDatabase() {
+void LoadSmallbankDatabase() {
   std::chrono::steady_clock::time_point start_time;
   start_time = std::chrono::steady_clock::now();
 
@@ -503,6 +503,6 @@ void LoadSmallBankDatabase() {
   LOG_INFO("checking tile group = %lu", checking_table->GetTileGroupCount());
 }
 
-}  // namespace tpcc
+}  // namespace smallbank
 }  // namespace benchmark
 }  // namespace peloton

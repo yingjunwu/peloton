@@ -4,7 +4,7 @@
 //
 // configuration.h
 //
-// Identification: benchmark/tpcc/configuration.h
+// Identification: benchmark/smallbank/configuration.h
 //
 // Copyright (c) 2015, Carnegie Mellon University Database Group
 //
@@ -212,6 +212,6 @@ void ValidateOrderRange(const configuration &state);
 
 void ParseArguments(int argc, char *argv[], configuration &state);
 
-}  // namespace tpcc
+}  // namespace smallbank
 }  // namespace benchmark
 }  // namespace peloton

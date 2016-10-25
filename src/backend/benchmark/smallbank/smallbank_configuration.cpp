@@ -4,49 +4,69 @@
 //
 // configuration.cpp
 //
-// Identification: benchmark/tpcc/configuration.cpp
+// Identification: benchmark/ycsb/configuration.cpp
 //
 // Copyright (c) 2015, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
+#undef NDEBUG
+
+#include <fstream>
 #include <iomanip>
 #include <algorithm>
 #include <string.h>
 
-#include "backend/benchmark/smallbank/smallbank_configuration.h"
+#include "backend/benchmark/ycsb/ycsb_configuration.h"
 #include "backend/common/logger.h"
 
 namespace peloton {
 namespace benchmark {
-namespace smallbank {
+namespace ycsb {
 
 void Usage(FILE *out) {
-  fprintf(
-      out,
-      "Command line options : tpcc <options> \n"
-      "   -h --help              :  state.hot_spot \n"
-      "   -a --affinity          :  state.run_continue \n"
-      "   -i --index             :  index type could be btree or bwtree\n"
-      "   -k --scale_factor      :  scale factor \n"
-      "   -d --duration          :  execution duration \n"
-      "   -s --snapshot_duration :  snapshot duration \n"
-      "   -b --backend_count     :  # of backends \n"
-      "   -y --scan              :  # of scan backends \n"
-      "   -w --warehouse_count   :  # of warehouses \n"
-      "   -r --order_range       :  order range \n"
-      "   -e --exp_backoff       :  enable exponential backoff \n"
-      "   -p --protocol          :  choose protocol, default OCC\n"
-      "                             protocol could be occ, pcc, pccopt, ssi, "
-      "sread, ewrite, occrb, occn2o, to, torb, tofullrb, and ton2o\n"
-      "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
-      "                             gc protocol could be off, co, va, and n2o\n"
-      "   -t --gc_thread         :  number of thread used in gc, only used for "
-      "gc type n2o/va\n"
-      "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
-      "   -z --scheduler         :  control, queue, detect, ml\n"
-      "   -n --enqueue thread    :  number of enqueue threads\n"
-      "   -v --enqueue speed     :  number of txns per second \n");
+  fprintf(out,
+          "Command line options : ycsb <options> \n"
+          "   -h --help              :  Print help message \n"
+          "   -i --index             :  index type could be hash, btree, or bwtree\n"
+          "   -k --scale_factor      :  # of tuples \n"
+          "   -d --duration          :  execution duration \n"
+          "   -s --snapshot_duration :  snapshot duration \n"
+          "   -b --backend_count     :  # of backends \n"
+          "   -c --column_count      :  # of columns \n"
+          "   -l --update_col_count  :  # of updated columns \n"
+          "   -r --read_col_count    :  # of read columns \n"
+          "   -o --operation_count   :  # of operations \n"
+          "   -y --scan              :  # of scan backends \n"
+          "   -w --mock_duration     :  scan mock duration \n"
+          "   -v --read-only         :  # of read-only backends \n"
+          "   -a --declared          :  declared read-only \n"
+          "   -n --sindex_count      :  # of secondary index \n"
+          "   -u --write_ratio       :  Fraction of updates \n"
+          "   -z --zipf_theta        :  theta to control skewness \n"
+          "   -e --exp_backoff       :  enable exponential backoff \n"
+          "   -x --blind_write       :  enable blind write \n"
+          "   -p --protocol          :  choose protocol, default OCC\n"
+          "                             protocol could be occ, pcc, pccopt, ssi, sread, ewrite, occrb, occn2o, to, torb, tofullrb, occ_central_rb, to_central_rb, to_full_central_rb, ton2o, tooptn2o, and tosv\n"
+          "   -g --gc_protocol       :  choose gc protocol, default OFF\n"
+          "                             gc protocol could be off, n2otxn, n2oepoch, n2oss\n"
+          "   -t --gc_thread         :  number of thread used in gc, only used for gc type n2o/n2otxn/va\n"
+          "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
+          "   -j --sindex_scan       :  use secondary index to scan\n"
+          "   -f --epoch_length      :  epoch length\n"
+          "   -L --log_type          :  log type could be phylog, physical, command, off, dep\n"
+          "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
+          "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
+          "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
+          "   -I --ckpt_interval     :  checkpoint interval (s)\n"
+          "   -T --timer_on          :  timer type could be off, sum, dist. Default is off\n"
+          "   -S --sleep_between_ro  :  sleep between ro txn in millisecond (default 0)\n"
+          "   -E --epoch_type        :  can be queue (default), local\n"
+          "   -R --recover_ckpt      :  recover checkpoint\n"
+          "   -P --replay_log        :  replay log\n"
+          "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
+          "   -N --replay_log_num    :  # threads for replaying logs\n"
+  );
   exit(EXIT_FAILURE);
 }
 
@@ -55,35 +75,92 @@ static struct option opts[] = {
     {"index", optional_argument, NULL, 'i'},
     {"duration", optional_argument, NULL, 'd'},
     {"snapshot_duration", optional_argument, NULL, 's'},
+    {"column_count", optional_argument, NULL, 'c'},
+    {"update_col_count", optional_argument, NULL, 'l'},
+    {"read_col_count", optional_argument, NULL, 'r'},
+    {"operation_count", optional_argument, NULL, 'o'},
+    {"scan_mock_duration", optional_argument, NULL, 'w'},
+    {"scan_backend_count", optional_argument, NULL, 'y'},
+    {"ro_backend_count", optional_argument, NULL, 'v'},
+    {"update_ratio", optional_argument, NULL, 'u'},
     {"backend_count", optional_argument, NULL, 'b'},
-    {"order_range", optional_argument, NULL, 'r'},
+    {"zipf_theta", optional_argument, NULL, 'z'},
     {"exp_backoff", no_argument, NULL, 'e'},
-    {"affinity", no_argument, NULL, 'a'},
-    {"online", no_argument, NULL, 'o'},
-    {"single_ref", no_argument, NULL, 'l'},
-    {"canonical", no_argument, NULL, 'c'},
-    {"zipf_theta", optional_argument, NULL, 'y'},
-    {"log_table", no_argument, NULL, 'j'},
-    {"lock_free", no_argument, NULL, 'f'},
+    {"blind_write", no_argument, NULL, 'x'},
+    {"declared", no_argument, NULL, 'a'},
     {"protocol", optional_argument, NULL, 'p'},
-    {"scheduler", optional_argument, NULL, 'z'},
     {"gc_protocol", optional_argument, NULL, 'g'},
     {"gc_thread", optional_argument, NULL, 't'},
+    {"sindex_count", optional_argument, NULL, 'n'},
     {"sindex_mode", optional_argument, NULL, 'q'},
-    {"generate_count", optional_argument, NULL, 'n'},
-    {"generate_speed", optional_argument, NULL, 'v'},
-    {"min_pts", optional_argument, NULL, 'm'},
-    {"analysis_txns", optional_argument, NULL, 'x'},
-    {"hot_spot", optional_argument, NULL, 'h'},
+    {"sindex_scan", optional_argument, NULL, 'j'},
+    {"epoch_length", optional_argument, NULL, 'f'},
+    {"log_type", optional_argument, NULL, 'L'},
+    {"log_directories", optional_argument, NULL, 'D'},
+    {"checkpoint_type", optional_argument, NULL, 'C'},
+    {"ckpt_directories", optional_argument, NULL, 'F'},
+    {"ckpt_interval", optional_argument, NULL, 'I'},
+    {"timer_on", optional_argument, NULL, 'T'},
+    {"sleep_between_ro", optional_argument, NULL, 'S'},
+    {"epoch_type", optional_argument, NULL, 'E'},
+    {"recover_ckpt", no_argument, NULL, 'R'},
+    {"replay_log", no_argument, NULL, 'P'},
+    {"recover_ckpt_num", optional_argument, NULL, 'M'},
+    {"replay_log_num", optional_argument, NULL, 'N'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
   if (state.scale_factor <= 0) {
-    LOG_ERROR("Invalid scale_factor :: %lf", state.scale_factor);
+    LOG_ERROR("Invalid scale_factor :: %d", state.scale_factor);
     exit(EXIT_FAILURE);
   }
 
-  LOG_TRACE("%s : %lf", "scale_factor", state.scale_factor);
+  LOG_TRACE("%s : %d", "scale_factor", state.scale_factor);
+}
+
+void ValidateColumnCount(const configuration &state) {
+  if (state.column_count <= 0) {
+    LOG_ERROR("Invalid column_count :: %d", state.column_count);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "column_count", state.column_count);
+}
+
+void ValidateUpdateColumnCount(const configuration &state) {
+  if (state.update_column_count < 0 || state.update_column_count > state.column_count) {
+    LOG_ERROR("Invalid update_column_count :: %d", state.update_column_count);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "update_column_count", state.update_column_count);
+}
+
+void ValidateReadColumnCount(const configuration &state) {
+  if (state.read_column_count <= 0 || state.read_column_count > state.column_count) {
+    LOG_ERROR("Invalid read_column_count :: %d", state.read_column_count);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "read_column_count", state.read_column_count);
+}
+
+void ValidateOperationCount(const configuration &state) {
+  if (state.operation_count <= 0) {
+    LOG_ERROR("Invalid operation_count :: %d", state.operation_count);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "operation_count", state.operation_count);
+}
+
+void ValidateUpdateRatio(const configuration &state) {
+  if (state.update_ratio < 0 || state.update_ratio > 1) {
+    LOG_ERROR("Invalid update_ratio :: %lf", state.update_ratio);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %lf", "update_ratio", state.update_ratio);
 }
 
 void ValidateBackendCount(const configuration &state) {
@@ -91,11 +168,20 @@ void ValidateBackendCount(const configuration &state) {
     LOG_ERROR("Invalid backend_count :: %d", state.backend_count);
     exit(EXIT_FAILURE);
   }
-  if (state.scan_backend_count > state.backend_count) {
-    LOG_ERROR("Invalid backend_count :: %d", state.scan_backend_count);
+  if (state.scan_backend_count + state.ro_backend_count > state.backend_count) {
+    LOG_ERROR("Invalid backend_count :: %d, %d", state.ro_backend_count, state.scan_backend_count);
     exit(EXIT_FAILURE);
   }
   LOG_TRACE("%s : %d", "backend_count", state.backend_count);
+}
+
+void ValidateScanMockDuration(const configuration &state) {
+  if (state.scan_mock_duration < 0) {
+    LOG_ERROR("Invalid duration :: %d", state.scan_mock_duration);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %d", "scan mock duration", state.scan_mock_duration);
 }
 
 void ValidateDuration(const configuration &state) {
@@ -116,145 +202,210 @@ void ValidateSnapshotDuration(const configuration &state) {
   LOG_TRACE("%s : %lf", "snapshot_duration", state.snapshot_duration);
 }
 
-void ValidateWarehouseCount(const configuration &state) {
-  if (state.warehouse_count <= 0) {
-    LOG_ERROR("Invalid warehouse_count :: %d", state.warehouse_count);
+void ValidateZipfTheta(const configuration &state) {
+  if (state.zipf_theta < 0 || state.zipf_theta > 1.0) {
+    LOG_ERROR("Invalid zipf_theta :: %lf", state.zipf_theta);
     exit(EXIT_FAILURE);
   }
 
-  LOG_TRACE("%s : %d", "warehouse_count", state.warehouse_count);
-}
-
-void ValidateOrderRange(const configuration &state) {
-  if (state.warehouse_count <= 0) {
-    LOG_ERROR("Invalid order_range :: %d", state.order_range);
-    exit(EXIT_FAILURE);
-  }
-
-  LOG_TRACE("%s : %d", "order range", state.order_range);
+  LOG_TRACE("%s : %lf", "zipf_theta", state.zipf_theta);
 }
 
 void ValidateProtocol(const configuration &state) {
-  if (state.protocol != CONCURRENCY_TYPE_TO_N2O &&
-      state.protocol != CONCURRENCY_TYPE_OCC_N2O) {
+  if (state.protocol == CONCURRENCY_TYPE_TO_SV ||
+      state.protocol == CONCURRENCY_TYPE_OCC_SV ||
+      state.protocol == CONCURRENCY_TYPE_OCC_SV_BEST) {
+    if (state.gc_protocol != GC_TYPE_OFF && state.gc_protocol != GC_TYPE_SV) {
+      LOG_ERROR("Invalid protocol");
+      exit(EXIT_FAILURE);
+    }
+  }
+  else if (state.protocol != CONCURRENCY_TYPE_TO_N2O && 
+      state.protocol != CONCURRENCY_TYPE_OCC_N2O &&
+      state.protocol != CONCURRENCY_TYPE_TO_OPT_N2O &&
+      state.protocol != CONCURRENCY_TYPE_OCC_BEST_N2O) {
     if (state.gc_protocol == GC_TYPE_N2O) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
     }
   } else {
-    if (state.gc_protocol != GC_TYPE_OFF && state.gc_protocol != GC_TYPE_N2O &&
-        state.gc_protocol != GC_TYPE_N2O_TXN) {
+    if (state.gc_protocol != GC_TYPE_OFF
+    && state.gc_protocol != GC_TYPE_N2O
+    && state.gc_protocol != GC_TYPE_N2O_TXN
+    && state.gc_protocol != GC_TYPE_N2O_EPOCH
+    && state.gc_protocol != GC_TYPE_N2O_SNAPSHOT) {
       LOG_ERROR("Invalid protocol");
       exit(EXIT_FAILURE);
     }
   }
 }
 
+void ValidateSecondaryIndexScan(const configuration &state) {
+  if (state.sindex_scan == true && (state.sindex_count < 1 || state.column_count < 2)) {
+    LOG_ERROR("Invalid scan type");
+    exit(EXIT_FAILURE);
+  }
+}
+
 void ValidateIndex(const configuration &state) {
-  // if (state.index != INDEX_TYPE_BTREE && state.index != INDEX_TYPE_BWTREE &&
-  // state.index != INDEX_TYPE_HASH) {
-  if (state.index != INDEX_TYPE_BWTREE && state.index != INDEX_TYPE_HASH) {
+  if (state.index != INDEX_TYPE_BTREE && state.index != INDEX_TYPE_BWTREE && state.index != INDEX_TYPE_HASH) {
     LOG_ERROR("Invalid index");
     exit(EXIT_FAILURE);
   }
 }
 
-void ValidateGenerateCount(const configuration &state) {
-  if (state.generate_count < 0) {
-    LOG_ERROR("Invalid generate_count :: %d", state.generate_count);
+void ValidateSecondaryIndex(const configuration &state) {
+  if (state.sindex_count < 0) {
+    LOG_ERROR("Secondary index number should >= 0");
+    exit(EXIT_FAILURE);
+  } else if (state.sindex_count > state.column_count) {
+    // Fixme (Runshen Zhu): <= column count - 1 ?
+    // const oid_t col_count = state.column_count + 1; in constructing table
+    LOG_ERROR("Secondary index number should <= column count");
     exit(EXIT_FAILURE);
   }
-
-  LOG_INFO("%s : %d", "generate_count", state.generate_count);
 }
 
-void ValidateGenerateSpeed(const configuration &state) {
-  if (state.generate_speed < 0) {
-    LOG_ERROR("Invalid generate_speed :: %d", state.generate_speed);
+void ValidateEpoch(const configuration &state) {
+  if (state.epoch_length <= 0) {
+    LOG_ERROR("Invalid epoch length :: %lf", state.epoch_length);
     exit(EXIT_FAILURE);
   }
 
-  LOG_INFO("%s : %d", "generate_speed", state.generate_speed);
+  LOG_TRACE("%s : %lf", "epoch_length", state.epoch_length);
+}
+
+void ValidateRoSleepInterval(const configuration &state) {
+  if (state.ro_sleep_between_txn > state.duration * 1000) {
+    LOG_ERROR("Sleep interval between 2 readonly txn can not be larger than the exp's duration");
+    exit(EXIT_FAILURE);
+  }
+  LOG_TRACE("%s : %d", "sleep between ro txn", state.ro_sleep_between_txn);
+}
+
+void ValidateEpochType(configuration &state) {
+  if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
+    if (state.epoch_type != EPOCH_LOCALIZED && state.epoch_type != EPOCH_LOCALIZED_SNAPSHOT) {
+      LOG_ERROR("Dependency logging should use localized epoch manager");
+      exit(EXIT_FAILURE);
+    } else {
+      LOG_INFO("Use dependency logging");
+    }
+  }
+
+  if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
+    LOG_INFO("Use snapshot GC manager");
+    if (state.epoch_type == EPOCH_SINGLE_QUEUE) {
+      state.epoch_type = EPOCH_SNAPSHOT;
+    } else {
+      state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
+    }
+  }
+}
+
+void ValidateLoggingType(configuration &state) {
+  if (state.logging_type == LOGGING_TYPE_PHYLOG) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
+  else if (state.logging_type == LOGGING_TYPE_PHYSICAL) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYLOG) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
+  if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+      LOG_ERROR("logging and checkpointing types inconsistent!");
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  if (state.recover_checkpoint == true && state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
+    LOG_ERROR("must set checkpoint type when performing checkpoint recovery!");
+    exit(EXIT_FAILURE);
+  }
+  if (state.replay_log == true && state.logging_type == LOGGING_TYPE_INVALID) {
+    LOG_ERROR("must set logging type when performing log replay!");
+    exit(EXIT_FAILURE);
+  }
 }
 
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
-  state.steal = 0.0;
-  state.steal_rate = 0.0;
   state.scale_factor = 1;
-  state.zipf_theta = -1;
   state.duration = 10;
   state.snapshot_duration = 1;
-  state.backend_count = 1;
+  state.column_count = 10;
+  state.update_column_count = 1;
+  state.read_column_count = 1;
+  state.operation_count = 10;
   state.scan_backend_count = 0;
-  state.generate_count = 0;  // 0 means no query thread. only prepared queries
-  state.generate_speed = 0;
-  state.delay_ave = 0.0;
-  state.delay_max = 0.0;
-  state.delay_min = 0.0;
-  state.exe_time = 0.0;
-  state.warehouse_count = 1;
-  state.running_ref = 0;
-  state.order_range = 20;
-  state.run_affinity = false;
-  state.run_continue = false;
+  state.scan_mock_duration = 0;
+  state.ro_backend_count = 0;
+  state.update_ratio = 0.5;
+  state.backend_count = 2;
+  state.zipf_theta = 0.0;
+  state.declared = false;
   state.run_backoff = false;
-  state.offline = false;
-  state.online = false;
-  state.single_ref = false;
-  state.canonical = false;
-  state.log_table = false;
-  state.lock_free = false;
-  state.fraction = false;
-  state.pure_balance = false;
-  state.scheduler = SCHEDULER_TYPE_NONE;
-  state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
+  state.blind_write = false;
+  state.protocol = CONCURRENCY_TYPE_TO_N2O;
   state.gc_protocol = GC_TYPE_OFF;
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
+  state.sindex_count = 0;
   state.sindex = SECONDARY_INDEX_TYPE_VERSION;
-  state.min_pts = 1;
-  state.analysis_txns = 10000;
-  state.hot_spot = -1;
+  state.sindex_scan = false;
+  state.epoch_length = 10;
+  state.logging_type = LOGGING_TYPE_INVALID;
+  state.log_directories = {TMP_DIR};
+  state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
+  state.checkpoint_directories = {TMP_DIR};
+  state.checkpoint_interval = 30;
+  state.timer_type = TIMER_OFF;
+  state.ro_sleep_between_txn = 0;
+  state.epoch_type = EPOCH_SINGLE_QUEUE;
+  state.recover_checkpoint = false;
+  state.replay_log = false;
+  state.recover_checkpoint_num = 1;
+  state.replay_log_num = 1;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(
-        argc, argv, "aeoflcjyur:m:x:k:w:n:h:v:d:s:b:p:z:g:i:t:q:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'M':
+        state.recover_checkpoint_num = atoi(optarg);
+        break;
+      case 'N':
+        state.replay_log_num = atoi(optarg);
+        break;
+      case 'R':
+        state.recover_checkpoint = true;
+        break;
+      case 'P':
+        state.replay_log = true;
+        break;
+      case 'S':
+        state.ro_sleep_between_txn = atoi(optarg);
+        break;
+      case 'a':
+        state.declared = true;
+        break;
+      case 'n':
+        state.sindex_count = atoi(optarg);
+        break;
       case 't':
         state.gc_thread_count = atoi(optarg);
         break;
-      case 'm':
-        state.min_pts = atof(optarg);
-        break;
-      case 'x':
-        state.analysis_txns = atof(optarg);
-        break;
       case 'k':
-        state.scale_factor = atof(optarg);
-        break;
-      case 'w':
-        state.warehouse_count = atoi(optarg);
-        break;
-      case 'n':
-        state.generate_count = atoi(optarg);
-        break;
-      case 'h':
-        state.hot_spot = atoi(optarg);
-        break;
-      case 'v':
-        state.generate_speed = atoi(optarg);
-        break;
-      case 'u':
-        state.pure_balance = true;
-        break;
-      case 'r':
-        state.order_range = atoi(optarg);
+        state.scale_factor = atoi(optarg);
         break;
       case 'd':
         state.duration = atof(optarg);
@@ -262,60 +413,126 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       case 's':
         state.snapshot_duration = atof(optarg);
         break;
+      case 'o':
+        state.operation_count = atoi(optarg);
+        break;
+      case 'c':
+        state.column_count = atoi(optarg);
+        break;
+      case 'l':
+        state.update_column_count = atoi(optarg);
+        break;
+      case 'r':
+        state.read_column_count = atoi(optarg);
+        break;
+      case 'y':
+        state.scan_backend_count = atoi(optarg);
+        break;
+      case 'w':
+        state.scan_mock_duration = atoi(optarg);
+        break;
+      case 'v':
+        state.ro_backend_count = atoi(optarg);
+        break;
+      case 'u':
+        state.update_ratio = atof(optarg);
+        break;
       case 'b':
         state.backend_count = atoi(optarg);
         break;
-      case 'y':
-        state.fraction = true;
-        break;
-      case 'a':
-        state.run_continue = true;
-        state.log_table = true;
+      case 'z':
+        state.zipf_theta = atof(optarg);
         break;
       case 'e':
         state.run_backoff = true;
         break;
-      case 'o':
-        state.online = true;
-        break;
-      case 'f':
-        state.lock_free = true;
-        break;
-      case 'l':
-        state.single_ref = true;
-        break;
-      case 'c':
-        state.canonical = true;
+      case 'x':
+        state.blind_write = true;
         break;
       case 'j':
-        state.log_table = true;
+        state.sindex_scan = true;
         break;
-      case 'z': {
-        char *scheduler = optarg;
-        if (strcmp(scheduler, "none") == 0) {
-          state.scheduler = SCHEDULER_TYPE_NONE;
-        } else if (strcmp(scheduler, "control") == 0) {
-          state.scheduler = SCHEDULER_TYPE_CONTROL;
-        } else if (strcmp(scheduler, "queue") == 0) {
-          state.scheduler = SCHEDULER_TYPE_ABORT_QUEUE;
-        } else if (strcmp(scheduler, "detect") == 0) {
-          state.scheduler = SCHEDULER_TYPE_CONFLICT_DETECT;
-        } else if (strcmp(scheduler, "hash") == 0) {
-          state.scheduler = SCHEDULER_TYPE_HASH;
-        } else if (strcmp(scheduler, "ml") == 0) {
-          state.scheduler = SCHEDULER_TYPE_CONFLICT_LEANING;
-        } else if (strcmp(scheduler, "cluster") == 0) {
-          state.scheduler = SCHEDULER_TYPE_CLUSTER;
-        } else if (strcmp(scheduler, "range") == 0) {
-          state.scheduler = SCHEDULER_TYPE_CONFLICT_RANGE;
+      case 'f':
+        state.epoch_length = atof(optarg);
+        break;
+      case 'E' : {
+        char *epoch_type = optarg;
+        if (strcmp(epoch_type, "queue") == 0) {
+          state.epoch_type = EPOCH_SINGLE_QUEUE;
+        } else if (strcmp(epoch_type, "local") == 0) {
+          state.epoch_type = EPOCH_LOCALIZED;
         } else {
-          fprintf(stderr, "\nUnknown scheduler: %s\n", scheduler);
+          fprintf(stderr, "\nUnknown epoch protocol: %s\n", epoch_type);
           exit(EXIT_FAILURE);
         }
         break;
       }
+      case 'T' : {
+        char *timer_type = optarg;
+        if (strcmp(timer_type, "off") == 0) {
+          state.timer_type = TIMER_OFF;
+        } else if (strcmp(timer_type, "sum") == 0) {
+          state.timer_type = TIMER_SUMMARY;
+        } else if (strcmp(timer_type, "dist") == 0) {
+          state.timer_type = TIMER_DISTRIBUTION;
+        } else {
+          fprintf(stderr, "\nUnknown timer protocol: %s\n", timer_type);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'L': {
+        char *logging_proto = optarg;
+        if (strcmp(logging_proto, "off") == 0) {
+          state.logging_type = LOGGING_TYPE_INVALID;
+        } else if (strcmp(logging_proto, "phylog") == 0) {
+          state.logging_type = LOGGING_TYPE_PHYLOG;
+        } else if (strcmp(logging_proto, "physical") == 0) {
+          state.logging_type = LOGGING_TYPE_PHYSICAL;
+        } else if (strcmp(logging_proto, "command") == 0) {
+          LOG_ERROR("command logging not allowed for YCSB!");
+          state.logging_type = LOGGING_TYPE_INVALID;
+        } else if (strcmp(logging_proto, "dep") == 0) {
+          state.logging_type = LOGGING_TYPE_DEPENDENCY;
+        } else {
+          fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'D': {
+        state.log_directories.clear();
+        std::string log_dir_param(optarg);
+        SplitString(log_dir_param, ',', state.log_directories);
+        break;
+      }
+      case 'C': {
+        char *checkpoint_proto = optarg;
+        if (strcmp(checkpoint_proto, "off") == 0) {
+          state.checkpoint_type = CHECKPOINT_TYPE_INVALID;
+        } else if (strcmp(checkpoint_proto, "phylog") == 0) {
+          state.checkpoint_type = CHECKPOINT_TYPE_PHYLOG;
+        } else if (strcmp(checkpoint_proto, "physical") == 0) {
+          state.checkpoint_type = CHECKPOINT_TYPE_PHYSICAL;
+        } else {
+          fprintf(stderr, "\nUnknown checkpoint protocol: %s\n", checkpoint_proto);
+          exit(EXIT_FAILURE);
+        }
+        break;
+      }
+      case 'F': {
+        state.checkpoint_directories.clear();
+        std::string checkpoint_dir_param(optarg);
+        SplitString(checkpoint_dir_param, ',', state.checkpoint_directories);
+        break;
+      }
+      case 'I': {
+        state.checkpoint_interval = atoi(optarg);
+        break;
+      }
       case 'p': {
         char *protocol = optarg;
+        bool valid_proto = false;
         if (strcmp(protocol, "occ") == 0) {
           state.protocol = CONCURRENCY_TYPE_OPTIMISTIC;
         } else if (strcmp(protocol, "pcc") == 0) {
@@ -328,6 +545,10 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_EAGER_WRITE;
         } else if (strcmp(protocol, "occrb") == 0) {
           state.protocol = CONCURRENCY_TYPE_OCC_RB;
+        } else if (strcmp(protocol, "occ_central_rb") == 0) {
+          state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
+        } else if (strcmp(protocol, "to_central_rb") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
         } else if (strcmp(protocol, "sread") == 0) {
           state.protocol = CONCURRENCY_TYPE_SPECULATIVE_READ;
         } else if (strcmp(protocol, "occn2o") == 0) {
@@ -336,19 +557,32 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.protocol = CONCURRENCY_TYPE_PESSIMISTIC_OPT;
         } else if (strcmp(protocol, "torb") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_RB;
-        } else if (strcmp(protocol, "tofullrb") == 0) {
-          state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
         } else if (strcmp(protocol, "ton2o") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_N2O;
-        } else if (strcmp(protocol, "occ_central_rb") == 0) {
-          state.protocol = CONCURRENCY_TYPE_OCC_CENTRAL_RB;
-        } else if (strcmp(protocol, "to_central_rb") == 0) {
-          state.protocol = CONCURRENCY_TYPE_TO_CENTRAL_RB;
+          valid_proto = true;
+        } else if (strcmp(protocol, "tofullrb") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_FULL_RB;
         } else if (strcmp(protocol, "to_full_central_rb") == 0) {
           state.protocol = CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB;
+        } else if (strcmp(protocol, "tooptn2o") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_OPT_N2O;
+          valid_proto = true;
+        } else if (strcmp(protocol, "tosv") == 0) {
+          state.protocol = CONCURRENCY_TYPE_TO_SV;
+        } else if (strcmp(protocol, "occbestn2o") == 0) {
+          state.protocol = CONCURRENCY_TYPE_OCC_BEST_N2O;
+        } else if (strcmp(protocol, "occsv") == 0) {
+          state.protocol = CONCURRENCY_TYPE_OCC_SV;
+        } else if (strcmp(protocol, "occsvbest") == 0) {
+          state.protocol = CONCURRENCY_TYPE_OCC_SV_BEST;
         } else {
           fprintf(stderr, "\nUnknown protocol: %s\n", protocol);
           exit(EXIT_FAILURE);
+        }
+
+        if (valid_proto == false) {
+          fprintf(stdout, "We no longer support %s, turn to default ton2o\n", protocol);
+          state.protocol = CONCURRENCY_TYPE_TO_N2O;
         }
         break;
       }
@@ -356,15 +590,14 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         char *gc_protocol = optarg;
         if (strcmp(gc_protocol, "off") == 0) {
           state.gc_protocol = GC_TYPE_OFF;
-        } else if (strcmp(gc_protocol, "va") == 0) {
-          state.gc_protocol = GC_TYPE_VACUUM;
-        } else if (strcmp(gc_protocol, "co") == 0) {
-          state.gc_protocol = GC_TYPE_CO;
-        } else if (strcmp(gc_protocol, "n2o") == 0) {
-          state.gc_protocol = GC_TYPE_N2O;
         } else if (strcmp(gc_protocol, "n2otxn") == 0) {
           state.gc_protocol = GC_TYPE_N2O_TXN;
-        } else {
+        } else if (strcmp(gc_protocol, "n2oepoch") == 0) {
+          state.gc_protocol = GC_TYPE_N2O_EPOCH;
+        } else if (strcmp(gc_protocol, "n2oss") == 0) {
+          state.gc_protocol = GC_TYPE_N2O_SNAPSHOT;
+        }
+        else {
           fprintf(stderr, "\nUnknown gc protocol: %s\n", gc_protocol);
           exit(EXIT_FAILURE);
         }
@@ -372,10 +605,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
       }
       case 'i': {
         char *index = optarg;
-        // if (strcmp(index, "btree") == 0) {
-        //   state.index = INDEX_TYPE_BTREE;
-        // } else
-        if (strcmp(index, "bwtree") == 0) {
+        if (strcmp(index, "btree") == 0) {
+          state.index = INDEX_TYPE_BTREE;
+        } else if (strcmp(index, "bwtree") == 0) {
           state.index = INDEX_TYPE_BWTREE;
         } else if (strcmp(index, "hash") == 0) {
           state.index = INDEX_TYPE_HASH;
@@ -397,11 +629,11 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         }
         break;
       }
-      //      case 'help':
-      //        Usage(stderr);
-      //        exit(EXIT_FAILURE);
-      //        break;
-
+      case 'h':
+        Usage(stderr);
+        exit(EXIT_FAILURE);
+        break;
+        
       default:
         fprintf(stderr, "\nUnknown option: -%c-\n", c);
         Usage(stderr);
@@ -409,36 +641,152 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
     }
   }
 
-  // Static parameters
-  state.item_count = 100000 * state.scale_factor;
-  state.districts_per_warehouse = 10;
-  state.customers_per_district = 3000 * state.scale_factor;
-  state.new_orders_per_district = 900 * state.scale_factor;
-
-  NUM_ACCOUNTS = BASIC_ACCOUNTS * state.scale_factor;
-
   // Print configuration
   ValidateScaleFactor(state);
+  ValidateColumnCount(state);
+  ValidateUpdateColumnCount(state);
+  ValidateReadColumnCount(state);
+  ValidateOperationCount(state);
+  ValidateUpdateRatio(state);
+  ValidateBackendCount(state);
+  ValidateScanMockDuration(state);
   ValidateDuration(state);
   ValidateSnapshotDuration(state);
-  ValidateWarehouseCount(state);
-  ValidateBackendCount(state);
+  ValidateZipfTheta(state);
   ValidateProtocol(state);
   ValidateIndex(state);
-  ValidateOrderRange(state);
-  ValidateGenerateCount(state);
-  ValidateGenerateSpeed(state);
+  ValidateSecondaryIndex(state);
+  ValidateEpoch(state);
+  ValidateSecondaryIndexScan(state);
+  ValidateRoSleepInterval(state);
+  ValidateEpoch(state);
+  ValidateEpochType(state);
 
-  LOG_TRACE("%s : %d", "hot_spot", state.hot_spot);
-  LOG_TRACE("%s : %d", "Run client affinity", state.run_affinity);
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
-  LOG_TRACE("%s : %d", "Run online analysis", state.online);
-  LOG_TRACE("%s : %d", "Run cluster min_pts", state.min_pts);
-  LOG_TRACE("%s : %d", "Run cluster analysis txns", state.analysis_txns);
-
-  LOG_INFO("ParseArguments over");
+  LOG_TRACE("%s : %d", "Run blind write", state.blind_write);
+  LOG_TRACE("%s : %d", "Run declared read-only", state.declared);
 }
 
-}  // namespace tpcc
+
+void WriteOutput() {
+
+  std::ofstream out("outputfile.summary", std::ofstream::out);
+
+  oid_t total_snapshot_memory = 0;
+  for (auto &entry : state.snapshot_memory) {
+    total_snapshot_memory += entry;
+  }
+
+  LOG_INFO("%lf tps, %lf; %lf tps, %lf; %lf ms; %d",
+             state.throughput, state.abort_rate, state.ro_throughput, state.ro_abort_rate, state.scan_latency, total_snapshot_memory);
+
+  LOG_INFO("average commit latency: %lf ms", state.commit_latency);
+  LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
+  LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
+  LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
+  LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
+  LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
+
+
+  for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
+       ++round_id) {
+    out << "[" << std::setw(3) << std::left
+        << state.snapshot_duration * round_id << " - " << std::setw(3)
+        << std::left << state.snapshot_duration * (round_id + 1)
+        << " s]: " << state.snapshot_throughput[round_id] << " "
+        << state.snapshot_abort_rate[round_id] << " " 
+        << state.snapshot_memory[round_id] << "\n";
+  }
+
+  out << "scalefactor=" << state.scale_factor << " ";
+  out << "skew=" << state.zipf_theta << " ";
+  out << "update=" << state.update_ratio << " ";
+  out << "opt=" << state.operation_count << " ";
+  if (state.protocol == CONCURRENCY_TYPE_OPTIMISTIC) {
+    out << "proto=occ ";
+  } else if (state.protocol == CONCURRENCY_TYPE_PESSIMISTIC) {
+    out << "proto=pcc ";
+  } else if (state.protocol == CONCURRENCY_TYPE_SSI) {
+    out << "proto=ssi ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO) {
+    out << "proto=to ";
+  } else if (state.protocol == CONCURRENCY_TYPE_EAGER_WRITE) {
+    out << "proto=ewrite ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_RB) {
+    out << "proto=occrb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_CENTRAL_RB) {
+    out << "proto=occ_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_CENTRAL_RB) {
+    out << "proto=to_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_SPECULATIVE_READ) {
+    out << "proto=sread ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_N2O) {
+    out << "proto=occn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_RB) {
+    out << "proto=torb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_N2O) {
+    out << "proto=ton2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_RB) {
+    out << "proto=tofullrb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_FULL_CENTRAL_RB) {
+    out << "proto=to_full_central_rb ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_OPT_N2O) {
+    out << "proto=tooptn2o ";
+  } else if (state.protocol == CONCURRENCY_TYPE_TO_SV) {
+    out << "proto=tosv ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_SV) {
+    out << "proto=occsv ";
+  } else if (state.protocol == CONCURRENCY_TYPE_OCC_SV_BEST) {
+    out << "proto=occsvbest ";
+  } 
+  if (state.gc_protocol == GC_TYPE_OFF) {
+    out << "gc=off ";
+  }else if (state.gc_protocol == GC_TYPE_VACUUM) {
+    out << "gc=va ";
+  }else if (state.gc_protocol == GC_TYPE_CO) {
+    out << "gc=co ";
+  }else if (state.gc_protocol == GC_TYPE_N2O) {
+    out << "gc=n2o ";
+  } else if (state.gc_protocol == GC_TYPE_N2O_TXN) {
+    out << "gc=n2otxn ";
+  } else if (state.gc_protocol == GC_TYPE_SV) {
+    out << "gc=sv ";
+  }
+  out << "column=" << state.column_count << " ";
+  out << "read_column=" << state.read_column_count << " ";
+  out << "update_column=" << state.update_column_count << " ";
+  out << "core_cnt=" << state.backend_count << " ";
+  out << "ro_core_cnt=" << state.ro_backend_count << " ";
+  out << "scan_core_cnt=" << state.scan_backend_count << " ";
+  out << "scan_mock_duration=" << state.scan_mock_duration << " ";
+  out << "sindex_count=" << state.sindex_count << " ";
+  if (state.sindex == SECONDARY_INDEX_TYPE_VERSION) {
+    out << "sindex=version ";
+  } else {
+    out << "sindex=tuple ";
+  }
+  out << "\n";
+
+  out << state.throughput << " ";
+  out << state.abort_rate << " ";
+
+  out << state.ro_throughput << " ";
+  out << state.ro_abort_rate << " ";
+
+  out << state.scan_latency << " ";
+
+  out << total_snapshot_memory <<"\n";
+
+  out << "average commit latency = " << state.commit_latency << "\n";
+ out << "min commit latency = " <<  state.latency_summary.min_lat << "\n";
+ out << "max commit latency = " <<  state.latency_summary.max_lat << "\n";
+ out << "p50 commit latency = " <<  state.latency_summary.percentile_50 << "\n";
+ out << "p90 commit latency = " <<  state.latency_summary.percentile_90 << "\n";
+ out << "p99 commit latency = " <<  state.latency_summary.percentile_99 << "\n";
+  out.flush();
+  out.close();
+}
+
+}  // namespace ycsb
 }  // namespace benchmark
 }  // namespace peloton

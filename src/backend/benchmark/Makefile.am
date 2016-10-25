@@ -88,12 +88,12 @@ smallbank_SOURCES =  \
                     backend/benchmark/smallbank/smallbank.cpp \
                     backend/benchmark/smallbank/smallbank_configuration.cpp \
                     backend/benchmark/smallbank/smallbank_workload.cpp \
-                    backend/benchmark/smallbank/smallbank_loader.cpp \
-                    backend/benchmark/smallbank/smallbank_amalgamate.cpp \
-                    backend/benchmark/smallbank/smallbank_balance.cpp \
-                    backend/benchmark/smallbank/smallbank_deposit_checking.cpp \
-                    backend/benchmark/smallbank/smallbank_transact_saving.cpp \
-                    backend/benchmark/smallbank/smallbank_write_check.cpp
+                    backend/benchmark/smallbank/smallbank_loader.cpp 
+#                    backend/benchmark/smallbank/smallbank_amalgamate.cpp \
+#                    backend/benchmark/smallbank/smallbank_balance.cpp \
+#                    backend/benchmark/smallbank/smallbank_deposit_checking.cpp \
+#                    backend/benchmark/smallbank/smallbank_transact_saving.cpp \
+#                    backend/benchmark/smallbank/smallbank_write_check.cpp
 
 smallbank_LDFLAGS =
 smallbank_CPPFLAGS = $(benchmark_common_cppflags)

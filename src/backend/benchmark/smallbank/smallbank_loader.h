@@ -4,7 +4,7 @@
 //
 // workload.h
 //
-// Identification: benchmark/tpcc/workload.h
+// Identification: benchmark/smallbank/workload.h
 //
 // Copyright (c) 2015, Carnegie Mellon University Database Group
 //
@@ -31,9 +31,9 @@ namespace smallbank {
 
 extern configuration state;
 
-void CreateSmallBankDatabase();
+void CreateSmallbankDatabase();
 
-void LoadSmallBankDatabase();
+void LoadSmallbankDatabase();
 
 /////////////////////////////////////////////////////////
 // Database
@@ -120,6 +120,6 @@ double GetRandomFixedPoint(int decimal_places, double minimum, double maximum);
 
 int GetTimeStamp();
 
-}  // namespace tpcc
+}  // namespace smallbank
 }  // namespace benchmark
 }  // namespace peloton
