@@ -41,8 +41,8 @@ bin_PROGRAMS = \
 			   peloton \
 			   ycsb \
 			   tpcc \
-			   smallbank \
-			   tatp
+			   smallbank
+#			   tatp
 #			   logger
 
 lib_LTLIBRARIES += libpeloton.la
