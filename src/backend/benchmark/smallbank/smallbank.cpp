@@ -23,7 +23,7 @@
 #include "backend/logging/durability_factory.h"
 
 #include "backend/common/logger.h"
-#include "backend/benchmark/smallbank/smallbank_command_log_manager.h"
+//#include "backend/benchmark/smallbank/smallbank_command_log_manager.h"
 
 namespace peloton {
 namespace benchmark {
