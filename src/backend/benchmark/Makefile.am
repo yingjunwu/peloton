@@ -77,3 +77,46 @@ tpcc_SOURCES =  \
 tpcc_LDFLAGS =
 tpcc_CPPFLAGS = $(benchmark_common_cppflags)
 tpcc_LDADD = $(benchmark_common_ldadd)
+
+
+######################################################################
+# SMALLBANK
+######################################################################
+
+smallbank_SOURCES =  \
+                         backend/benchmark/benchmark_common.cpp \
+                    backend/benchmark/smallbank/smallbank.cpp \
+                    backend/benchmark/smallbank/smallbank_configuration.cpp \
+                    backend/benchmark/smallbank/smallbank_workload.cpp \
+                    backend/benchmark/smallbank/smallbank_loader.cpp \
+                    backend/benchmark/smallbank/smallbank_amalgamate.cpp \
+                    backend/benchmark/smallbank/smallbank_balance.cpp \
+                    backend/benchmark/smallbank/smallbank_deposit_checking.cpp \
+                    backend/benchmark/smallbank/smallbank_transact_saving.cpp \
+                    backend/benchmark/smallbank/smallbank_write_check.cpp
+
+smallbank_LDFLAGS =
+smallbank_CPPFLAGS = $(benchmark_common_cppflags)
+smallbank_LDADD = $(benchmark_common_ldadd)
+
+######################################################################
+# TATP
+######################################################################
+
+tatp_SOURCES =  \
+                    backend/benchmark/benchmark_common.cpp \
+                    backend/benchmark/tatp/tatp.cpp \
+                    backend/benchmark/tatp/tatp_configuration.cpp \
+                    backend/benchmark/tatp/tatp_workload.cpp \
+                    backend/benchmark/tatp/tatp_loader.cpp  \
+                    backend/benchmark/tatp/tatp_get_new_destination.cpp \
+                    backend/benchmark/tatp/tatp_get_subscriber_data.cpp \
+                    backend/benchmark/tatp/tatp_get_access_data.cpp \
+                    backend/benchmark/tatp/tatp_update_subscriber_data.cpp \
+                    backend/benchmark/tatp/tatp_update_location.cpp \
+                    backend/benchmark/tatp/tatp_insert_call_forwarding.cpp \
+                    backend/benchmark/tatp/tatp_delete_call_forwarding.cpp 
+                    
+tatp_LDFLAGS =
+tatp_CPPFLAGS = $(benchmark_common_cppflags)
+tatp_LDADD = $(benchmark_common_ldadd)
