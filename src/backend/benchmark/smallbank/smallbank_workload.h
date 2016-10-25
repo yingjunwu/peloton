@@ -26,7 +26,6 @@
 #include "backend/executor/delete_executor.h"
 #include "backend/executor/index_scan_executor.h"
 #include "backend/executor/insert_executor.h"
-#include "backend/concurrency/transaction_scheduler.h"
 
 namespace peloton {
 

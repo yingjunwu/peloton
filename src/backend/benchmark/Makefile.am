@@ -87,8 +87,8 @@ smallbank_SOURCES =  \
                          backend/benchmark/benchmark_common.cpp \
                     backend/benchmark/smallbank/smallbank.cpp \
                     backend/benchmark/smallbank/smallbank_configuration.cpp \
-                    backend/benchmark/smallbank/smallbank_workload.cpp \
                     backend/benchmark/smallbank/smallbank_loader.cpp 
+#                    backend/benchmark/smallbank/smallbank_workload.cpp \
 #                    backend/benchmark/smallbank/smallbank_amalgamate.cpp \
 #                    backend/benchmark/smallbank/smallbank_balance.cpp \
 #                    backend/benchmark/smallbank/smallbank_deposit_checking.cpp \
