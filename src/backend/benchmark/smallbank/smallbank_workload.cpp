@@ -29,6 +29,12 @@
 #include "backend/benchmark/smallbank/smallbank_configuration.h"
 #include "backend/benchmark/smallbank/smallbank_loader.h"
 
+#include "backend/benchmark/smallbank/smallbank_amalgamate.h"
+#include "backend/benchmark/smallbank/smallbank_balance.h"
+#include "backend/benchmark/smallbank/smallbank_deposit_checking.h"
+#include "backend/benchmark/smallbank/smallbank_transact_saving.h"
+#include "backend/benchmark/smallbank/smallbank_write_check.h"
+
 #include "backend/catalog/manager.h"
 #include "backend/catalog/schema.h"
 
@@ -79,10 +85,13 @@ namespace smallbank {
 // WORKLOAD
 /////////////////////////////////////////////////////////
 
-#define STOCK_LEVEL_RATIO     0.00
-#define ORDER_STATUS_RATIO    0.00
-#define DELIVERY_RATIO        0.00
-#define PAYMENT_RATIO         0.5
+
+#define FREQUENCY_AMALGAMATE 0.15
+#define FREQUENCY_BALANCE 0.15
+#define FREQUENCY_DEPOSIT_CHECKING 0.15
+#define FREQUENCY_SEND_PAYMENT 0.25
+#define FREQUENCY_TRANSACT_SAVINGS 0.15
+#define FREQUENCY_WRITE_CHECK 0.15
 
 volatile bool is_running = true;
 
@@ -90,21 +99,6 @@ oid_t *abort_counts;
 oid_t *commit_counts;
 double *commit_latencies;
 LatSummary *commit_lat_summaries;
-
-oid_t *payment_abort_counts;
-oid_t *payment_commit_counts;
-
-oid_t *new_order_abort_counts;
-oid_t *new_order_commit_counts;
-
-oid_t *delivery_abort_counts;
-oid_t *delivery_commit_counts;
-
-oid_t *stock_level_abort_counts;
-oid_t *stock_level_commit_counts;
-
-oid_t *order_status_abort_counts;
-oid_t *order_status_commit_counts;
 
 
 void RunBackend(oid_t thread_id) {
@@ -121,30 +115,14 @@ void RunBackend(oid_t thread_id) {
   double &commit_latency_ref = commit_latencies[thread_id];
   LatSummary &lat_summary_ref = commit_lat_summaries[thread_id];
 
-  NewOrderPlans new_order_plans = PrepareNewOrderPlan();
-  PaymentPlans payment_plans = PreparePaymentPlan();
-  DeliveryPlans delivery_plans = PrepareDeliveryPlan();
+  // AmalgamatePlans amalgamate_plans = PrepareAmalgamatePlan();
+  // BalancePlans balance_plans = PrepareBalancePlan();
+  // DepositCheckingPlans deposit_checking_plans = PrepareDepositCheckingPlan();
+  // TransactSavingPlan transact_saving_plans = PrepareTransactSavingPlan();
+  // WriteCheckPlan write_check_plans = PrepareWriteCheckPlan();
   
   // backoff
   uint32_t backoff_shifts = 0;
-
-  // bool slept = false;
-  // auto SLEEP_TIME = std::chrono::milliseconds(100);
-
-  oid_t &payment_execution_count_ref = payment_abort_counts[thread_id];
-  oid_t &payment_transaction_count_ref = payment_commit_counts[thread_id];
-
-  oid_t &new_order_execution_count_ref = new_order_abort_counts[thread_id];
-  oid_t &new_order_transaction_count_ref = new_order_commit_counts[thread_id];
-
-  oid_t &delivery_execution_count_ref = delivery_abort_counts[thread_id];
-  oid_t &delivery_transaction_count_ref = delivery_commit_counts[thread_id];
-
-  oid_t &stock_level_execution_count_ref = stock_level_abort_counts[thread_id];
-  oid_t &stock_level_transaction_count_ref = stock_level_commit_counts[thread_id];
-
-  oid_t &order_status_execution_count_ref = order_status_abort_counts[thread_id];
-  oid_t &order_status_transaction_count_ref = order_status_commit_counts[thread_id];
 
   while (true) {
 
@@ -152,162 +130,189 @@ void RunBackend(oid_t thread_id) {
       break;
     }
 
-    fast_random rng(rand());
+    // fast_random rng(rand());
     
-    auto rng_val = rng.next_uniform();
-    if (rng_val <= STOCK_LEVEL_RATIO) {
-      std::chrono::steady_clock::time_point start_time;
-      if (thread_id == 0) {
-        start_time = std::chrono::steady_clock::now();
-      }
-      while (RunStockLevel(thread_id, state.order_range) == false) {
-        if (is_running == false) {
-          break;
-        }
-        execution_count_ref++;
-        stock_level_execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
-        }
-      }
-      stock_level_transaction_count_ref++;
-      if (thread_id == 0) {
-        std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-        double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-        stock_level_avg_latency = (stock_level_avg_latency * stock_level_count + diff) / (stock_level_count + 1);
-        stock_level_count++;
-      }
-    } else if (rng_val <= ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
-      std::chrono::steady_clock::time_point start_time;
-      if (thread_id == 0) {
-        start_time = std::chrono::steady_clock::now();
-      }
-       while (RunOrderStatus(thread_id) == false) {
-          if (is_running == false) {
-            break;
-          }
-         execution_count_ref++;
-         order_status_execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
-        }
-       }
-       order_status_transaction_count_ref++;
-       if (thread_id == 0) {
-          std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-          double diff = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count();
-          order_status_avg_latency = (order_status_avg_latency * order_status_count + diff) / (order_status_count + 1);
-          order_status_count++;
-       }
-     } 
-     else if (rng_val <= DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
-      bool is_adhoc = false;
-      if (rng.next_uniform() < state.adhoc_ratio) {
-        is_adhoc = true;
-      } else {
-        is_adhoc = false;
-      }
+    // auto rng_val = rng.next_uniform();
+    // if (rng_val <= FREQUENCY_AMALGAMATE) {
+    //   bool is_adhoc = false;
+    //   if (rng.next_uniform() < state.adhoc_ratio) {
+    //     is_adhoc = true;
+    //   } else {
+    //     is_adhoc = false;
+    //   }
 
-      DeliveryParams delivery_params;
-      GenerateDeliveryParams(thread_id, delivery_params);
-       while (RunDelivery(delivery_plans, delivery_params, is_adhoc) == false) {
-          if (is_running == false) {
-            break;
-          }
-         execution_count_ref++;
-         delivery_execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
-        }
-       }
-       delivery_transaction_count_ref++;
-     } 
-     else if (rng_val <= PAYMENT_RATIO + DELIVERY_RATIO + ORDER_STATUS_RATIO + STOCK_LEVEL_RATIO) {
-       bool is_adhoc = false;
-       if (rng.next_uniform() < state.adhoc_ratio) {
-         is_adhoc = true;
-       } else {
-         is_adhoc = false;
-       }
-       PaymentParams payment_params;
-       GeneratePaymentParams(thread_id, payment_params);
-       while (RunPayment(payment_plans, payment_params, is_adhoc) == false) {
-          if (is_running == false) {
-            break;
-          }
-         execution_count_ref++;
-         payment_execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
-        }
-       }
-       payment_transaction_count_ref++;
-     } else {
-       bool is_adhoc = false;
-       if (rng.next_uniform() < state.adhoc_ratio) {
-         is_adhoc = true;
-       } else {
-         is_adhoc = false;
-       }
-       NewOrderParams new_order_params;
-       GenerateNewOrderParams(thread_id, new_order_params);
-       while (RunNewOrder(new_order_plans, new_order_params, is_adhoc) == false) {
-          if (is_running == false) {
-            break;
-          }
-         execution_count_ref++;
-         new_order_execution_count_ref++;
-        // backoff
-        if (state.run_backoff) {
-          if (backoff_shifts < 63) {
-            ++backoff_shifts;
-          }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
-        }
-       }
-       new_order_transaction_count_ref++;
-     }
+    //   AmalgamateParams amalgamate_params;
+    //   GenerateAmalgamateParams(thread_id, amalgamate_params);
+    //    while (RunAmalgamate(amalgamate_plans, amalgamate_params, is_adhoc) == false) {
+    //       if (is_running == false) {
+    //         break;
+    //       }
+    //      execution_count_ref++;
+
+    //     // backoff
+    //     if (state.run_backoff) {
+    //       if (backoff_shifts < 63) {
+    //         ++backoff_shifts;
+    //       }
+    //       uint64_t spins = 1UL << backoff_shifts;
+    //       spins *= 100;
+    //       while (spins) {
+    //         _mm_pause();
+    //         --spins;
+    //       }
+    //     }
+    //    }
+
+    //  } 
+    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE) {
+    //    bool is_adhoc = false;
+    //    if (rng.next_uniform() < state.adhoc_ratio) {
+    //      is_adhoc = true;
+    //    } else {
+    //      is_adhoc = false;
+    //    }
+    //    BalanceParams balance_params;
+    //    GenerateBalanceParams(thread_id, balance_params);
+    //    while (RunBalance(balance_plans, balance_params, is_adhoc) == false) {
+    //       if (is_running == false) {
+    //         break;
+    //       }
+    //      execution_count_ref++;
+
+    //     // backoff
+    //     if (state.run_backoff) {
+    //       if (backoff_shifts < 63) {
+    //         ++backoff_shifts;
+    //       }
+    //       uint64_t spins = 1UL << backoff_shifts;
+    //       spins *= 100;
+    //       while (spins) {
+    //         _mm_pause();
+    //         --spins;
+    //       }
+    //     }
+    //    }
+
+    //  } 
+    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING) {
+    //    bool is_adhoc = false;
+    //    if (rng.next_uniform() < state.adhoc_ratio) {
+    //      is_adhoc = true;
+    //    } else {
+    //      is_adhoc = false;
+    //    }
+    //    DepositCheckingParams deposit_checking_params;
+    //    GenerateDepositCheckingParams(thread_id, deposit_checking_params);
+    //    while (RunDepositChecking(deposit_checking_plans, deposit_checking_params, is_adhoc) == false) {
+    //       if (is_running == false) {
+    //         break;
+    //       }
+    //      execution_count_ref++;
+
+    //     // backoff
+    //     if (state.run_backoff) {
+    //       if (backoff_shifts < 63) {
+    //         ++backoff_shifts;
+    //       }
+    //       uint64_t spins = 1UL << backoff_shifts;
+    //       spins *= 100;
+    //       while (spins) {
+    //         _mm_pause();
+    //         --spins;
+    //       }
+    //     }
+    //    }
+       
+    //  } 
+    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT) {
+    //    bool is_adhoc = false;
+    //    if (rng.next_uniform() < state.adhoc_ratio) {
+    //      is_adhoc = true;
+    //    } else {
+    //      is_adhoc = false;
+    //    }
+    //    SendPaymentParams send_payment_params;
+    //    GenerateSendPaymentParams(thread_id, send_payment_params);
+    //    while (RunSendPayment(send_payment_plans, send_payment_params, is_adhoc) == false) {
+    //       if (is_running == false) {
+    //         break;
+    //       }
+    //      execution_count_ref++;
+
+    //     // backoff
+    //     if (state.run_backoff) {
+    //       if (backoff_shifts < 63) {
+    //         ++backoff_shifts;
+    //       }
+    //       uint64_t spins = 1UL << backoff_shifts;
+    //       spins *= 100;
+    //       while (spins) {
+    //         _mm_pause();
+    //         --spins;
+    //       }
+    //     }
+    //    }
+       
+    //  } 
+    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT + FREQUENCY_TRANSACT_SAVINGS) {
+    //    bool is_adhoc = false;
+    //    if (rng.next_uniform() < state.adhoc_ratio) {
+    //      is_adhoc = true;
+    //    } else {
+    //      is_adhoc = false;
+    //    }
+    //    TransactSavingsParams transact_savings_params;
+    //    GenerateTransactSavingsParams(thread_id, transact_savings_params);
+    //    while (RunTransactSavings(transact_savings_plans, transact_savings_params, is_adhoc) == false) {
+    //       if (is_running == false) {
+    //         break;
+    //       }
+    //      execution_count_ref++;
+
+    //     // backoff
+    //     if (state.run_backoff) {
+    //       if (backoff_shifts < 63) {
+    //         ++backoff_shifts;
+    //       }
+    //       uint64_t spins = 1UL << backoff_shifts;
+    //       spins *= 100;
+    //       while (spins) {
+    //         _mm_pause();
+    //         --spins;
+    //       }
+    //     }
+    //    }
+       
+    //  } else {
+    //    bool is_adhoc = false;
+    //    if (rng.next_uniform() < state.adhoc_ratio) {
+    //      is_adhoc = true;
+    //    } else {
+    //      is_adhoc = false;
+    //    }
+    //    WriteCheckParams write_check_params;
+    //    GenerateWriteCheckParams(thread_id, write_check_params);
+    //    while (RunWriteCheck(write_check_plans, write_check_params, is_adhoc) == false) {
+    //       if (is_running == false) {
+    //         break;
+    //       }
+    //      execution_count_ref++;
+
+    //     // backoff
+    //     if (state.run_backoff) {
+    //       if (backoff_shifts < 63) {
+    //         ++backoff_shifts;
+    //       }
+    //       uint64_t spins = 1UL << backoff_shifts;
+    //       spins *= 100;
+    //       while (spins) {
+    //         _mm_pause();
+    //         --spins;
+    //       }
+    //     }
+    //    }
+       
+    //  }
 
     backoff_shifts >>= 1;
     transaction_count_ref++;
@@ -342,45 +347,6 @@ void RunWorkload() {
 
   commit_lat_summaries = new LatSummary[num_threads];
 
-  payment_abort_counts = new oid_t[num_threads];
-  memset(payment_abort_counts, 0, sizeof(oid_t) * num_threads);
-
-  payment_commit_counts = new oid_t[num_threads];
-  memset(payment_commit_counts, 0, sizeof(oid_t) * num_threads);
-
-  new_order_abort_counts = new oid_t[num_threads];
-  memset(new_order_abort_counts, 0, sizeof(oid_t) * num_threads);
-
-  new_order_commit_counts = new oid_t[num_threads];
-  memset(new_order_commit_counts, 0, sizeof(oid_t) * num_threads);
-
-  delivery_abort_counts = new oid_t[num_threads];
-  memset(delivery_abort_counts, 0, sizeof(oid_t) * num_threads);
-
-  delivery_commit_counts = new oid_t[num_threads];
-  memset(delivery_commit_counts, 0, sizeof(oid_t) * num_threads);
-
-  stock_level_abort_counts = new oid_t[num_threads];
-  memset(stock_level_abort_counts, 0, sizeof(oid_t) * num_threads);
-
-  stock_level_commit_counts = new oid_t[num_threads];
-  memset(stock_level_commit_counts, 0, sizeof(oid_t) * num_threads);
-
-  order_status_abort_counts = new oid_t[num_threads];
-  memset(order_status_abort_counts, 0, sizeof(oid_t) * num_threads);
-
-  order_status_commit_counts = new oid_t[num_threads];
-  memset(order_status_commit_counts, 0, sizeof(oid_t) * num_threads);
-
-  stock_level_count = 0;
-  stock_level_avg_latency = 0.0;
-
-  order_status_count = 0;
-  order_status_avg_latency = 0.0;
-
-  scan_stock_count = 0;
-  scan_stock_avg_latency = 0.0;
-
   size_t snapshot_round = (size_t)(state.duration / state.snapshot_duration);
 
   oid_t **abort_counts_snapshots = new oid_t *[snapshot_round];
@@ -395,15 +361,10 @@ void RunWorkload() {
 
   // Launch a group of threads
   // thread count settings should pass the parameter validation
-  oid_t rw_backend_count = num_threads - num_scan_threads;
   oid_t thread_itr;
 
-  for (thread_itr = 0; thread_itr < rw_backend_count; ++thread_itr) {
+  for (thread_itr = 0; thread_itr < num_threads; ++thread_itr) {
     thread_group.push_back(std::move(std::thread(RunBackend, thread_itr)));
-  }
-
-  for (thread_itr = rw_backend_count; thread_itr < rw_backend_count + num_scan_threads; ++thread_itr) {
-    thread_group.push_back(std::move(std::thread(RunScanBackend, thread_itr, (!state.normal_txn_for_scan), state.mock_sleep_millisec)));
   }
 
   //////////////////////////////////////
@@ -482,77 +443,6 @@ void RunWorkload() {
   state.throughput = total_commit_count * 1.0 / state.duration;
   state.abort_rate = total_abort_count * 1.0 / total_commit_count;
 
-  oid_t total_payment_commit_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_payment_commit_count += payment_commit_counts[i];
-  }
-
-  oid_t total_payment_abort_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_payment_abort_count += payment_abort_counts[i];
-  }
-
-  state.payment_throughput = total_payment_commit_count * 1.0 / state.duration;
-  state.payment_abort_rate = total_payment_abort_count * 1.0 / total_payment_commit_count;
-
-  oid_t total_new_order_commit_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_new_order_commit_count += new_order_commit_counts[i];
-  }
-
-  oid_t total_new_order_abort_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_new_order_abort_count += new_order_abort_counts[i];
-  }
-
-  state.new_order_throughput = total_new_order_commit_count * 1.0 / state.duration;
-  state.new_order_abort_rate = total_new_order_abort_count * 1.0 / total_new_order_commit_count;
-
-  oid_t total_delivery_commit_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_delivery_commit_count += delivery_commit_counts[i];
-  }
-
-  oid_t total_delivery_abort_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_delivery_abort_count += delivery_abort_counts[i];
-  }
-
-  state.delivery_throughput = total_delivery_commit_count * 1.0 / state.duration;
-  state.delivery_abort_rate = total_delivery_abort_count * 1.0 / total_delivery_commit_count;
-
-
-  oid_t total_stock_level_commit_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_stock_level_commit_count += stock_level_commit_counts[i];
-  }
-
-  oid_t total_stock_level_abort_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_stock_level_abort_count += stock_level_abort_counts[i];
-  }
-
-  state.stock_level_throughput = total_stock_level_commit_count * 1.0 / state.duration;
-  state.stock_level_abort_rate = total_stock_level_abort_count * 1.0 / total_stock_level_commit_count;
-
-
-  oid_t total_order_status_commit_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_order_status_commit_count += order_status_commit_counts[i];
-  }
-
-  oid_t total_order_status_abort_count = 0;
-  for (size_t i = 0; i < num_threads; ++i) {
-    total_order_status_abort_count += order_status_abort_counts[i];
-  }
-
-  state.order_status_throughput = total_order_status_commit_count * 1.0 / state.duration;
-  state.order_status_abort_rate = total_order_status_abort_count * 1.0 / total_order_status_commit_count;
-
-
-  state.stock_level_latency = stock_level_avg_latency;
-  state.order_status_latency = order_status_avg_latency;
-  state.scan_stock_latency = scan_stock_avg_latency;
 
   state.commit_latency = 0.0;
   for (size_t i = 0; i < num_threads; ++i) {
@@ -585,41 +475,6 @@ void RunWorkload() {
   delete[] commit_latencies;
   commit_latencies = nullptr;
 
-  delete[] payment_abort_counts;
-  payment_abort_counts = nullptr;
-  delete[] payment_commit_counts;
-  payment_commit_counts = nullptr;
-
-  delete[] new_order_abort_counts;
-  new_order_abort_counts = nullptr;
-  delete[] new_order_commit_counts;
-  new_order_commit_counts = nullptr;
-
-  delete[] delivery_abort_counts;
-  delivery_abort_counts = nullptr;
-  delete[] delivery_commit_counts;
-  delivery_commit_counts = nullptr;
-
-  delete[] stock_level_abort_counts;
-  stock_level_abort_counts = nullptr;
-  delete[] stock_level_commit_counts;
-  stock_level_commit_counts = nullptr;
-
-  delete[] order_status_abort_counts;
-  order_status_abort_counts = nullptr;
-  delete[] order_status_commit_counts;
-  order_status_commit_counts = nullptr;
-
-  // LOG_INFO("============TABLE SIZES==========");
-  // LOG_INFO("warehouse count = %u", warehouse_table->GetAllCurrentTupleCount());
-  // LOG_INFO("district count  = %u", district_table->GetAllCurrentTupleCount());
-  // LOG_INFO("item count = %u", item_table->GetAllCurrentTupleCount());
-  // LOG_INFO("customer count = %u", customer_table->GetAllCurrentTupleCount());
-  // LOG_INFO("history count = %u", history_table->GetAllCurrentTupleCount());
-  // LOG_INFO("stock count = %u", stock_table->GetAllCurrentTupleCount());
-  // LOG_INFO("orders count = %u", orders_table->GetAllCurrentTupleCount());
-  // LOG_INFO("new order count = %u", new_order_table->GetAllCurrentTupleCount());
-  // LOG_INFO("order line count = %u", order_line_table->GetAllCurrentTupleCount());
 }
 
 

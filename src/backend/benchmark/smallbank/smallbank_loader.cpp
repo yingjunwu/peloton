@@ -46,21 +46,12 @@ namespace smallbank {
 /////////////////////////////////////////////////////////
 // Constants
 /////////////////////////////////////////////////////////
-const size_t BATCH_SIZE = 5000;
-const size_t BASIC_ACCOUNTS = 10000;
-size_t NUM_ACCOUNTS = 0;
-
-const size_t HOTSPOT_FIXED_SIZE = 50;  // fixed number of tuples
-
 double accounts_name_length = 16;
-bool HOTSPOT_USE_FIXED_SIZE = false;
 
 const size_t MIN_BALANCE = 10000;
 const size_t MAX_BALANCE = 50000;
 
 NURandConstant nu_rand_const;
-
-const int loading_thread_count = 0;
 
 /////////////////////////////////////////////////////////
 // Create the tables
@@ -74,7 +65,6 @@ storage::DataTable *checking_table;
 const bool own_schema = true;
 const bool adapt_table = false;
 const bool is_inlined = true;
-const bool unique_index = false;
 const bool allocate = true;
 const size_t preallocate_scale = 2;
 
@@ -127,7 +117,7 @@ void CreateAccountsTable() {
 
   index::Index *pkey_index = nullptr;
   if (state.index == INDEX_TYPE_HASH) {
-    pkey_index = index::IndexFactory::GetInstance(index_metadata, NUM_ACCOUNTS);
+    pkey_index = index::IndexFactory::GetInstance(index_metadata, state.account_count);
   } else {
     pkey_index = index::IndexFactory::GetInstance(index_metadata);
   }
@@ -185,7 +175,7 @@ void CreateSavingsTable() {
 
   index::Index *pkey_index = nullptr;
   if (state.index == INDEX_TYPE_HASH) {
-    pkey_index = index::IndexFactory::GetInstance(index_metadata, NUM_ACCOUNTS);
+    pkey_index = index::IndexFactory::GetInstance(index_metadata, state.account_count);
   } else {
     pkey_index = index::IndexFactory::GetInstance(index_metadata);
   }
@@ -243,7 +233,7 @@ void CreateCheckingTable() {
 
   index::Index *pkey_index = nullptr;
   if (state.index == INDEX_TYPE_HASH) {
-    pkey_index = index::IndexFactory::GetInstance(index_metadata, NUM_ACCOUNTS);
+    pkey_index = index::IndexFactory::GetInstance(index_metadata, state.account_count);
   } else {
     pkey_index = index::IndexFactory::GetInstance(index_metadata);
   }
@@ -314,10 +304,6 @@ std::string GetRandomAlphaNumericString(const size_t string_length) {
   char repeated_char = alphanumeric[dist(rng)];
   std::string sample(string_length, repeated_char);
   return sample;
-}
-
-double GetDoubleFromValue(const peloton::Value &value) {
-  return value.GetDouble();
 }
 
 bool GetRandomBoolean(double ratio) {
@@ -432,10 +418,9 @@ void LoadAccounts() {
   std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(txn));
-  LOG_INFO("Accounts: %f", state.scale_factor);
-  LOG_INFO("Accounts: %lu", NUM_ACCOUNTS);
+  LOG_INFO("Accounts: %f, %d", state.scale_factor, state.account_count);
 
-  for (size_t accouts_itr = 0; accouts_itr < NUM_ACCOUNTS; accouts_itr++) {
+  for (size_t accouts_itr = 0; accouts_itr < (size_t) state.account_count; accouts_itr++) {
     auto accouts_tuple = BuildAccountsTuple(accouts_itr, pool);
     planner::InsertPlan node(accounts_table, std::move(accouts_tuple));
     executor::InsertExecutor executor(&node, context.get());
@@ -451,7 +436,7 @@ void LoadSavings() {
   std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(txn));
-  for (size_t savings_itr = 0; savings_itr < NUM_ACCOUNTS; savings_itr++) {
+  for (size_t savings_itr = 0; savings_itr < (size_t) state.account_count; savings_itr++) {
 
     auto savings_tuple = BuildSavingsTuple(savings_itr, pool);
     planner::InsertPlan node(savings_table, std::move(savings_tuple));
@@ -468,7 +453,7 @@ void LoadChecking() {
   std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(txn));
-  for (size_t checking_itr = 0; checking_itr < NUM_ACCOUNTS; checking_itr++) {
+  for (size_t checking_itr = 0; checking_itr < (size_t) state.account_count; checking_itr++) {
 
     auto checking_tuple = BuildCheckingTuple(checking_itr, pool);
     planner::InsertPlan node(checking_table, std::move(checking_tuple));

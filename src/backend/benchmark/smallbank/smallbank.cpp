@@ -16,7 +16,7 @@
 
 #include "backend/benchmark/smallbank/smallbank_configuration.h"
 #include "backend/benchmark/smallbank/smallbank_loader.h"
-//#include "backend/benchmark/smallbank/smallbank_workload.h"
+#include "backend/benchmark/smallbank/smallbank_workload.h"
 
 #include "backend/gc/gc_manager_factory.h"
 #include "backend/concurrency/transaction_manager_factory.h"
