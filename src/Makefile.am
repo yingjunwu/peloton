@@ -40,7 +40,9 @@ include $(top_srcdir)/third_party/Makefile.am
 bin_PROGRAMS = \
 			   peloton \
 			   ycsb \
-			   tpcc
+			   tpcc \
+			   smallbank \
+			   tatp
 #			   logger
 
 lib_LTLIBRARIES += libpeloton.la
