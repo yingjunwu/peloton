@@ -116,7 +116,7 @@ void RunBenchmark() {
   checkpoint_manager.StartCheckpointing();
   
   // Run the workload
-  // RunWorkload();
+  RunWorkload();
 
   // Stop the logger
   log_manager.StopLoggers();

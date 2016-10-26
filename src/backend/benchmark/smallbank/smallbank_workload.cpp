@@ -80,12 +80,11 @@ namespace smallbank {
 /////////////////////////////////////////////////////////
 
 
-#define FREQUENCY_AMALGAMATE 0.15
-#define FREQUENCY_BALANCE 0.15
-#define FREQUENCY_DEPOSIT_CHECKING 0.15
-#define FREQUENCY_SEND_PAYMENT 0.25
-#define FREQUENCY_TRANSACT_SAVINGS 0.15
-#define FREQUENCY_WRITE_CHECK 0.15
+#define FREQUENCY_AMALGAMATE 0.04
+#define FREQUENCY_BALANCE 0.24
+#define FREQUENCY_DEPOSIT_CHECKING 0.24
+#define FREQUENCY_TRANSACT_SAVINGS 0.24
+#define FREQUENCY_WRITE_CHECK 0.24
 
 volatile bool is_running = true;
 
@@ -221,37 +220,7 @@ void RunBackend(oid_t thread_id) {
        }
        
      } 
-     // else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT) {
-     //   bool is_adhoc = false;
-     //   if (rng.next_uniform() < state.adhoc_ratio) {
-     //     is_adhoc = true;
-     //   } else {
-     //     is_adhoc = false;
-     //   }
-     //   SendPaymentParams send_payment_params;
-     //   GenerateSendPaymentParams(zipf, send_payment_params);
-     //   while (RunSendPayment(send_payment_plans, send_payment_params, is_adhoc) == false) {
-     //      if (is_running == false) {
-     //        break;
-     //      }
-     //     execution_count_ref++;
-
-     //    // backoff
-     //    if (state.run_backoff) {
-     //      if (backoff_shifts < 63) {
-     //        ++backoff_shifts;
-     //      }
-     //      uint64_t spins = 1UL << backoff_shifts;
-     //      spins *= 100;
-     //      while (spins) {
-     //        _mm_pause();
-     //        --spins;
-     //      }
-     //    }
-     //   }
-       
-     // } 
-     else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT + FREQUENCY_TRANSACT_SAVINGS) {
+     else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_TRANSACT_SAVINGS) {
        bool is_adhoc = false;
        if (rng.next_uniform() < state.adhoc_ratio) {
          is_adhoc = true;

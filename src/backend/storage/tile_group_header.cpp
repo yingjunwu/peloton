@@ -232,7 +232,9 @@ oid_t TileGroupHeader::GetActiveTupleCount() {
 oid_t TileGroupHeader::GetCurrentTupleCount() {
   oid_t active_tuple_slots = 0;
 
-  cid_t next_cid = concurrency::EpochManagerFactory::GetInstance().GetCurrentCid();
+  size_t current_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
+
+  cid_t next_cid = ((current_eid + 1) << 32) | 0x0;
 
   for (oid_t tuple_slot_id = START_OID; tuple_slot_id < num_tuple_slots;
        tuple_slot_id++) {
