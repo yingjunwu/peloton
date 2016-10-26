@@ -74,10 +74,7 @@ namespace peloton {
 namespace benchmark {
 namespace smallbank {
 
-/*
- * This function new a Amalgamate, so remember to delete it
- */
-TransactSaving *GenerateTransactSaving(ZipfDistribution &zipf) {
+TransactSavingPlans PrepareTransactSavingPlan() {
 
   std::vector<expression::AbstractExpression *> runtime_keys;
 
@@ -167,42 +164,28 @@ TransactSaving *GenerateTransactSaving(ZipfDistribution &zipf) {
   saving_update_executor->Init();
   /////////////////////////////////////////////////////////
 
-  TransactSaving *ts = new TransactSaving();
+  TransactSavingPlans transact_saving_plan;
 
-  ts->accounts_index_scan_executor_ = accounts_index_scan_executor;
+  transact_saving_plan.accounts_index_scan_executor_ = accounts_index_scan_executor;
 
-  ts->saving_index_scan_executor_ = saving_index_scan_executor;
-  ts->saving_update_index_scan_executor_ = saving_update_index_scan_executor;
-  ts->saving_update_executor_ = saving_update_executor;
+  transact_saving_plan.saving_index_scan_executor_ = saving_index_scan_executor;
+  transact_saving_plan.saving_update_index_scan_executor_ = saving_update_index_scan_executor;
+  transact_saving_plan.saving_update_executor_ = saving_update_executor;
 
-  // Set values
-  ts->SetValue(zipf);
-
-  // Set txn's region cover
-  ts->SetRegionCover();
-
-  return ts;
+  return transact_saving_plan;
 }
 
-/*
- * Set the parameters needed by execution. Set the W_ID, D_ID, C_ID, I_ID.
- * So when a txn has all of the parameters when enqueue
- */
-void TransactSaving::SetValue(ZipfDistribution &zipf) {
-  /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  if (state.zipf_theta > 0) {
-    custid_ = zipf.GetNextNumber();
-  } else {
-    custid_ = GenerateAccountsId();
-  }
 
-  // Take warehouse_id_ as the primary key
-  primary_keys_.assign(1, custid_);
+void GenerateTransactSavingParams(ZipfDistribution &zipf, TransactSavingParams &params) {
+
+  params.custid = zipf.GetNextNumber();
+  
+  params.increase = GetRandomInteger(1, 10);
+
 }
 
-bool TransactSaving::Run() {
+
+bool RunTransactSaving(TransactSavingPlans &transact_saving_plans, TransactSavingParams &params, UNUSED_ATTRIBUTE bool is_adhoc) {
   /*
      "DepositChecking": {
         "SELECT * FROM " + SmallBankConstants.TABLENAME_ACCOUNTS +
@@ -222,7 +205,7 @@ bool TransactSaving::Run() {
   /////////////////////////////////////////////////////////
   // PREPARE ARGUMENTS
   /////////////////////////////////////////////////////////
-  int custid0 = custid_;
+  int custid0 = params.custid;
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -230,7 +213,7 @@ bool TransactSaving::Run() {
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
 
-  SetContext(context.get());
+  transact_saving_plans.SetContext(context.get());
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
@@ -244,15 +227,15 @@ bool TransactSaving::Run() {
 
   LOG_TRACE("SELECT * FROM ACCOUNTS WHERE custid = %d", custid0);
 
-  accounts_index_scan_executor_->ResetState();
+  transact_saving_plans.accounts_index_scan_executor_->ResetState();
 
   std::vector<Value> accounts_key_values;
 
   accounts_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  accounts_index_scan_executor_->SetValues(accounts_key_values);
+  transact_saving_plans.accounts_index_scan_executor_->SetValues(accounts_key_values);
 
-  auto ga1_lists_values = ExecuteReadTest(accounts_index_scan_executor_);
+  auto ga1_lists_values = ExecuteReadTest(transact_saving_plans.accounts_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -267,15 +250,15 @@ bool TransactSaving::Run() {
   // Select
   LOG_TRACE("SELECT bal FROM checking WHERE custid = %d", custid0);
 
-  saving_index_scan_executor_->ResetState();
+  transact_saving_plans.saving_index_scan_executor_->ResetState();
 
   std::vector<Value> saving_key_values;
 
   saving_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  saving_index_scan_executor_->SetValues(saving_key_values);
+  transact_saving_plans.saving_index_scan_executor_->SetValues(saving_key_values);
 
-  auto gc_lists_values = ExecuteReadTest(saving_index_scan_executor_);
+  auto gc_lists_values = ExecuteReadTest(transact_saving_plans.saving_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -293,25 +276,25 @@ bool TransactSaving::Run() {
   auto bal_saving = gc_lists_values[0][0];
 
   // Update
-  saving_update_index_scan_executor_->ResetState();
+  transact_saving_plans.saving_update_index_scan_executor_->ResetState();
 
-  saving_update_index_scan_executor_->SetValues(saving_key_values);
+  transact_saving_plans.saving_update_index_scan_executor_->SetValues(saving_key_values);
 
   // Update the 2th column (bal)
 
   TargetList saving_target_list;
 
-  int increase = GenerateAmount();
-  double total = GetDoubleFromValue(bal_saving) + increase;
+  int increase = params.increase;
+  double total = ValuePeeker::PeekDouble(bal_saving) + increase;
 
   Value saving_update_val = ValueFactory::GetDoubleValue(total);
 
   saving_target_list.emplace_back(
       1, expression::ExpressionUtil::ConstantValueFactory(saving_update_val));
 
-  saving_update_executor_->SetTargetList(saving_target_list);
+  transact_saving_plans.saving_update_executor_->SetTargetList(saving_target_list);
 
-  ExecuteUpdateTest(saving_update_executor_);
+  ExecuteUpdateTest(transact_saving_plans.saving_update_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");

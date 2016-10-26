@@ -74,18 +74,18 @@ namespace peloton {
 namespace benchmark {
 namespace smallbank {
 
-/*
- * This function new a Amalgamate, so remember to delete it
- */
-Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
+
+AmalgamatePlans PrepareAmalgamatePlan() {
 
   std::vector<expression::AbstractExpression *> runtime_keys;
 
   /////////////////////////////////////////////////////////
   // PLAN FOR ACCOUNTS
   /////////////////////////////////////////////////////////
+
   std::vector<oid_t> accounts_key_column_ids;
   std::vector<ExpressionType> accounts_expr_types;
+  
   accounts_key_column_ids.push_back(0);  // CUSTID
   accounts_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -95,8 +95,11 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
       accounts_table->GetIndexWithOid(accounts_table_pkey_index_oid);
 
   planner::IndexScanPlan::IndexScanDesc accounts_index_scan_desc(
-      accounts_pkey_index, accounts_key_column_ids, accounts_expr_types,
-      accounts_key_values, runtime_keys);
+      accounts_pkey_index, 
+      accounts_key_column_ids, 
+      accounts_expr_types,
+      accounts_key_values, 
+      runtime_keys);
 
   std::vector<oid_t> accounts_column_ids = {0, 1};  // CUSTID, NAME
 
@@ -111,8 +114,10 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
   /////////////////////////////////////////////////////////
   // PLAN FOR SAVINGS
   /////////////////////////////////////////////////////////
+
   std::vector<oid_t> savings_key_column_ids;
   std::vector<ExpressionType> savings_expr_types;
+
   savings_key_column_ids.push_back(0);  // CUSTID
   savings_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -125,7 +130,6 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
       savings_pkey_index, savings_key_column_ids, savings_expr_types,
       savings_key_values, runtime_keys);
 
-  // std::vector<oid_t> warehouse_column_ids = {1, 2, 3, 4, 5, 6, 8};
   std::vector<oid_t> savings_column_ids = {1};  // select BAL FROM
 
   planner::IndexScanPlan savings_index_scan_node(
@@ -150,11 +154,8 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
   DirectMapList savings_direct_map_list;
 
   // Keep the first 1 columns unchanged
-  for (oid_t col_itr = 0; col_itr < 1; ++col_itr) {
-    savings_direct_map_list.emplace_back(col_itr,
-                                         std::pair<oid_t, oid_t>(0, col_itr));
-  }
-
+  savings_direct_map_list.emplace_back(0, std::pair<oid_t, oid_t>(0, 0));
+  
   std::unique_ptr<const planner::ProjectInfo> savings_project_info(
       new planner::ProjectInfo(std::move(savings_target_list),
                                std::move(savings_direct_map_list)));
@@ -171,8 +172,10 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
   /////////////////////////////////////////////////////////
   // PLAN FOR CHECKING
   /////////////////////////////////////////////////////////
+  
   std::vector<oid_t> checking_key_column_ids;
   std::vector<ExpressionType> checking_expr_types;
+  
   checking_key_column_ids.push_back(0);  // CUSTID
   checking_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -211,11 +214,8 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
   DirectMapList checking_direct_map_list;
 
   // Keep the first 1 columns unchanged
-  for (oid_t col_itr = 0; col_itr < 1; ++col_itr) {
-    checking_direct_map_list.emplace_back(col_itr,
-                                          std::pair<oid_t, oid_t>(0, col_itr));
-  }
-
+  checking_direct_map_list.emplace_back(0, std::pair<oid_t, oid_t>(0, 0));
+  
   std::unique_ptr<const planner::ProjectInfo> checking_project_info(
       new planner::ProjectInfo(std::move(checking_target_list),
                                std::move(checking_direct_map_list)));
@@ -231,54 +231,35 @@ Amalgamate *GenerateAmalgamate(ZipfDistribution &zipf) {
 
   /////////////////////////////////////////////////////////
 
-  Amalgamate *amalgamate = new Amalgamate();
+  AmalgamatePlans amalgamate_plans;
 
-  amalgamate->accounts_index_scan_executor_ = accounts_index_scan_executor;
+  amalgamate_plans.accounts_index_scan_executor_ = accounts_index_scan_executor;
 
-  amalgamate->savings_index_scan_executor_ = savings_index_scan_executor;
+  amalgamate_plans.savings_index_scan_executor_ = savings_index_scan_executor;
 
-  amalgamate->checking_index_scan_executor_ = checking_index_scan_executor;
+  amalgamate_plans.checking_index_scan_executor_ = checking_index_scan_executor;
 
-  amalgamate->savings_update_index_scan_executor_ =
+  amalgamate_plans.savings_update_index_scan_executor_ =
       savings_update_index_scan_executor;
 
-  amalgamate->savings_update_executor_ = savings_update_executor;
+  amalgamate_plans.savings_update_executor_ = savings_update_executor;
 
-  amalgamate->checking_update_index_scan_executor_ =
+  amalgamate_plans.checking_update_index_scan_executor_ =
       checking_update_index_scan_executor;
 
-  amalgamate->checking_update_executor_ = checking_update_executor;
+  amalgamate_plans.checking_update_executor_ = checking_update_executor;
 
-  // Set values
-  amalgamate->SetValue(zipf);
-
-  // Set txn's region cover
-  amalgamate->SetRegionCover();
-
-  return amalgamate;
+  return amalgamate_plans;
 }
 
-/*
- * Set the parameters needed by execution. Set the W_ID, D_ID, C_ID, I_ID.
- * So when a txn has all of the parameters when enqueue
- */
-void Amalgamate::SetValue(ZipfDistribution &zipf) {
-  /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  if (state.zipf_theta > 0) {
-    custid_0_ = zipf.GetNextNumber();
-    custid_1_ = zipf.GetNextNumber();
-  } else {
-    custid_0_ = GenerateAccountsId();
-    custid_1_ = GenerateAccountsId();
-  }
-
-  // Take warehouse_id_ as the primary key
-  primary_keys_.assign(1, custid_0_);
+void GenerateAmalgamateParams(ZipfDistribution &zipf, AmalgamateParams &params) {
+  
+  params.custid_0 = zipf.GetNextNumber();
+  params.custid_1 = zipf.GetNextNumber();
 }
 
-bool Amalgamate::Run() {
+
+bool RunAmalgamate(AmalgamatePlans &amalgamate_plans, AmalgamateParams &params, UNUSED_ATTRIBUTE bool is_adhoc) {
   /*
      "Amalgamate": {
         "SELECT * FROM " + SmallBankConstants.TABLENAME_ACCOUNTS +
@@ -312,8 +293,8 @@ bool Amalgamate::Run() {
   /////////////////////////////////////////////////////////
   // PREPARE ARGUMENTS
   /////////////////////////////////////////////////////////
-  int custid0 = custid_0_;
-  int custid1 = custid_1_;
+  int custid0 = params.custid_0;
+  int custid1 = params.custid_1;
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -321,7 +302,7 @@ bool Amalgamate::Run() {
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
 
-  SetContext(context.get());
+  amalgamate_plans.SetContext(context.get());
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
@@ -334,15 +315,15 @@ bool Amalgamate::Run() {
   // "SELECT1 * FROM " + TABLENAME_ACCOUNTS + " WHERE custid = ?"
   LOG_TRACE("SELECT * FROM ACCOUNTS WHERE custid = %d", custid0);
 
-  accounts_index_scan_executor_->ResetState();
+  amalgamate_plans.accounts_index_scan_executor_->ResetState();
 
   std::vector<Value> accounts_key_values;
 
   accounts_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  accounts_index_scan_executor_->SetValues(accounts_key_values);
+  amalgamate_plans.accounts_index_scan_executor_->SetValues(accounts_key_values);
 
-  auto ga1_lists_values = ExecuteReadTest(accounts_index_scan_executor_);
+  auto ga1_lists_values = ExecuteReadTest(amalgamate_plans.accounts_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -360,15 +341,15 @@ bool Amalgamate::Run() {
   // "SELECT2 * FROM " + TABLENAME_ACCOUNTS + " WHERE custid = ?"
   LOG_TRACE("SELECT * FROM ACCOUNTS WHERE custid = %d", custid1);
 
-  accounts_index_scan_executor_->ResetState();
+  amalgamate_plans.accounts_index_scan_executor_->ResetState();
 
   std::vector<Value> accounts_key_values2;
 
   accounts_key_values2.push_back(ValueFactory::GetIntegerValue(custid1));
 
-  accounts_index_scan_executor_->SetValues(accounts_key_values2);
+  amalgamate_plans.accounts_index_scan_executor_->SetValues(accounts_key_values2);
 
-  auto ga2_lists_values = ExecuteReadTest(accounts_index_scan_executor_);
+  auto ga2_lists_values = ExecuteReadTest(amalgamate_plans.accounts_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -388,15 +369,15 @@ bool Amalgamate::Run() {
   /////////////////////////////////////////////////////////
   LOG_TRACE("SELECT bal FROM savings WHERE custid = %d", custid0);
 
-  savings_index_scan_executor_->ResetState();
+  amalgamate_plans.savings_index_scan_executor_->ResetState();
 
   std::vector<Value> savings_key_values;
 
   savings_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  savings_index_scan_executor_->SetValues(savings_key_values);
+  amalgamate_plans.savings_index_scan_executor_->SetValues(savings_key_values);
 
-  auto gs_lists_values = ExecuteReadTest(savings_index_scan_executor_);
+  auto gs_lists_values = ExecuteReadTest(amalgamate_plans.savings_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -418,15 +399,15 @@ bool Amalgamate::Run() {
   /////////////////////////////////////////////////////////
   LOG_TRACE("SELECT * FROM checking WHERE custid = %d", custid1);
 
-  checking_index_scan_executor_->ResetState();
+  amalgamate_plans.checking_index_scan_executor_->ResetState();
 
   std::vector<Value> checking_key_values;
 
   checking_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  checking_index_scan_executor_->SetValues(checking_key_values);
+  amalgamate_plans.checking_index_scan_executor_->SetValues(checking_key_values);
 
-  auto gc_lists_values = ExecuteReadTest(checking_index_scan_executor_);
+  auto gc_lists_values = ExecuteReadTest(amalgamate_plans.checking_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -445,14 +426,14 @@ bool Amalgamate::Run() {
 
   // Total
   double total =
-      GetDoubleFromValue(bal_saving) + GetDoubleFromValue(bal_checking);
+      ValuePeeker::PeekDouble(bal_saving) + ValuePeeker::PeekDouble(bal_checking);
 
   /////////////////////////////////////////////////////////
   // SAVINGS UPDATE (to 0)
   /////////////////////////////////////////////////////////
-  savings_update_index_scan_executor_->ResetState();
+  amalgamate_plans.savings_update_index_scan_executor_->ResetState();
 
-  savings_update_index_scan_executor_->SetValues(savings_key_values);
+  amalgamate_plans.savings_update_index_scan_executor_->SetValues(savings_key_values);
 
   TargetList savings_target_list;
 
@@ -461,9 +442,9 @@ bool Amalgamate::Run() {
   savings_target_list.emplace_back(
       1, expression::ExpressionUtil::ConstantValueFactory(savings_update_val));
 
-  savings_update_executor_->SetTargetList(savings_target_list);
+  amalgamate_plans.savings_update_executor_->SetTargetList(savings_target_list);
 
-  ExecuteUpdateTest(savings_update_executor_);
+  ExecuteUpdateTest(amalgamate_plans.savings_update_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -474,9 +455,9 @@ bool Amalgamate::Run() {
   /////////////////////////////////////////////////////////
   // CHECKING UPDATE (to 0)
   /////////////////////////////////////////////////////////
-  checking_update_index_scan_executor_->ResetState();
+  amalgamate_plans.checking_update_index_scan_executor_->ResetState();
 
-  checking_update_index_scan_executor_->SetValues(checking_key_values);
+  amalgamate_plans.checking_update_index_scan_executor_->SetValues(checking_key_values);
 
   TargetList checking_target_list;
 
@@ -485,9 +466,9 @@ bool Amalgamate::Run() {
   checking_target_list.emplace_back(
       1, expression::ExpressionUtil::ConstantValueFactory(checking_update_val));
 
-  checking_update_executor_->SetTargetList(checking_target_list);
+  amalgamate_plans.checking_update_executor_->SetTargetList(checking_target_list);
 
-  ExecuteUpdateTest(checking_update_executor_);
+  ExecuteUpdateTest(amalgamate_plans.checking_update_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -498,13 +479,13 @@ bool Amalgamate::Run() {
   /////////////////////////////////////////////////////////
   // SAVING UPDATE (total)
   /////////////////////////////////////////////////////////
-  savings_update_index_scan_executor_->ResetState();
+  amalgamate_plans.savings_update_index_scan_executor_->ResetState();
 
   std::vector<Value> savings_key_values_id1;
 
   savings_key_values_id1.push_back(ValueFactory::GetIntegerValue(custid1));
 
-  savings_update_index_scan_executor_->SetValues(savings_key_values_id1);
+  amalgamate_plans.savings_update_index_scan_executor_->SetValues(savings_key_values_id1);
 
   TargetList savings_target_list_id1;
 
@@ -514,9 +495,9 @@ bool Amalgamate::Run() {
       1,
       expression::ExpressionUtil::ConstantValueFactory(savings_update_val_id1));
 
-  savings_update_executor_->SetTargetList(savings_target_list_id1);
+  amalgamate_plans.savings_update_executor_->SetTargetList(savings_target_list_id1);
 
-  ExecuteUpdateTest(savings_update_executor_);
+  ExecuteUpdateTest(amalgamate_plans.savings_update_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");

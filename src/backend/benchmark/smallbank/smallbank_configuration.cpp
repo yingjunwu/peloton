@@ -26,6 +26,7 @@ void Usage(FILE *out) {
   fprintf(out,
           "Command line options : smallbank <options> \n"
           "   -h --help              :  Print help message \n"
+          "   -z --zipf_theta        :  theta to control skewness \n"
           "   -i --index             :  index type could be hash index or bwtree\n"
           "   -k --scale_factor      :  scale factor \n"
           "   -d --duration          :  execution duration \n"
@@ -67,6 +68,7 @@ static struct option opts[] = {
   { "gc_thread", optional_argument, NULL, 't'},
   { "sindex_mode", optional_argument, NULL, 'q'},
   { "epoch_length", optional_argument, NULL, 'f'},
+  { "zipf_theta", optional_argument, NULL, 'z'},
   { "log_type", optional_argument, NULL, 'L'},
   { "log_directories", optional_argument, NULL, 'D'},
   { "checkpoint_type", optional_argument, NULL, 'C'},
@@ -115,6 +117,15 @@ void ValidateSnapshotDuration(const configuration &state) {
   }
 
   LOG_TRACE("%s : %lf", "snapshot_duration", state.snapshot_duration);
+}
+
+void ValidateZipfTheta(const configuration &state) {
+  if (state.zipf_theta < 0 || state.zipf_theta > 1.0) {
+    LOG_ERROR("Invalid zipf_theta :: %lf", state.zipf_theta);
+    exit(EXIT_FAILURE);
+  }
+
+  LOG_TRACE("%s : %lf", "zipf_theta", state.zipf_theta);
 }
 
 void ValidateProtocol(const configuration &state) {
@@ -225,6 +236,7 @@ void ValidateAdhocRatio(const configuration &state) {
 void ParseArguments(int argc, char *argv[], configuration &state) {
   // Default Values
   state.scale_factor = 1;
+  state.zipf_theta = 0.0;
   state.duration = 10;
   state.snapshot_duration = 1;
   state.backend_count = 1;
@@ -251,7 +263,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPeh:k:d:s:b:p:g:i:t:q:f:L:D:T:E:C:F:I:M:N:A:", opts, &idx);
+    int c = getopt_long(argc, argv, "RPeh:z:k:d:s:b:p:g:i:t:q:f:L:D:T:E:C:F:I:M:N:A:", opts, &idx);
 
     if (c == -1) break;
 
@@ -291,6 +303,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'f':
         state.epoch_length = atoi(optarg);
+        break;
+      case 'z':
+        state.zipf_theta = atof(optarg);
         break;
       case 'E' : {
         char *epoch_type = optarg;
@@ -487,6 +502,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   ValidateEpoch(state);
   ValidateEpochType(state);
   ValidateAdhocRatio(state);
+  ValidateZipfTheta(state);
   
   LOG_TRACE("%s : %d", "Run exponential backoff", state.run_backoff);
 
@@ -525,6 +541,8 @@ void WriteOutput() {
 
 
   out << "scalefactor=" << state.scale_factor << " ";
+  out << "skew=" << state.zipf_theta << " ";
+  
   if (state.protocol == CONCURRENCY_TYPE_OPTIMISTIC) {
     out << "proto=occ ";
   } else if (state.protocol == CONCURRENCY_TYPE_PESSIMISTIC) {

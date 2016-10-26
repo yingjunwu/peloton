@@ -29,12 +29,6 @@
 #include "backend/benchmark/smallbank/smallbank_configuration.h"
 #include "backend/benchmark/smallbank/smallbank_loader.h"
 
-#include "backend/benchmark/smallbank/smallbank_amalgamate.h"
-#include "backend/benchmark/smallbank/smallbank_balance.h"
-#include "backend/benchmark/smallbank/smallbank_deposit_checking.h"
-#include "backend/benchmark/smallbank/smallbank_transact_saving.h"
-#include "backend/benchmark/smallbank/smallbank_write_check.h"
-
 #include "backend/catalog/manager.h"
 #include "backend/catalog/schema.h"
 
@@ -115,204 +109,207 @@ void RunBackend(oid_t thread_id) {
   double &commit_latency_ref = commit_latencies[thread_id];
   LatSummary &lat_summary_ref = commit_lat_summaries[thread_id];
 
-  // AmalgamatePlans amalgamate_plans = PrepareAmalgamatePlan();
-  // BalancePlans balance_plans = PrepareBalancePlan();
-  // DepositCheckingPlans deposit_checking_plans = PrepareDepositCheckingPlan();
-  // TransactSavingPlan transact_saving_plans = PrepareTransactSavingPlan();
-  // WriteCheckPlan write_check_plans = PrepareWriteCheckPlan();
+  AmalgamatePlans amalgamate_plans = PrepareAmalgamatePlan();
+  BalancePlans balance_plans = PrepareBalancePlan();
+  DepositCheckingPlans deposit_checking_plans = PrepareDepositCheckingPlan();
+  TransactSavingPlans transact_saving_plans = PrepareTransactSavingPlan();
+  WriteCheckPlans write_check_plans = PrepareWriteCheckPlan();
   
   // backoff
   uint32_t backoff_shifts = 0;
+
+  ZipfDistribution zipf(state.account_count - 1,
+                        state.zipf_theta);
+
+  fast_random rng(rand());
 
   while (true) {
 
     if (is_running == false) {
       break;
     }
-
-    // fast_random rng(rand());
     
-    // auto rng_val = rng.next_uniform();
-    // if (rng_val <= FREQUENCY_AMALGAMATE) {
-    //   bool is_adhoc = false;
-    //   if (rng.next_uniform() < state.adhoc_ratio) {
-    //     is_adhoc = true;
-    //   } else {
-    //     is_adhoc = false;
-    //   }
+    auto rng_val = rng.next_uniform();
+    if (rng_val <= FREQUENCY_AMALGAMATE) {
+      bool is_adhoc = false;
+      if (rng.next_uniform() < state.adhoc_ratio) {
+        is_adhoc = true;
+      } else {
+        is_adhoc = false;
+      }
 
-    //   AmalgamateParams amalgamate_params;
-    //   GenerateAmalgamateParams(thread_id, amalgamate_params);
-    //    while (RunAmalgamate(amalgamate_plans, amalgamate_params, is_adhoc) == false) {
-    //       if (is_running == false) {
-    //         break;
-    //       }
-    //      execution_count_ref++;
+      AmalgamateParams amalgamate_params;
+      GenerateAmalgamateParams(zipf, amalgamate_params);
+       while (RunAmalgamate(amalgamate_plans, amalgamate_params, is_adhoc) == false) {
+          if (is_running == false) {
+            break;
+          }
+         execution_count_ref++;
 
-    //     // backoff
-    //     if (state.run_backoff) {
-    //       if (backoff_shifts < 63) {
-    //         ++backoff_shifts;
-    //       }
-    //       uint64_t spins = 1UL << backoff_shifts;
-    //       spins *= 100;
-    //       while (spins) {
-    //         _mm_pause();
-    //         --spins;
-    //       }
-    //     }
-    //    }
+        // backoff
+        if (state.run_backoff) {
+          if (backoff_shifts < 63) {
+            ++backoff_shifts;
+          }
+          uint64_t spins = 1UL << backoff_shifts;
+          spins *= 100;
+          while (spins) {
+            _mm_pause();
+            --spins;
+          }
+        }
+       }
 
-    //  } 
-    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE) {
-    //    bool is_adhoc = false;
-    //    if (rng.next_uniform() < state.adhoc_ratio) {
-    //      is_adhoc = true;
-    //    } else {
-    //      is_adhoc = false;
-    //    }
-    //    BalanceParams balance_params;
-    //    GenerateBalanceParams(thread_id, balance_params);
-    //    while (RunBalance(balance_plans, balance_params, is_adhoc) == false) {
-    //       if (is_running == false) {
-    //         break;
-    //       }
-    //      execution_count_ref++;
+     } 
+     else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE) {
+       bool is_adhoc = false;
+       if (rng.next_uniform() < state.adhoc_ratio) {
+         is_adhoc = true;
+       } else {
+         is_adhoc = false;
+       }
+       BalanceParams balance_params;
+       GenerateBalanceParams(zipf, balance_params);
+       while (RunBalance(balance_plans, balance_params, is_adhoc) == false) {
+          if (is_running == false) {
+            break;
+          }
+         execution_count_ref++;
 
-    //     // backoff
-    //     if (state.run_backoff) {
-    //       if (backoff_shifts < 63) {
-    //         ++backoff_shifts;
-    //       }
-    //       uint64_t spins = 1UL << backoff_shifts;
-    //       spins *= 100;
-    //       while (spins) {
-    //         _mm_pause();
-    //         --spins;
-    //       }
-    //     }
-    //    }
+        // backoff
+        if (state.run_backoff) {
+          if (backoff_shifts < 63) {
+            ++backoff_shifts;
+          }
+          uint64_t spins = 1UL << backoff_shifts;
+          spins *= 100;
+          while (spins) {
+            _mm_pause();
+            --spins;
+          }
+        }
+       }
 
-    //  } 
-    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING) {
-    //    bool is_adhoc = false;
-    //    if (rng.next_uniform() < state.adhoc_ratio) {
-    //      is_adhoc = true;
-    //    } else {
-    //      is_adhoc = false;
-    //    }
-    //    DepositCheckingParams deposit_checking_params;
-    //    GenerateDepositCheckingParams(thread_id, deposit_checking_params);
-    //    while (RunDepositChecking(deposit_checking_plans, deposit_checking_params, is_adhoc) == false) {
-    //       if (is_running == false) {
-    //         break;
-    //       }
-    //      execution_count_ref++;
+     } 
+     else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING) {
+       bool is_adhoc = false;
+       if (rng.next_uniform() < state.adhoc_ratio) {
+         is_adhoc = true;
+       } else {
+         is_adhoc = false;
+       }
+       DepositCheckingParams deposit_checking_params;
+       GenerateDepositCheckingParams(zipf, deposit_checking_params);
+       while (RunDepositChecking(deposit_checking_plans, deposit_checking_params, is_adhoc) == false) {
+          if (is_running == false) {
+            break;
+          }
+         execution_count_ref++;
 
-    //     // backoff
-    //     if (state.run_backoff) {
-    //       if (backoff_shifts < 63) {
-    //         ++backoff_shifts;
-    //       }
-    //       uint64_t spins = 1UL << backoff_shifts;
-    //       spins *= 100;
-    //       while (spins) {
-    //         _mm_pause();
-    //         --spins;
-    //       }
-    //     }
-    //    }
+        // backoff
+        if (state.run_backoff) {
+          if (backoff_shifts < 63) {
+            ++backoff_shifts;
+          }
+          uint64_t spins = 1UL << backoff_shifts;
+          spins *= 100;
+          while (spins) {
+            _mm_pause();
+            --spins;
+          }
+        }
+       }
        
-    //  } 
-    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT) {
-    //    bool is_adhoc = false;
-    //    if (rng.next_uniform() < state.adhoc_ratio) {
-    //      is_adhoc = true;
-    //    } else {
-    //      is_adhoc = false;
-    //    }
-    //    SendPaymentParams send_payment_params;
-    //    GenerateSendPaymentParams(thread_id, send_payment_params);
-    //    while (RunSendPayment(send_payment_plans, send_payment_params, is_adhoc) == false) {
-    //       if (is_running == false) {
-    //         break;
-    //       }
-    //      execution_count_ref++;
+     } 
+     // else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT) {
+     //   bool is_adhoc = false;
+     //   if (rng.next_uniform() < state.adhoc_ratio) {
+     //     is_adhoc = true;
+     //   } else {
+     //     is_adhoc = false;
+     //   }
+     //   SendPaymentParams send_payment_params;
+     //   GenerateSendPaymentParams(zipf, send_payment_params);
+     //   while (RunSendPayment(send_payment_plans, send_payment_params, is_adhoc) == false) {
+     //      if (is_running == false) {
+     //        break;
+     //      }
+     //     execution_count_ref++;
 
-    //     // backoff
-    //     if (state.run_backoff) {
-    //       if (backoff_shifts < 63) {
-    //         ++backoff_shifts;
-    //       }
-    //       uint64_t spins = 1UL << backoff_shifts;
-    //       spins *= 100;
-    //       while (spins) {
-    //         _mm_pause();
-    //         --spins;
-    //       }
-    //     }
-    //    }
+     //    // backoff
+     //    if (state.run_backoff) {
+     //      if (backoff_shifts < 63) {
+     //        ++backoff_shifts;
+     //      }
+     //      uint64_t spins = 1UL << backoff_shifts;
+     //      spins *= 100;
+     //      while (spins) {
+     //        _mm_pause();
+     //        --spins;
+     //      }
+     //    }
+     //   }
        
-    //  } 
-    //  else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT + FREQUENCY_TRANSACT_SAVINGS) {
-    //    bool is_adhoc = false;
-    //    if (rng.next_uniform() < state.adhoc_ratio) {
-    //      is_adhoc = true;
-    //    } else {
-    //      is_adhoc = false;
-    //    }
-    //    TransactSavingsParams transact_savings_params;
-    //    GenerateTransactSavingsParams(thread_id, transact_savings_params);
-    //    while (RunTransactSavings(transact_savings_plans, transact_savings_params, is_adhoc) == false) {
-    //       if (is_running == false) {
-    //         break;
-    //       }
-    //      execution_count_ref++;
+     // } 
+     else if (rng_val <= FREQUENCY_AMALGAMATE + FREQUENCY_BALANCE + FREQUENCY_DEPOSIT_CHECKING + FREQUENCY_SEND_PAYMENT + FREQUENCY_TRANSACT_SAVINGS) {
+       bool is_adhoc = false;
+       if (rng.next_uniform() < state.adhoc_ratio) {
+         is_adhoc = true;
+       } else {
+         is_adhoc = false;
+       }
+       TransactSavingParams transact_saving_params;
+       GenerateTransactSavingParams(zipf, transact_saving_params);
+       while (RunTransactSaving(transact_saving_plans, transact_saving_params, is_adhoc) == false) {
+          if (is_running == false) {
+            break;
+          }
+         execution_count_ref++;
 
-    //     // backoff
-    //     if (state.run_backoff) {
-    //       if (backoff_shifts < 63) {
-    //         ++backoff_shifts;
-    //       }
-    //       uint64_t spins = 1UL << backoff_shifts;
-    //       spins *= 100;
-    //       while (spins) {
-    //         _mm_pause();
-    //         --spins;
-    //       }
-    //     }
-    //    }
+        // backoff
+        if (state.run_backoff) {
+          if (backoff_shifts < 63) {
+            ++backoff_shifts;
+          }
+          uint64_t spins = 1UL << backoff_shifts;
+          spins *= 100;
+          while (spins) {
+            _mm_pause();
+            --spins;
+          }
+        }
+       }
        
-    //  } else {
-    //    bool is_adhoc = false;
-    //    if (rng.next_uniform() < state.adhoc_ratio) {
-    //      is_adhoc = true;
-    //    } else {
-    //      is_adhoc = false;
-    //    }
-    //    WriteCheckParams write_check_params;
-    //    GenerateWriteCheckParams(thread_id, write_check_params);
-    //    while (RunWriteCheck(write_check_plans, write_check_params, is_adhoc) == false) {
-    //       if (is_running == false) {
-    //         break;
-    //       }
-    //      execution_count_ref++;
+     } else {
+       bool is_adhoc = false;
+       if (rng.next_uniform() < state.adhoc_ratio) {
+         is_adhoc = true;
+       } else {
+         is_adhoc = false;
+       }
+       WriteCheckParams write_check_params;
+       GenerateWriteCheckParams(zipf, write_check_params);
+       while (RunWriteCheck(write_check_plans, write_check_params, is_adhoc) == false) {
+          if (is_running == false) {
+            break;
+          }
+         execution_count_ref++;
 
-    //     // backoff
-    //     if (state.run_backoff) {
-    //       if (backoff_shifts < 63) {
-    //         ++backoff_shifts;
-    //       }
-    //       uint64_t spins = 1UL << backoff_shifts;
-    //       spins *= 100;
-    //       while (spins) {
-    //         _mm_pause();
-    //         --spins;
-    //       }
-    //     }
-    //    }
+        // backoff
+        if (state.run_backoff) {
+          if (backoff_shifts < 63) {
+            ++backoff_shifts;
+          }
+          uint64_t spins = 1UL << backoff_shifts;
+          spins *= 100;
+          while (spins) {
+            _mm_pause();
+            --spins;
+          }
+        }
+       }
        
-    //  }
+     }
 
     backoff_shifts >>= 1;
     transaction_count_ref++;
@@ -334,7 +331,6 @@ void RunWorkload() {
   // Execute the workload to build the log
   std::vector<std::thread> thread_group;
   oid_t num_threads = state.backend_count;
-  oid_t num_scan_threads = state.scan_backend_count;
   
   abort_counts = new oid_t[num_threads];
   memset(abort_counts, 0, sizeof(oid_t) * num_threads);

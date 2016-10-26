@@ -319,9 +319,6 @@ struct DeliveryPlans {
 };
 
 
-
-
-
 NewOrderPlans PrepareNewOrderPlan();
 
 PaymentPlans PreparePaymentPlan();

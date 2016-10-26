@@ -74,10 +74,8 @@ namespace peloton {
 namespace benchmark {
 namespace smallbank {
 
-/*
- * This function new a Amalgamate, so remember to delete it
- */
-WriteCheck *GenerateWriteCheck(ZipfDistribution &zipf) {
+
+WriteCheckPlans PrepareWriteCheckPlan() {
 
   std::vector<expression::AbstractExpression *> runtime_keys;
 
@@ -200,53 +198,36 @@ WriteCheck *GenerateWriteCheck(ZipfDistribution &zipf) {
   checking_update_executor->Init();
   /////////////////////////////////////////////////////////
 
-  WriteCheck *wc = new WriteCheck();
+  WriteCheckPlans write_check_plans;
 
-  wc->accounts_index_scan_executor_ = accounts_index_scan_executor;
-  wc->saving_index_scan_executor_ = saving_index_scan_executor;
-  wc->checking_index_scan_executor_ = checking_index_scan_executor;
+  write_check_plans.accounts_index_scan_executor_ = accounts_index_scan_executor;
+  write_check_plans.saving_index_scan_executor_ = saving_index_scan_executor;
+  write_check_plans.checking_index_scan_executor_ = checking_index_scan_executor;
 
-  wc->checking_update_index_scan_executor_ =
+  write_check_plans.checking_update_index_scan_executor_ =
       checking_update_index_scan_executor;
-  wc->checking_update_executor_ = checking_update_executor;
+  write_check_plans.checking_update_executor_ = checking_update_executor;
 
-  // Set values
-  wc->SetValue(zipf);
-
-  // Set txn's region cover
-  wc->SetRegionCover();
-
-  return wc;
+  return write_check_plans;
 }
 
-/*
- * Set the parameters needed by execution. Set the W_ID, D_ID, C_ID, I_ID.
- * So when a txn has all of the parameters when enqueue
- */
-void WriteCheck::SetValue(ZipfDistribution &zipf) {
-  /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  if (state.zipf_theta > 0) {
-    custid_ = zipf.GetNextNumber();
-  } else {
-    custid_ = GenerateAccountsId();
-  }
 
-  // Take warehouse_id_ as the primary key
-  primary_keys_.assign(1, custid_);
+void GenerateWriteCheckParams(ZipfDistribution &zipf, WriteCheckParams &params) {
+
+  params.custid = zipf.GetNextNumber();
+  
+  params.withdraw = GetRandomInteger(1, 10);
+
 }
 
-bool WriteCheck::Run() {
-  /*
-   */
+bool RunWriteCheck(WriteCheckPlans &write_check_plans, WriteCheckParams &params, UNUSED_ATTRIBUTE bool is_adhoc) {
 
   LOG_TRACE("-------------------------------------");
 
   /////////////////////////////////////////////////////////
   // PREPARE ARGUMENTS
   /////////////////////////////////////////////////////////
-  int custid0 = custid_;
+  int custid0 = params.custid;
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -254,7 +235,7 @@ bool WriteCheck::Run() {
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
 
-  SetContext(context.get());
+  write_check_plans.SetContext(context.get());
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
@@ -267,15 +248,15 @@ bool WriteCheck::Run() {
   // "SELECT1 * FROM " + TABLENAME_ACCOUNTS + " WHERE custid = ?"
   LOG_TRACE("SELECT * FROM ACCOUNTS WHERE custid = %d", custid0);
 
-  accounts_index_scan_executor_->ResetState();
+  write_check_plans.accounts_index_scan_executor_->ResetState();
 
   std::vector<Value> accounts_key_values;
 
   accounts_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  accounts_index_scan_executor_->SetValues(accounts_key_values);
+  write_check_plans.accounts_index_scan_executor_->SetValues(accounts_key_values);
 
-  auto ga1_lists_values = ExecuteReadTest(accounts_index_scan_executor_);
+  auto ga1_lists_values = ExecuteReadTest(write_check_plans.accounts_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -295,15 +276,15 @@ bool WriteCheck::Run() {
   /////////////////////////////////////////////////////////
   LOG_TRACE("SELECT bal FROM savings WHERE custid = %d", custid0);
 
-  saving_index_scan_executor_->ResetState();
+  write_check_plans.saving_index_scan_executor_->ResetState();
 
   std::vector<Value> savings_key_values;
 
   savings_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  saving_index_scan_executor_->SetValues(savings_key_values);
+  write_check_plans.saving_index_scan_executor_->SetValues(savings_key_values);
 
-  auto gs_lists_values = ExecuteReadTest(saving_index_scan_executor_);
+  auto gs_lists_values = ExecuteReadTest(write_check_plans.saving_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -327,15 +308,15 @@ bool WriteCheck::Run() {
   // Select
   LOG_TRACE("SELECT bal FROM checking WHERE custid = %d", custid0);
 
-  checking_index_scan_executor_->ResetState();
+  write_check_plans.checking_index_scan_executor_->ResetState();
 
   std::vector<Value> checking_key_values;
 
   checking_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  checking_index_scan_executor_->SetValues(checking_key_values);
+  write_check_plans.checking_index_scan_executor_->SetValues(checking_key_values);
 
-  auto gc_lists_values = ExecuteReadTest(checking_index_scan_executor_);
+  auto gc_lists_values = ExecuteReadTest(write_check_plans.checking_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -354,9 +335,9 @@ bool WriteCheck::Run() {
 
   // Total
   double total =
-      GetDoubleFromValue(bal_saving) + GetDoubleFromValue(bal_checking);
+      ValuePeeker::PeekDouble(bal_saving) + ValuePeeker::PeekDouble(bal_checking);
 
-  int withdraw = GenerateAmount();
+  int withdraw = params.withdraw;
 
   double final_bal = total - withdraw;
 
@@ -365,9 +346,9 @@ bool WriteCheck::Run() {
   }
 
   // Update
-  checking_update_index_scan_executor_->ResetState();
+  write_check_plans.checking_update_index_scan_executor_->ResetState();
 
-  checking_update_index_scan_executor_->SetValues(checking_key_values);
+  write_check_plans.checking_update_index_scan_executor_->SetValues(checking_key_values);
 
   TargetList checking_target_list;
 
@@ -377,9 +358,9 @@ bool WriteCheck::Run() {
   checking_target_list.emplace_back(
       1, expression::ExpressionUtil::ConstantValueFactory(checking_update_val));
 
-  checking_update_executor_->SetTargetList(checking_target_list);
+  write_check_plans.checking_update_executor_->SetTargetList(checking_target_list);
 
-  ExecuteUpdateTest(checking_update_executor_);
+  ExecuteUpdateTest(write_check_plans.checking_update_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");

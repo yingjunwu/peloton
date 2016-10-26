@@ -119,6 +119,9 @@ class configuration {
   int recover_checkpoint_num = 1;
   
   int replay_log_num = 1;
+
+  // Theta in zipf distribution to control skewness
+  double zipf_theta;
 };
 
 extern configuration state;

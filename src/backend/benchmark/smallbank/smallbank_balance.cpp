@@ -74,18 +74,18 @@ namespace peloton {
 namespace benchmark {
 namespace smallbank {
 
-/*
- * This function new a Amalgamate, so remember to delete it
- */
-Balance *GenerateBalance(ZipfDistribution &zipf) {
+
+BalancePlans PrepareBalancePlan() {
 
   std::vector<expression::AbstractExpression *> runtime_keys;
 
   /////////////////////////////////////////////////////////
   // PLAN FOR ACCOUNTS
   /////////////////////////////////////////////////////////
+
   std::vector<oid_t> accounts_key_column_ids;
   std::vector<ExpressionType> accounts_expr_types;
+  
   accounts_key_column_ids.push_back(0);  // CUSTID
   accounts_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -95,8 +95,11 @@ Balance *GenerateBalance(ZipfDistribution &zipf) {
       accounts_table->GetIndexWithOid(accounts_table_pkey_index_oid);
 
   planner::IndexScanPlan::IndexScanDesc accounts_index_scan_desc(
-      accounts_pkey_index, accounts_key_column_ids, accounts_expr_types,
-      accounts_key_values, runtime_keys);
+      accounts_pkey_index, 
+      accounts_key_column_ids, 
+      accounts_expr_types,
+      accounts_key_values, 
+      runtime_keys);
 
   std::vector<oid_t> accounts_column_ids = {0, 1};  // CUSTID, NAME
 
@@ -111,8 +114,10 @@ Balance *GenerateBalance(ZipfDistribution &zipf) {
   /////////////////////////////////////////////////////////
   // PLAN FOR SAVINGS
   /////////////////////////////////////////////////////////
+  
   std::vector<oid_t> savings_key_column_ids;
   std::vector<ExpressionType> savings_expr_types;
+  
   savings_key_column_ids.push_back(0);  // CUSTID
   savings_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -139,8 +144,10 @@ Balance *GenerateBalance(ZipfDistribution &zipf) {
   /////////////////////////////////////////////////////////
   // PLAN FOR CHECKING
   /////////////////////////////////////////////////////////
+  
   std::vector<oid_t> checking_key_column_ids;
   std::vector<ExpressionType> checking_expr_types;
+  
   checking_key_column_ids.push_back(0);  // CUSTID
   checking_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -150,8 +157,11 @@ Balance *GenerateBalance(ZipfDistribution &zipf) {
       checking_table->GetIndexWithOid(checking_table_pkey_index_oid);
 
   planner::IndexScanPlan::IndexScanDesc checking_index_scan_desc(
-      checking_pkey_index, checking_key_column_ids, checking_expr_types,
-      checking_key_values, runtime_keys);
+      checking_pkey_index, 
+      checking_key_column_ids, 
+      checking_expr_types,
+      checking_key_values, 
+      runtime_keys);
 
   // std::vector<oid_t> warehouse_column_ids = {1, 2, 3, 4, 5, 6, 8};
   std::vector<oid_t> checking_column_ids = {1};  // select BAL from
@@ -166,42 +176,25 @@ Balance *GenerateBalance(ZipfDistribution &zipf) {
 
   /////////////////////////////////////////////////////////
 
-  Balance *balance = new Balance();
 
-  balance->accounts_index_scan_executor_ = accounts_index_scan_executor;
+  BalancePlans balance_plans;
 
-  balance->savings_index_scan_executor_ = savings_index_scan_executor;
+  balance_plans.accounts_index_scan_executor_ = accounts_index_scan_executor;
 
-  balance->checking_index_scan_executor_ = checking_index_scan_executor;
+  balance_plans.savings_index_scan_executor_ = savings_index_scan_executor;
 
-  // Set values
-  balance->SetValue(zipf);
+  balance_plans.checking_index_scan_executor_ = checking_index_scan_executor;
 
-  // Set txn's region cover
-  balance->SetRegionCover();
-
-  return balance;
+  return balance_plans;
 }
 
-/*
- * Set the parameters needed by execution. Set the W_ID, D_ID, C_ID, I_ID.
- * So when a txn has all of the parameters when enqueue
- */
-void Balance::SetValue(ZipfDistribution &zipf) {
-  /////////////////////////////////////////////////////////
-  // PREPARE ARGUMENTS
-  /////////////////////////////////////////////////////////
-  if (state.zipf_theta > 0) {
-    custid_ = zipf.GetNextNumber();
-  } else {
-    custid_ = GenerateAccountsId();
-  }
-
-  // Take warehouse_id_ as the primary key
-  primary_keys_.assign(1, custid_);
+void GenerateBalanceParams(ZipfDistribution &zipf, BalanceParams &params) {
+  
+  params.custid = zipf.GetNextNumber();
 }
 
-bool Balance::Run() {
+
+bool RunBalance(BalancePlans &balance_plans, BalanceParams &params, UNUSED_ATTRIBUTE bool is_adhoc) {
   /*
      "Balance": {
         "SELECT * FROM " + SmallBankConstants.TABLENAME_ACCOUNTS +
@@ -220,7 +213,7 @@ bool Balance::Run() {
   /////////////////////////////////////////////////////////
   // PREPARE ARGUMENTS
   /////////////////////////////////////////////////////////
-  int custid0 = custid_;
+  int custid0 = params.custid;
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -228,7 +221,7 @@ bool Balance::Run() {
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
 
-  SetContext(context.get());
+  balance_plans.SetContext(context.get());
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
@@ -241,15 +234,15 @@ bool Balance::Run() {
   // "SELECT1 * FROM " + TABLENAME_ACCOUNTS + " WHERE custid = ?"
   LOG_TRACE("SELECT * FROM ACCOUNTS WHERE custid = %d", custid0);
 
-  accounts_index_scan_executor_->ResetState();
+  balance_plans.accounts_index_scan_executor_->ResetState();
 
   std::vector<Value> accounts_key_values;
 
   accounts_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  accounts_index_scan_executor_->SetValues(accounts_key_values);
+  balance_plans.accounts_index_scan_executor_->SetValues(accounts_key_values);
 
-  auto ga1_lists_values = ExecuteReadTest(accounts_index_scan_executor_);
+  auto ga1_lists_values = ExecuteReadTest(balance_plans.accounts_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -269,15 +262,15 @@ bool Balance::Run() {
   /////////////////////////////////////////////////////////
   LOG_TRACE("SELECT bal FROM savings WHERE custid = %d", custid0);
 
-  savings_index_scan_executor_->ResetState();
+  balance_plans.savings_index_scan_executor_->ResetState();
 
   std::vector<Value> savings_key_values;
 
   savings_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  savings_index_scan_executor_->SetValues(savings_key_values);
+  balance_plans.savings_index_scan_executor_->SetValues(savings_key_values);
 
-  auto gs_lists_values = ExecuteReadTest(savings_index_scan_executor_);
+  auto gs_lists_values = ExecuteReadTest(balance_plans.savings_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -299,15 +292,15 @@ bool Balance::Run() {
   /////////////////////////////////////////////////////////
   LOG_TRACE("SELECT * FROM checking WHERE custid = %d", custid1);
 
-  checking_index_scan_executor_->ResetState();
+  balance_plans.checking_index_scan_executor_->ResetState();
 
   std::vector<Value> checking_key_values;
 
   checking_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  checking_index_scan_executor_->SetValues(checking_key_values);
+  balance_plans.checking_index_scan_executor_->SetValues(checking_key_values);
 
-  auto gc_lists_values = ExecuteReadTest(checking_index_scan_executor_);
+  auto gc_lists_values = ExecuteReadTest(balance_plans.checking_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");

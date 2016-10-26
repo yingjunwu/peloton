@@ -74,18 +74,18 @@ namespace peloton {
 namespace benchmark {
 namespace smallbank {
 
-/*
- * This function new a Amalgamate, so remember to delete it
- */
-DepositChecking *GenerateDepositChecking(ZipfDistribution &zipf) {
+
+DepositCheckingPlans PrepareDepositCheckingPlan() {
 
   std::vector<expression::AbstractExpression *> runtime_keys;
 
   /////////////////////////////////////////////////////////
   // PLAN FOR ACCOUNTS
   /////////////////////////////////////////////////////////
+  
   std::vector<oid_t> accounts_key_column_ids;
   std::vector<ExpressionType> accounts_expr_types;
+  
   accounts_key_column_ids.push_back(0);  // CUSTID
   accounts_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -111,8 +111,10 @@ DepositChecking *GenerateDepositChecking(ZipfDistribution &zipf) {
   /////////////////////////////////////////////////////////
   // PLAN FOR CHECKING
   /////////////////////////////////////////////////////////
+  
   std::vector<oid_t> checking_key_column_ids;
   std::vector<ExpressionType> checking_expr_types;
+  
   checking_key_column_ids.push_back(0);  // CUSTID
   checking_expr_types.push_back(ExpressionType::EXPRESSION_TYPE_COMPARE_EQUAL);
 
@@ -170,43 +172,32 @@ DepositChecking *GenerateDepositChecking(ZipfDistribution &zipf) {
   checking_update_executor->Init();
   /////////////////////////////////////////////////////////
 
-  DepositChecking *dc = new DepositChecking();
+  DepositCheckingPlans deposit_checking_plans;
 
-  dc->accounts_index_scan_executor_ = accounts_index_scan_executor;
-  dc->checking_index_scan_executor_ = checking_index_scan_executor;
+  deposit_checking_plans.accounts_index_scan_executor_ = accounts_index_scan_executor;
+  deposit_checking_plans.checking_index_scan_executor_ = checking_index_scan_executor;
 
-  dc->checking_update_index_scan_executor_ =
+  deposit_checking_plans.checking_update_index_scan_executor_ =
       checking_update_index_scan_executor;
-  dc->checking_update_executor_ = checking_update_executor;
+  deposit_checking_plans.checking_update_executor_ = checking_update_executor;
 
-  // Set values
-  dc->SetValue(zipf);
-
-  // Set txn's region cover
-  dc->SetRegionCover();
-
-  return dc;
+  return deposit_checking_plans;
 }
 
-/*
- * Set the parameters needed by execution. Set the W_ID, D_ID, C_ID, I_ID.
- * So when a txn has all of the parameters when enqueue
- */
-void DepositChecking::SetValue(ZipfDistribution &zipf) {
+
+
+void GenerateDepositCheckingParams(ZipfDistribution &zipf, DepositCheckingParams &params) {
+
   /////////////////////////////////////////////////////////
   // PREPARE ARGUMENTS
   /////////////////////////////////////////////////////////
-  if (state.zipf_theta > 0) {
-    custid_ = zipf.GetNextNumber();
-  } else {
-    custid_ = GenerateAccountsId();
-  }
+  
+  params.custid = zipf.GetNextNumber();
 
-  // Take warehouse_id_ as the primary key
-  primary_keys_.assign(1, custid_);
+  params.increase = GetRandomInteger(1, 10);
 }
 
-bool DepositChecking::Run() {
+bool RunDepositChecking(DepositCheckingPlans &deposit_checking_plans, DepositCheckingParams &params, UNUSED_ATTRIBUTE bool is_adhoc) {
   /*
      "DepositChecking": {
         "SELECT * FROM " + SmallBankConstants.TABLENAME_ACCOUNTS +
@@ -226,7 +217,7 @@ bool DepositChecking::Run() {
   /////////////////////////////////////////////////////////
   // PREPARE ARGUMENTS
   /////////////////////////////////////////////////////////
-  int custid0 = custid_;
+  int custid0 = params.custid;
 
   /////////////////////////////////////////////////////////
   // BEGIN TRANSACTION
@@ -234,7 +225,7 @@ bool DepositChecking::Run() {
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(nullptr));
 
-  SetContext(context.get());
+  deposit_checking_plans.SetContext(context.get());
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
@@ -247,15 +238,15 @@ bool DepositChecking::Run() {
   // "SELECT1 * FROM " + TABLENAME_ACCOUNTS + " WHERE custid = ?"
   LOG_TRACE("SELECT * FROM ACCOUNTS WHERE custid = %d", custid0);
 
-  accounts_index_scan_executor_->ResetState();
+  deposit_checking_plans.accounts_index_scan_executor_->ResetState();
 
   std::vector<Value> accounts_key_values;
 
   accounts_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  accounts_index_scan_executor_->SetValues(accounts_key_values);
+  deposit_checking_plans.accounts_index_scan_executor_->SetValues(accounts_key_values);
 
-  auto ga1_lists_values = ExecuteReadTest(accounts_index_scan_executor_);
+  auto ga1_lists_values = ExecuteReadTest(deposit_checking_plans.accounts_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -277,15 +268,15 @@ bool DepositChecking::Run() {
   // Select
   LOG_TRACE("SELECT bal FROM checking WHERE custid = %d", custid0);
 
-  checking_index_scan_executor_->ResetState();
+  deposit_checking_plans.checking_index_scan_executor_->ResetState();
 
   std::vector<Value> checking_key_values;
 
   checking_key_values.push_back(ValueFactory::GetIntegerValue(custid0));
 
-  checking_index_scan_executor_->SetValues(checking_key_values);
+  deposit_checking_plans.checking_index_scan_executor_->SetValues(checking_key_values);
 
-  auto gc_lists_values = ExecuteReadTest(checking_index_scan_executor_);
+  auto gc_lists_values = ExecuteReadTest(deposit_checking_plans.checking_index_scan_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
@@ -303,23 +294,23 @@ bool DepositChecking::Run() {
   auto bal_checking = gc_lists_values[0][0];
 
   // Update
-  checking_update_index_scan_executor_->ResetState();
+  deposit_checking_plans.checking_update_index_scan_executor_->ResetState();
 
-  checking_update_index_scan_executor_->SetValues(checking_key_values);
+  deposit_checking_plans.checking_update_index_scan_executor_->SetValues(checking_key_values);
 
   TargetList checking_target_list;
 
-  int increase = GenerateAmount();
-  double total = GetDoubleFromValue(bal_checking) + increase;
+  int increase = params.increase;
+  double total = ValuePeeker::PeekDouble(bal_checking) + increase;
 
   Value checking_update_val = ValueFactory::GetDoubleValue(total);
 
   checking_target_list.emplace_back(
       1, expression::ExpressionUtil::ConstantValueFactory(checking_update_val));
 
-  checking_update_executor_->SetTargetList(checking_target_list);
+  deposit_checking_plans.checking_update_executor_->SetTargetList(checking_target_list);
 
-  ExecuteUpdateTest(checking_update_executor_);
+  ExecuteUpdateTest(deposit_checking_plans.checking_update_executor_);
 
   if (txn->GetResult() != Result::RESULT_SUCCESS) {
     LOG_TRACE("abort transaction");
