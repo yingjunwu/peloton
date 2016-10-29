@@ -217,14 +217,14 @@ void RunBenchmark() {
     checkpoint_manager.SetDirectories(state.checkpoint_directories);
     checkpoint_manager.SetRecoveryThreadCount(state.recover_checkpoint_num);
 
-    checkpoint_manager.DoRecovery();
+    size_t persist_checkpoint_eid = checkpoint_manager.DoRecovery();
 
     if (state.replay_log == true) {
       auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       log_manager.SetDirectories(state.log_directories);
       log_manager.SetRecoveryThreadCount(state.replay_log_num);
       
-      log_manager.DoRecovery();
+      log_manager.DoRecovery(persist_checkpoint_eid);
     }
 
     return;

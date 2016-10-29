@@ -22,7 +22,7 @@
 namespace peloton {
 namespace logging {
 
-  void CheckpointManager::DoRecovery() {
+  size_t CheckpointManager::DoRecovery() {
 
     std::vector<std::vector<size_t>> database_structures;
 
@@ -30,6 +30,8 @@ namespace logging {
     
     // reload all the files with file name containing "persist epoch id"
     RecoverCheckpoint(persist_epoch_id, database_structures);
+
+    return persist_epoch_id;
   }
 
   size_t CheckpointManager::RecoverPepoch(std::vector<std::vector<size_t>> &database_structures) {
