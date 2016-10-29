@@ -104,7 +104,7 @@ void RunBenchmark() {
   CreateSmallbankDatabase();
   LoadSmallbankDatabase();
 
-  logging::DurabilityFactory::Configure(state.logging_type, CHECKPOINT_TYPE_INVALID, state.timer_type);
+  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
