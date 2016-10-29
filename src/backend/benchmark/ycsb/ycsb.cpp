@@ -194,7 +194,7 @@ static void ValidateMVCC() {
 // Main Entry Point
 void RunBenchmark() {
 
-  if (state.replay_log == true) {
+  if (state.replay_log == true && state.recover_checkpoint == false) {
     CreateYCSBDatabase();
     
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
@@ -224,7 +224,7 @@ void RunBenchmark() {
       log_manager.SetDirectories(state.log_directories);
       log_manager.SetRecoveryThreadCount(state.replay_log_num);
       
-      // log_manager.DoRecovery();
+      log_manager.DoRecovery();
     }
 
     return;

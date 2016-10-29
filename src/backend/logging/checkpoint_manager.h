@@ -47,7 +47,7 @@ public:
     checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL),
     recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)) {
     recovery_thread_count_ = 1;
-    max_checkpointer_count_ = 4; //std::thread::hardware_concurrency() / 2;
+    max_checkpointer_count_ = std::thread::hardware_concurrency() / 2;
   }
   virtual ~CheckpointManager() {}
 

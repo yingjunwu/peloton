@@ -35,7 +35,7 @@ configuration state;
 // Main Entry Point
 void RunBenchmark() {
 
-  if (state.replay_log == true) {
+  if (state.replay_log == true && state.recover_checkpoint == false) {
     CreateSmallbankDatabase();
     
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
