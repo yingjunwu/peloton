@@ -99,7 +99,7 @@ void PhyLogLogger::GetSortedLogFileIdList(const size_t checkpoint_eid, const siz
   }
 
   // Sort in descending order
-  std::sort(file_eids_.begin(), file_eids_.end(), std::greater<size_t>());
+  std::sort(file_eids_.begin(), file_eids_.end(), std::less<size_t>());
   max_replay_file_id_ = file_eids_.size() - 1;
 
   for (auto &entry : file_eids_) {

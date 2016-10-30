@@ -195,7 +195,19 @@ static void ValidateMVCC() {
 void RunBenchmark() {
 
   if (state.replay_log == true && state.recover_checkpoint == false) {
+
+    Timer<std::milli> checkpoint_timer;
+    checkpoint_timer.Start();
+
     CreateYCSBDatabase();
+  
+    checkpoint_timer.Stop();
+  
+    LOG_INFO("reload checkpoint duration: %lf", checkpoint_timer.GetDuration());
+    
+
+    Timer<std::milli> log_timer;
+    log_timer.Start();
     
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
     
@@ -204,11 +216,20 @@ void RunBenchmark() {
     log_manager.SetRecoveryThreadCount(state.replay_log_num);
 
     log_manager.DoRecovery(0);
+    
+    log_timer.Stop();
+  
+    LOG_INFO("replay log duration: %lf", log_timer.GetDuration());
+
     return;
   }
 
   // perform recovery
   if (state.recover_checkpoint == true) {
+
+    Timer<std::milli> checkpoint_timer;
+    checkpoint_timer.Start();
+
     CreateYCSBDatabase();
     
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
@@ -218,13 +239,25 @@ void RunBenchmark() {
     checkpoint_manager.SetRecoveryThreadCount(state.recover_checkpoint_num);
 
     size_t persist_checkpoint_eid = checkpoint_manager.DoRecovery();
+  
+    checkpoint_timer.Stop();
+  
+    LOG_INFO("reload checkpoint duration: %lf ms", checkpoint_timer.GetDuration());
 
     if (state.replay_log == true) {
+
+      Timer<std::milli> log_timer;
+      log_timer.Start();
+
       auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
       log_manager.SetDirectories(state.log_directories);
       log_manager.SetRecoveryThreadCount(state.replay_log_num);
       
       log_manager.DoRecovery(persist_checkpoint_eid);
+    
+      log_timer.Stop();
+  
+      LOG_INFO("replay log duration: %lf ms", log_timer.GetDuration());
     }
 
     return;

@@ -36,8 +36,20 @@ configuration state;
 void RunBenchmark() {
 
   if (state.replay_log == true && state.recover_checkpoint == false) {
-    CreateTPCCDatabase();
+
+    Timer<std::milli> checkpoint_timer;
+    checkpoint_timer.Start();
     
+    CreateTPCCDatabase();
+  
+    checkpoint_timer.Stop();
+  
+    LOG_INFO("reload checkpoint duration: %lf", checkpoint_timer.GetDuration());
+    
+    
+    Timer<std::milli> log_timer;
+    log_timer.Start();
+
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
     
     if (state.logging_type == LOGGING_TYPE_COMMAND) {
@@ -54,11 +66,20 @@ void RunBenchmark() {
 
       log_manager.DoRecovery(0);
     }
+    
+    log_timer.Stop();
+  
+    LOG_INFO("replay log duration: %lf", log_timer.GetDuration());
+    
     return;
   }
 
   // perform recovery
   if (state.recover_checkpoint == true) {
+
+    Timer<std::milli> checkpoint_timer;
+    checkpoint_timer.Start();
+
     CreateTPCCDatabase();
     
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
@@ -67,8 +88,15 @@ void RunBenchmark() {
     checkpoint_manager.SetRecoveryThreadCount(state.recover_checkpoint_num);
 
     size_t persist_checkpoint_eid = checkpoint_manager.DoRecovery();
+  
+    checkpoint_timer.Stop();
+  
+    LOG_INFO("reload checkpoint duration: %lf ms", checkpoint_timer.GetDuration());
 
     if (state.replay_log == true) {
+
+      Timer<std::milli> log_timer;
+      log_timer.Start();
 
       if (state.logging_type == LOGGING_TYPE_COMMAND) {
         auto &log_manager = TpccCommandLogManager::GetInstance();
@@ -84,6 +112,10 @@ void RunBenchmark() {
 
         log_manager.DoRecovery(persist_checkpoint_eid);
       }
+    
+      log_timer.Stop();
+  
+      LOG_INFO("replay log duration: %lf ms", log_timer.GetDuration());
     }
 
     return;

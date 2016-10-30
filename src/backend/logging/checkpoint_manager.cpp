@@ -358,6 +358,10 @@ namespace logging {
 
         size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
         printf("num tuples = %lu\n", num_tuples);
+        for (size_t index_id = 0; index_id < target_table->GetIndexCount(); ++index_id) {
+          auto index = target_table->GetIndex(index_id);
+          printf("index %lu: num tuples = %d\n", index_id, (int) index->GetNumberOfTuples());
+        }
 
       } // end table looping
     } // end database looping
