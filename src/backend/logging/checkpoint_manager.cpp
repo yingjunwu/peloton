@@ -176,6 +176,7 @@ namespace logging {
       exit(EXIT_FAILURE);
     }
 
+    bool is_init = true;
     int count = 0;
     while (1) {
       if (is_running_ == false) {
@@ -183,7 +184,8 @@ namespace logging {
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
       ++count;
-      if (count == checkpoint_interval_) {
+      if (count == checkpoint_interval_ || is_init == true) {
+        is_init = false;
         // first of all, we should get a snapshot txn id.
         auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
         cid_t begin_cid = epoch_manager.EnterReadOnlyEpoch();
@@ -218,6 +220,9 @@ namespace logging {
         size_t epoch_id = begin_cid >> 32;
         // exit epoch.
         epoch_manager.ExitReadOnlyEpoch(epoch_id);
+
+
+        
 
         ckpt_pepoch_buffer_.Reset();
 
