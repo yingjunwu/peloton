@@ -255,7 +255,7 @@ size_t PhyLogLogManager::RecoverPepoch() {
       LOG_TRACE("Reach the end of the log file");
       break;
     }
-    printf("persist_epoch_id = %d\n", (int)persist_epoch_id);
+    //printf("persist_epoch_id = %d\n", (int)persist_epoch_id);
   }
 
   // Safely close the file

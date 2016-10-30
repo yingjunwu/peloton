@@ -30,7 +30,7 @@ namespace logging {
     
     // reload all the files with file name containing "persist epoch id"
     RecoverCheckpoint(persist_epoch_id, database_structures);
-
+    printf("recovered checkpoint epoch id = %lu\n", persist_epoch_id);
     return persist_epoch_id;
   }
 
