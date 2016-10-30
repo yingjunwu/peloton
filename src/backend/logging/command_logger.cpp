@@ -305,13 +305,12 @@ void CommandLogger::RunRecoveryThread(const size_t thread_id, const size_t check
   while (true) {
 
     int replay_file_id = max_replay_file_id_.fetch_sub(1, std::memory_order_relaxed);
-    printf("replay file id = %d\n", replay_file_id);
     if (replay_file_id < 0) {
       break;
     }
 
     size_t file_eid = file_eids_.at(replay_file_id);
-    printf("start replaying file eid = %lu\n", file_eid);
+    printf("start replaying file id = %d, file eid = %lu\n", replay_file_id, file_eid);
     // Replay a single file
     std::string filename = GetLogFileFullPath(file_eid);
     FileHandle file_handle;

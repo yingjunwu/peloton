@@ -137,10 +137,18 @@ namespace logging {
     for (size_t i = 0; i < recovery_thread_count_; ++i) {
       recovery_threads[i]->join();
     }
+
+
     /////////////////////////////////////////////////////////////////////
     // close files
+
+    auto &catalog_manager = catalog::Manager::GetInstance();
+
+    // loop all databases
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
+      auto database = catalog_manager.GetDatabase(database_idx);
       
+      // loop all tables
       for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
     
         for (size_t virtual_checkpointer_id = 0; virtual_checkpointer_id < max_checkpointer_count_; virtual_checkpointer_id++) {
@@ -149,9 +157,22 @@ namespace logging {
 
         }
         delete[] file_handles[database_idx][table_idx];
-      }
+
+        // Get the target table
+        storage::DataTable *target_table = database->GetTable(table_idx);
+        PL_ASSERT(target_table);
+
+        size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
+        printf("table %lu: num tuples = %lu\n", (size_t)table_idx, num_tuples);
+        for (size_t index_id = 0; index_id < target_table->GetIndexCount(); ++index_id) {
+          auto index = target_table->GetIndex(index_id);
+          printf("index %lu: num tuples = %lu\n", index_id, (size_t) index->GetNumberOfTuples());
+        }
+
+
+      }  // end table looping
       delete[] file_handles[database_idx];
-    }
+    }  // end database looping
     delete[] file_handles;
   }
 
@@ -222,7 +243,7 @@ namespace logging {
         epoch_manager.ExitReadOnlyEpoch(epoch_id);
 
 
-        
+
 
         ckpt_pepoch_buffer_.Reset();
 
@@ -360,13 +381,6 @@ namespace logging {
         PL_ASSERT(target_table);
 
         RecoverTable(target_table, thread_id, current_cid, file_handles[database_idx][table_idx]);
-
-        size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
-        printf("num tuples = %lu\n", num_tuples);
-        for (size_t index_id = 0; index_id < target_table->GetIndexCount(); ++index_id) {
-          auto index = target_table->GetIndex(index_id);
-          printf("index %lu: num tuples = %d\n", index_id, (int) index->GetNumberOfTuples());
-        }
 
       } // end table looping
     } // end database looping
