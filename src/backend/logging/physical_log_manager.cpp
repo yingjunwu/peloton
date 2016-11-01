@@ -76,6 +76,16 @@ void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {
       output.WriteLong(tg->GetDatabaseId());
       output.WriteLong(tg->GetTableId());
 
+      if (type != LOGRECORD_TYPE_TUPLE_INSERT) {
+        // Write down the old item pointer
+        output.WriteLong(record.GetOldItemPointer().block);
+        output.WriteLong(record.GetOldItemPointer().offset);
+      }
+
+      // Write down the new item pointer
+      output.WriteLong(record.GetItemPointer().block);
+      output.WriteLong(record.GetItemPointer().offset);
+
       // Write the full tuple into the buffer
       expression::ContainerTuple<storage::TileGroup> container_tuple(
         tg, tuple_pos.offset
@@ -135,29 +145,30 @@ void PhysicalLogManager::EndPersistTxn() {
 }
 
 void PhysicalLogManager::LogInsert(const ItemPointer &tuple_pos) {
-  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos);
+  LogRecord record = LogRecordFactory::CreatePhysicalTupleRecord(LOGRECORD_TYPE_TUPLE_INSERT, tuple_pos, INVALID_ITEMPOINTER);
   WriteRecordToBuffer(record);
 }
 
-void PhysicalLogManager::LogUpdate(const ItemPointer &tuple_pos) {
-  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_UPDATE, tuple_pos);
+void PhysicalLogManager::LogUpdate(const ItemPointer &tuple_pos, const ItemPointer &old_tuple_pos) {
+  LogRecord record = LogRecordFactory::CreatePhysicalTupleRecord(LOGRECORD_TYPE_TUPLE_UPDATE, tuple_pos, old_tuple_pos);
   WriteRecordToBuffer(record);
 }
 
-void PhysicalLogManager::LogDelete(const ItemPointer &tuple_pos_deleted) {
+void PhysicalLogManager::LogDelete(const ItemPointer &tuple_pos, const ItemPointer &old_tuple_pos) {
   // Need the tuple value for the deleted tuple
-  LogRecord record = LogRecordFactory::CreateTupleRecord(LOGRECORD_TYPE_TUPLE_DELETE, tuple_pos_deleted);
+  LogRecord record = LogRecordFactory::CreatePhysicalTupleRecord(LOGRECORD_TYPE_TUPLE_DELETE, tuple_pos, old_tuple_pos);
   WriteRecordToBuffer(record);
 }
 
 void PhysicalLogManager::DoRecovery(const size_t &begin_eid){
-  // TODO: Get the checkpoint eid
-  // TODO: Get the pepoch eid
-  // TODO: Get the number of logger -- Better be the same as the last run
+  size_t end_eid = RecoverPepoch();
+  // printf("recovery_thread_count = %d, logger count = %d\n", (int)recovery_thread_count_, (int)logger_count_);
+  size_t recovery_thread_per_logger = (size_t) ceil(recovery_thread_count_ * 1.0 / logger_count_);
+
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d for recovery", (int) logger_id);
     // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecovery(begin_eid, MAX_EPOCH_ID);
+    loggers_[logger_id]->StartRecovery(begin_eid, end_eid, recovery_thread_per_logger);
   }
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
@@ -229,6 +240,35 @@ void PhysicalLogManager::RunPepochLogger() {
     exit(EXIT_FAILURE);
   }
 
+}
+
+size_t PhysicalLogManager::RecoverPepoch() {
+  FileHandle file_handle;
+  std::string filename = pepoch_dir_ + "/" + pepoch_filename_;
+  // Create a new file
+  if (LoggingUtil::OpenFile(filename.c_str(), "rb", file_handle) == false) {
+    LOG_ERROR("Unable to open pepoch file %s\n", filename.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+  size_t persist_epoch_id = 0;
+
+  while (true) {
+    if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) &persist_epoch_id, sizeof(persist_epoch_id)) == false) {
+      LOG_TRACE("Reach the end of the log file");
+      break;
+    }
+    //printf("persist_epoch_id = %d\n", (int)persist_epoch_id);
+  }
+
+  // Safely close the file
+  bool res = LoggingUtil::CloseFile(file_handle);
+  if (res == false) {
+    LOG_ERROR("Cannot close pepoch file");
+    exit(EXIT_FAILURE);
+  }
+
+  return persist_epoch_id;
 }
 
 }

@@ -60,13 +60,13 @@ class Manager {
   // OBJECT MAP
   //===--------------------------------------------------------------------===//
 
-  oid_t GetNextOid() { return ++oid; }
+  oid_t GetNextTileGroupOid() { return ++tile_group_oid; }
 
   oid_t GetNextTileOid() { return ++tile_oid; }
 
-  oid_t GetCurrentOid() { return oid; }
+  oid_t GetCurrentTileGroupOid() { return tile_group_oid; }
 
-  void SetNextOid(oid_t next_oid) { oid = next_oid; }
+  void SetTileGroupOid(oid_t next_oid) { tile_group_oid = next_oid; }
 
   void AddTileGroup(const oid_t oid,
                     const std::shared_ptr<storage::TileGroup> &location);
@@ -74,6 +74,8 @@ class Manager {
   void DropTileGroup(const oid_t oid);
 
   std::shared_ptr<storage::TileGroup> GetTileGroup(const oid_t oid);
+
+  std::shared_ptr<storage::TileGroup> TryGetTileGroup(const oid_t oid);
 
   void ClearTileGroup(void);
 
@@ -115,7 +117,7 @@ class Manager {
   // Data members
   //===--------------------------------------------------------------------===//
 
-  std::atomic<oid_t> oid = ATOMIC_VAR_INIT(START_OID);
+  std::atomic<oid_t> tile_group_oid = ATOMIC_VAR_INIT(START_OID);
 
   std::atomic<oid_t> tile_oid = ATOMIC_VAR_INIT(START_OID);
 

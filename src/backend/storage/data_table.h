@@ -70,6 +70,10 @@ class DataTable : public AbstractTable {
   //===--------------------------------------------------------------------===//
   // TUPLE OPERATIONS
   //===--------------------------------------------------------------------===//
+
+  // Get a tuple slot at certain position for physical recovery
+  void PrepareTupleSlotForPhysicalRecovery(ItemPointer tuple_slot);
+
   // insert version in table
   ItemPointer InsertEmptyVersion();
   
@@ -111,7 +115,7 @@ class DataTable : public AbstractTable {
   size_t GetTileGroupCount() const;
 
   // Get a tile group with given layout
-  TileGroup *GetTileGroupWithLayout(const column_map_type &partitioning);
+  TileGroup *GetTileGroupWithLayout(const column_map_type &partitioning, oid_t tg_oid = INVALID_OID);
 
   oid_t GetAllCurrentTupleCount();
 
