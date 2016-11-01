@@ -80,6 +80,34 @@ DataTable::~DataTable() {
 // TUPLE HELPER OPERATIONS
 //===--------------------------------------------------------------------===//
 
+void DataTable::PrepareTupleSlotForPhysicalRecovery(ItemPointer tuple_slot) {
+  // Check if the table has the tile group.
+  auto tg_id = tuple_slot.block;
+
+  auto &manager = catalog::Manager::GetInstance();
+  auto tg = manager.TryGetTileGroup(tg_id).get();
+
+  if (tg == nullptr) {
+    tile_group_lock_.WriteLock();
+    tg = manager.TryGetTileGroup(tg_id).get();
+    // Double check after we get the lock
+    if (tg != nullptr) {
+      // Allocate the tile group with the id
+      auto col_map = GetTileGroupLayout();
+      tg = GetTileGroupWithLayout(col_map, tg_id);
+      auto shared_tg = std::shared_ptr<TileGroup>(tg);
+      manager.AddTileGroup(tg_id, shared_tg);
+      size_t tg_seq_id = std::hash<std::thread::id>()(std::this_thread::get_id()) % NUM_PREALLOCATION;
+      auto last_tg_id = last_tile_groups_[tg_seq_id]->GetTileGroupId();
+      if (tg_id > last_tg_id) {
+        last_tile_groups_[tg_seq_id] = shared_tg;
+      }
+      tile_groups_.push_back(tg_id);
+    }
+    tile_group_lock_.Unlock();
+  }
+}
+
 // this function is called when update/delete/insert is performed.
 // this function first checks whether there's available slot.
 // if yes, then directly return the available slot.
@@ -98,13 +126,15 @@ ItemPointer DataTable::FillInEmptyTupleSlot(const storage::Tuple *tuple) {
   auto &gc_manager = gc::GCManagerFactory::GetInstance();
   auto free_item_pointer = gc_manager.ReturnFreeSlot(this->table_oid);
   if (free_item_pointer.IsNull() == false) {
-    // auto tg = catalog::Manager::GetInstance().GetTileGroup(free_item_pointer.block);
-    // tg->CopyTuple(tuple, free_item_pointer.offset);
+    auto tg = catalog::Manager::GetInstance().GetTileGroup(free_item_pointer.block);
+    if (tuple != nullptr) {
+      tg->CopyTuple(tuple, free_item_pointer.offset);
+    }
     return free_item_pointer;
   }
   //====================================================
-  size_t tg_seq_id = concurrency::current_txn->GetTransactionId() % NUM_PREALLOCATION;
-  // std::hash<std::thread::id>()(std::this_thread::get_id()) % NUM_PREALLOCATION;
+  // size_t tg_seq_id = concurrency::current_txn->GetTransactionId() % NUM_PREALLOCATION;
+  size_t tg_seq_id = std::hash<std::thread::id>()(std::this_thread::get_id()) % NUM_PREALLOCATION;
   // size_t tg_seq_id = 0;
   std::shared_ptr<storage::TileGroup> tile_group;
   oid_t tuple_slot = INVALID_OID;
@@ -662,11 +692,9 @@ void DataTable::ResetDirty() { dirty_ = false; }
 //===--------------------------------------------------------------------===//
 
 TileGroup *DataTable::GetTileGroupWithLayout(
-    const column_map_type &partitioning) {
+    const column_map_type &partitioning, oid_t tg_oid) {
   std::vector<catalog::Schema> schemas;
-  oid_t tile_group_id = INVALID_OID;
-
-  tile_group_id = catalog::Manager::GetInstance().GetNextOid();
+  oid_t tile_group_id = (tg_oid == INVALID_OID) ? catalog::Manager::GetInstance().GetNextTileGroupOid() : tg_oid;
 
   // Figure out the columns in each tile in new layout
   std::map<std::pair<oid_t, oid_t>, oid_t> tile_column_map;
