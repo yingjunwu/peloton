@@ -103,6 +103,7 @@ class TileGroupHeader : public Printable {
   //===--------------------------------------------------------------------===//
 
   // Getters
+  oid_t GetCapacity() const { return num_tuple_slots; }
 
   // DOUBLE CHECK: whether we need atomic load???
   // it is possible that some other transactions are modifying the txn_id,

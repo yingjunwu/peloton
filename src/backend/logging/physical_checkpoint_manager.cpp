@@ -97,7 +97,6 @@ namespace logging {
         if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer, tuple_size) == false) {
           LOG_ERROR("Unexpected file eof");
           // TODO: How to handle damaged log file?
-          return false;
         }
         
         CopySerializeInputBE record_decode((const void *) buffer, tuple_size);

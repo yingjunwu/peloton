@@ -76,14 +76,14 @@ namespace peloton {
         ts_thread_.reset(new std::thread(&LocalizedSnapshotEpochManager::Start, this));
       };
 
-      virtual void Reset() {
+      virtual void Reset(size_t begin_eid = START_EPOCH_ID) {
         finish_ = true;
         if (ts_thread_ != nullptr) {
           ts_thread_->join();
         }
         ts_thread_.reset(nullptr);
 
-        global_current_epoch_ = START_EPOCH_ID;
+        global_current_epoch_ = begin_eid;
         StartEpochManager();
       };
 

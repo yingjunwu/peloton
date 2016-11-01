@@ -106,6 +106,8 @@ class TileGroup : public Printable {
 
   oid_t GetAllocatedTupleCount() const { return num_tuple_slots; }
 
+  void SetAllocatedTupleCount(oid_t count) { num_tuple_slots = count; }
+
   TileGroupHeader *GetHeader() const { return tile_group_header; }
 
   void SetHeader(TileGroupHeader *header) { tile_group_header = header; }

@@ -15,8 +15,8 @@
 #include <algorithm>
 #include <dirent.h>
 #include <cstdio>
-#include <backend/gc/gc_manager_factory.h>
-#include <backend/concurrency/transaction_manager_factory.h>
+#include "backend/gc/gc_manager_factory.h"
+#include "backend/concurrency/transaction_manager_factory.h"
 
 #include "backend/catalog/manager.h"
 #include "backend/concurrency/epoch_manager_factory.h"
@@ -24,6 +24,7 @@
 #include "backend/logging/logging_util.h"
 #include "backend/storage/tile_group.h"
 #include "backend/storage/tile_group_header.h"
+#include "backend/storage/database.h"
 
 #include "backend/logging/physical_logger.h"
 
@@ -42,8 +43,17 @@ void PhysicalLogger::DeregisterWorker(WorkerContext *physical_worker_ctx) {
   worker_map_lock_.Unlock();
 }
 
+void PhysicalLogger::StartIndexRebulding(const size_t logger_count) {
+  PL_ASSERT(recovery_threads_.size() != 0);
+  recovery_threads_[0].reset(new std::thread(&PhysicalLogger::RunIndexRebuildThread, this, logger_count));
+}
 
-void PhysicalLogger::StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count) {
+void PhysicalLogger::WaitForIndexRebuilding() {
+  recovery_threads_[0]->join();
+}
+
+void PhysicalLogger::StartRecoverDataTables(const size_t checkpoint_eid, const size_t persist_eid,
+                                            const size_t recovery_thread_count) {
 
   GetSortedLogFileIdList(checkpoint_eid, persist_eid);
   printf("recovery_thread_count = %lu\n", recovery_thread_count);
@@ -309,6 +319,7 @@ bool PhysicalLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_hand
         current_cid = (cid_t) record_decode.ReadLong();
 
         if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+          // TODO: Do we really need this -- Jiexi
           concurrency::current_txn = new concurrency::Transaction(thread_id, current_cid);
         }
 
@@ -326,6 +337,7 @@ bool PhysicalLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_hand
         current_cid = INVALID_CID;
 
         if (current_eid >= checkpoint_eid && current_eid <= persist_eid) {
+          // TODO: Do we really need this -- Jiexi
           delete concurrency::current_txn;
           concurrency::current_txn = nullptr;
         }
@@ -408,9 +420,63 @@ void PhysicalLogger::RunRecoveryThread(const size_t thread_id, const size_t chec
       exit(EXIT_FAILURE);
     }
   }
+}
 
-  // TODO: Rebuild all indexes, reclaim garbages, add new tile group for every table
+void PhysicalLogger::RunIndexRebuildThread(const size_t logger_count) {
+  auto &manager = catalog::Manager::GetInstance();
+  auto db_count = manager.GetDatabaseCount();
 
+  // Loop all databases
+  for (oid_t db_idx = 0; db_idx < db_count; db_idx ++) {
+    auto database = manager.GetDatabase(db_idx);
+    auto table_count = database->GetTableCount();
+
+    // Loop all tables
+    for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+      // Get the target table
+      storage::DataTable *table = database->GetTable(table_idx);
+      RebuildIndexForTable(logger_count, table);
+    }
+  }
+}
+
+void PhysicalLogger::RebuildIndexForTable(const size_t logger_count, storage::DataTable *table) {
+  auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+  auto &gc_manager = gc::GCManagerFactory::GetInstance();
+
+  size_t tg_count = table->GetTileGroupCount();
+
+  std::function<bool(const void *)> fn =
+    std::bind(&concurrency::TransactionManager::IsOccupied,
+              &txn_manager, std::placeholders::_1);
+
+  // Loop all the tile groups, shared by thread id
+  for (size_t tg_idx = logger_id_; tg_idx < tg_count; tg_idx += logger_count) {
+    auto tg = table->GetTileGroup(tg_idx).get();
+    auto tg_header = tg->GetHeader();
+    auto tg_id = tg->GetTileGroupId();
+    // Loop all tuples headers in the tile group
+    oid_t tg_capacity = tg_header->GetCapacity();
+    for (oid_t tuple_offset = 0; tuple_offset < tg_capacity; ++tuple_offset) {
+      // Check if the tuple is valid
+      if (tg_header->GetTransactionId(tuple_offset) == INITIAL_TXN_ID) {
+        // Insert in into the index
+        expression::ContainerTuple<storage::TileGroup> container_tuple(tg, tuple_offset);
+        ItemPointer *itemptr = nullptr;
+
+        auto res = table->InsertInIndexes(&container_tuple, ItemPointer(tg_id, tuple_offset), &itemptr);
+        if (res == false) {
+          LOG_ERROR("Index constraint violation");
+        } else {
+          PL_ASSERT(itemptr != nullptr);
+          txn_manager.InitInsertedTupleForRecovery(tg_header, tuple_offset, itemptr);
+        }
+      } else {
+        // Invalid tuple, register it to the garbage collection manager
+        gc_manager.DirectRecycleTuple(table->GetOid(), ItemPointer(tg_id, tuple_offset));
+      }
+    }
+  }
 }
 
 

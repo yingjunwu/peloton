@@ -48,7 +48,7 @@ class EpochManager {
 
   virtual void StartEpochManager() = 0;
 
-  virtual void Reset() = 0;
+  virtual void Reset(size_t begin_eid = START_EPOCH_ID) = 0;
 
   static inline size_t GetEpochQueueCapacity() { return epoch_queue_size_; }
   static inline size_t GetEidFromCid(cid_t cid) {

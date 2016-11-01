@@ -95,6 +95,10 @@ void DataTable::PrepareTupleSlotForPhysicalRecovery(ItemPointer tuple_slot) {
       // Allocate the tile group with the id
       auto col_map = GetTileGroupLayout();
       tg = GetTileGroupWithLayout(col_map, tg_id);
+
+      // Set the tg's tuple count to MAX tuple count
+      tg->SetAllocatedTupleCount(tg->GetHeader()->GetCapacity());
+
       auto shared_tg = std::shared_ptr<TileGroup>(tg);
       manager.AddTileGroup(tg_id, shared_tg);
       size_t tg_seq_id = std::hash<std::thread::id>()(std::this_thread::get_id()) % NUM_PREALLOCATION;
@@ -418,8 +422,8 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
  * @returns True on success, false if a visible entry exists (in case of
  *primary/unique).
  */
-bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
-                                ItemPointer location, ItemPointer ** itempointer_ptr) {
+bool DataTable::InsertInIndexes(const AbstractTuple *tuple,
+                                ItemPointer location, ItemPointer **itempointer_ptr) {
   *itempointer_ptr = nullptr;
   ItemPointer *temp_ptr = nullptr;
 

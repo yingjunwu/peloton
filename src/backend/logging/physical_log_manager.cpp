@@ -167,13 +167,24 @@ void PhysicalLogManager::DoRecovery(const size_t &begin_eid){
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     LOG_TRACE("Start logger %d for recovery", (int) logger_id);
-    // TODO: properly set this two eid
-    loggers_[logger_id]->StartRecovery(begin_eid, end_eid, recovery_thread_per_logger);
+    loggers_[logger_id]->StartRecoverDataTables(begin_eid, end_eid, recovery_thread_per_logger);
   }
 
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     loggers_[logger_id]->WaitForRecovery();
   }
+
+  // Rebuild the index
+  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
+    loggers_[logger_id]->StartIndexRebulding(logger_count_);
+  }
+
+  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
+    loggers_[logger_id]->WaitForIndexRebuilding();
+  }
+
+  // Reset status of the epoch manager
+  concurrency::EpochManagerFactory::GetInstance().Reset(end_eid + 1);
 }
 
 void PhysicalLogManager::StartLoggers() {

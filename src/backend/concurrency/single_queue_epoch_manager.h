@@ -109,11 +109,11 @@ public:
     ts_thread_.reset(new std::thread(&SingleQueueEpochManager::Start, this));
   }
 
-  virtual void Reset() override {
+  virtual void Reset(size_t begin_eid = START_EPOCH_ID) override {
     finish_ = true;
     ts_thread_->join();
 
-    InitEpochQueue();
+    InitEpochQueue(begin_eid);
 
     finish_ = false;
     ts_thread_.reset(new std::thread(&SingleQueueEpochManager::Start, this));
@@ -229,7 +229,7 @@ private:
     }
   }
 
-  inline void InitEpochQueue() {
+  inline void InitEpochQueue(size_t begin_eid = START_EPOCH_ID) {
     for (size_t i = 0; i < epoch_queue_size_; ++i) {
       epoch_queue_[i].Init();
     }
@@ -238,7 +238,7 @@ private:
     reclaim_tail_token_ = true;
 
     // Propely init the significant epochs with safe interval
-    reclaim_tail_ = START_EPOCH_ID;
+    reclaim_tail_ = begin_eid;
     queue_tail_ = reclaim_tail_ + 1 + safety_interval_;
     current_epoch_id_ = queue_tail_ + 1 + safety_interval_;
   }

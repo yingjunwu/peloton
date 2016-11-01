@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <backend/concurrency/transaction_manager_factory.h>
 #include "backend/logging/phylog_checkpoint_manager.h"
 #include "backend/logging/logging_util.h"
 #include "backend/storage/database.h"
@@ -46,7 +47,6 @@ namespace logging {
         if (LoggingUtil::ReadNBytesFromFile(file_handle, (void *) buffer, tuple_size) == false) {
           LOG_ERROR("Unexpected file eof");
           // TODO: How to handle damaged log file?
-          return false;
         }
         
         CopySerializeInputBE record_decode((const void *) buffer, tuple_size);
@@ -75,11 +75,7 @@ namespace logging {
         tile_group_header->SetEndCommitId(location.offset, MAX_CID);
         tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
 
-        auto reserved_area = tile_group_header->GetReservedFieldRef(location.offset);
-
-        new ((reserved_area + 0)) Spinlock();
-        *(cid_t*)(reserved_area + 8) = 0;
-        *(reinterpret_cast<ItemPointer**>(reserved_area + 16)) = itemptr_ptr;
+        concurrency::TransactionManagerFactory::GetInstance().InitInsertedTupleForRecovery(tile_group_header, location.offset, itemptr_ptr);
 
       } // end while
 

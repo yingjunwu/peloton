@@ -55,8 +55,13 @@ public:
 
   ~PhysicalLogger() {}
 
-  void StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
+  void StartRecoverDataTables(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
+
+  void StartIndexRebulding(const size_t logger_count);
+
   void WaitForRecovery();
+
+  void WaitForIndexRebuilding();
 
   void StartLogging() {
     is_running_ = true;
@@ -90,6 +95,10 @@ private:
   void GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid);
 
   void RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid);
+
+  void RunIndexRebuildThread(const size_t logger_count);
+
+  void RebuildIndexForTable(const size_t logger_count, storage::DataTable *table);
 
   bool ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
   bool InstallTupleRecord(LogRecordType type, ItemPointer new_tuple_pos, ItemPointer old_tuple_pos,
