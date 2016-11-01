@@ -116,6 +116,8 @@ public:
 
   void RunPepochLogger();
 
+  virtual void DoCommandReplay(std::vector<ParamWrapper>& UNUSED_ATTRIBUTE) {}
+
 private:
   size_t RecoverPepoch();
   

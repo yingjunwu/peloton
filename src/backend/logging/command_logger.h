@@ -132,6 +132,7 @@ private:
 
     std::vector<ParamWrapper> param_wrappers_[40];
 
+  public:
     std::vector<ParamWrapper> ordered_param_wrappers_;
 
   };

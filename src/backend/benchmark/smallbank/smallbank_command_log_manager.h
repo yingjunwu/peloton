@@ -17,11 +17,6 @@
 
 
 namespace peloton {
-
-namespace logging {
-class SmallbankLogManager;
-}
-
 namespace benchmark {
 namespace smallbank {
 
@@ -63,6 +58,11 @@ public:
     for (size_t i = 0; i < logger_count_; ++i) {
       loggers_.emplace_back(new SmallbankCommandLogger(i, logging_dirs.at(i)));
     }
+  }
+
+
+  virtual void DoCommandReplay(std::vector<logging::ParamWrapper>& param_wrappers UNUSED_ATTRIBUTE) override {
+
   }
 
 };

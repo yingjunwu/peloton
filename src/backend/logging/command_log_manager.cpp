@@ -347,6 +347,9 @@ void CommandLogManager::DoRecovery(const size_t &begin_eid) {
     loggers_[logger_id]->WaitForRecovery();
   }
 
+  PL_ASSERT(logger_count_ == 1);
+
+  DoCommandReplay(loggers_[0]->ordered_param_wrappers_);
 }
 
 }

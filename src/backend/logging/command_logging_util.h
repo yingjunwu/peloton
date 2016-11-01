@@ -51,29 +51,29 @@ namespace logging {
 
   struct ParamWrapper {
     ParamWrapper() {
-      transaction_id_ = INVALID_TXN_ID;
+      txn_cid_ = INVALID_CID;
       transaction_type_ = INVALID_TRANSACTION_TYPE;
       param_ = nullptr;
       operation_set_ = nullptr;
     }
 
-    ParamWrapper(const cid_t transaction_id, const int transaction_type, TransactionParameter *param) {
-      transaction_id_ = transaction_id;
+    ParamWrapper(const cid_t txn_cid, const int transaction_type, TransactionParameter *param) {
+      txn_cid_ = txn_cid;
       transaction_type_ = transaction_type;
       param_ = param;
       operation_set_ = nullptr;
     }
 
-    ParamWrapper(const cid_t transaction_id, const int transaction_type, OperationSet *operation_set) {
+    ParamWrapper(const cid_t txn_cid, const int transaction_type, OperationSet *operation_set) {
       PL_ASSERT(transaction_type == INVALID_TRANSACTION_TYPE);
 
-      transaction_id_ = transaction_id;
+      txn_cid_ = txn_cid;
       transaction_type_ = transaction_type;
       param_ = nullptr;
       operation_set_ = operation_set;
     }
 
-    cid_t transaction_id_;
+    cid_t txn_cid_;
     int transaction_type_;
     TransactionParameter *param_;
     OperationSet *operation_set_;

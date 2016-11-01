@@ -62,6 +62,53 @@ void CommandLogger::WaitForRecovery() {
   for (auto &recovery_thread : recovery_threads_) {
     recovery_thread->join();
   }
+
+
+  // sort file here.
+  printf("start sorting files\n");
+  size_t recovery_thread_count = recovery_threads_.size();
+  
+  size_t *param_offsets = new size_t[recovery_thread_count];
+  size_t *param_counts = new size_t[recovery_thread_count];
+
+  size_t total_param_count = 0;
+  for (size_t i = 0; i < recovery_thread_count; ++i) {
+    param_offsets[i] = 0;
+
+    param_counts[i] = param_wrappers_[i].size();
+    total_param_count += param_wrappers_[i].size();
+  }
+  for (size_t i = 0; i < total_param_count; ++i) {
+    cid_t min_cid = MAX_CID;
+    size_t thread_id = SIZE_MAX;
+    ParamWrapper *wrapper_ptr = nullptr;
+
+    for (size_t j = 0; j < recovery_thread_count; ++j) {
+      if (param_offsets[j] == param_counts[j]) {
+        continue;
+      }
+      wrapper_ptr = &(param_wrappers_[j][param_offsets[j]]);
+      if (min_cid > wrapper_ptr->txn_cid_) {
+        min_cid = wrapper_ptr->txn_cid_;
+        thread_id = j;
+      } else {
+        PL_ASSERT(min_cid != wrapper_ptr->txn_cid_);
+      }
+    }
+
+    PL_ASSERT(thread_id != SIZE_MAX);
+    
+    ordered_param_wrappers_.push_back(*wrapper_ptr);
+
+    param_offsets[thread_id] += 1;
+
+  }
+
+  delete[] param_counts;
+  param_counts = nullptr;
+  
+  delete[] param_offsets;
+  param_offsets = nullptr;
 }
 
 void CommandLogger::GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid) {
@@ -330,6 +377,7 @@ void CommandLogger::RunRecoveryThread(const size_t thread_id, const size_t check
     }
 
   }
+
 }
 
 
