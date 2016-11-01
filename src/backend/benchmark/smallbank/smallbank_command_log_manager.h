@@ -60,9 +60,55 @@ public:
     }
   }
 
+  virtual void DoCommandReplay(std::vector<logging::ParamWrapper>& param_wrappers) override {
 
-  virtual void DoCommandReplay(std::vector<logging::ParamWrapper>& param_wrappers UNUSED_ATTRIBUTE) override {
+    AmalgamatePlans amalgamate_plans = PrepareAmalgamatePlan();
+    BalancePlans balance_plans = PrepareBalancePlan();
+    DepositCheckingPlans deposit_checking_plans = PrepareDepositCheckingPlan();
+    TransactSavingPlans transact_saving_plans = PrepareTransactSavingPlan();
+    WriteCheckPlans write_check_plans = PrepareWriteCheckPlan();
 
+    for (auto &entry : param_wrappers) {
+      if (entry.transaction_type_ == SMALLBANK_TRANSACTION_TYPE_AMALGAMATE) {
+        bool rt = RunAmalgamate(amalgamate_plans, *(AmalgamateParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run amalgamate failed!");
+          PL_ASSERT(false);
+        }
+
+      } else if (entry.transaction_type_ == SMALLBANK_TRANSACTION_TYPE_BALANCE) {
+        bool rt = RunBalance(balance_plans, *(BalanceParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run balance failed!");
+          PL_ASSERT(false);
+        }
+
+      } else if (entry.transaction_type_ == SMALLBANK_TRANSACTION_TYPE_DEPOSIT_CHECKING) {
+        bool rt = RunDepositChecking(deposit_checking_plans, *(DepositCheckingParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run deposit checking failed!");
+          PL_ASSERT(false);
+        }
+
+      } else if (entry.transaction_type_ == SMALLBANK_TRANSACTION_TYPE_TRANSACT_SAVING) {
+        bool rt = RunTransactSaving(transact_saving_plans, *(TransactSavingParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run transact saving failed!");
+          PL_ASSERT(false);
+        }
+
+      } else if (entry.transaction_type_ == SMALLBANK_TRANSACTION_TYPE_WRITE_CHECK) {
+        bool rt = RunWriteCheck(write_check_plans, *(WriteCheckParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run write check failed!");
+          PL_ASSERT(false);
+        }
+
+      } else {
+        PL_ASSERT(false);
+      }
+
+    }
   }
 
 };

@@ -87,6 +87,9 @@ namespace peloton {
         StartEpochManager();
       };
 
+      virtual void SetCurrentEpochId(size_t epoch_id) {
+        global_current_epoch_ = epoch_id + 1;
+      }
 
       virtual size_t GetCurrentEpochId() {
         return global_current_epoch_.load();

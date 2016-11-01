@@ -371,6 +371,15 @@ bool RunWriteCheck(WriteCheckPlans &write_check_plans, WriteCheckParams &params,
   // transaction passed execution.
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
+  if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    if (is_adhoc == false) {
+      txn->SetTransactionType(SMALLBANK_TRANSACTION_TYPE_WRITE_CHECK);
+      txn->SetTransactionParam(&params);
+    } else {
+      txn->SetTransactionType(INVALID_TRANSACTION_TYPE);
+    }
+  }
+
   /////////////////////////////////////////////////////////
   // TRANSACTION COMMIT
   /////////////////////////////////////////////////////////

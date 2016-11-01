@@ -67,6 +67,8 @@ class EpochManager {
     return epoch_duration_millisec_;
   }
 
+  virtual void SetCurrentEpochId(size_t epoch_id UNUSED_ATTRIBUTE) {}
+
   virtual size_t GetCurrentEpochId() = 0;
 
   // Get a eid that is larger than all the running transactions

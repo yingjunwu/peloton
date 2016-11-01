@@ -74,6 +74,13 @@ namespace logging {
         tile_group_header->SetBeginCommitId(location.offset, current_cid);
         tile_group_header->SetEndCommitId(location.offset, MAX_CID);
         tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
+
+        auto reserved_area = tile_group_header->GetReservedFieldRef(location.offset);
+
+        new ((reserved_area + 0)) Spinlock();
+        *(cid_t*)(reserved_area + 8) = 0;
+        *(reinterpret_cast<ItemPointer**>(reserved_area + 16)) = itemptr_ptr;
+
       } // end while
 
       delete[] buffer;

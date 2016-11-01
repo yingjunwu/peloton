@@ -318,6 +318,15 @@ bool RunBalance(BalancePlans &balance_plans, BalanceParams &params, UNUSED_ATTRI
   // transaction passed execution.
   assert(txn->GetResult() == Result::RESULT_SUCCESS);
 
+  if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    if (is_adhoc == false) {
+      txn->SetTransactionType(SMALLBANK_TRANSACTION_TYPE_BALANCE);
+      txn->SetTransactionParam(&params);
+    } else {
+      txn->SetTransactionType(INVALID_TRANSACTION_TYPE);
+    }
+  }
+
   /////////////////////////////////////////////////////////
   // TRANSACTION COMMIT
   /////////////////////////////////////////////////////////

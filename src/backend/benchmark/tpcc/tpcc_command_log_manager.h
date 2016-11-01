@@ -60,9 +60,38 @@ public:
     }
   }
 
+  virtual void DoCommandReplay(std::vector<logging::ParamWrapper>& param_wrappers) override {
 
-  virtual void DoCommandReplay(std::vector<logging::ParamWrapper>& param_wrappers UNUSED_ATTRIBUTE) override {
+    NewOrderPlans new_order_plans = PrepareNewOrderPlan();
+    PaymentPlans payment_plans = PreparePaymentPlan();
+    DeliveryPlans delivery_plans = PrepareDeliveryPlan();
 
+    for (auto &entry : param_wrappers) {
+      if (entry.transaction_type_ == TPCC_TRANSACTION_TYPE_DELIVERY) {
+        bool rt = RunDelivery(delivery_plans, *(DeliveryParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run delivery failed!");
+          PL_ASSERT(false);
+        }
+      } else if (entry.transaction_type_ == TPCC_TRANSACTION_TYPE_PAYMENT) {
+        bool rt = RunPayment(payment_plans, *(PaymentParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run payment failed!");
+          PL_ASSERT(false);
+        }
+
+      } else if (entry.transaction_type_ == TPCC_TRANSACTION_TYPE_NEW_ORDER) {
+        bool rt = RunNewOrder(new_order_plans, *(NewOrderParams*)(entry.param_), false);
+        if (rt != true) {
+          LOG_ERROR("run new order failed!");
+          PL_ASSERT(false);
+        }
+
+      } else {
+        PL_ASSERT(false);
+      }
+
+    }
   }
 
 };

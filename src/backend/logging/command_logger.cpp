@@ -78,18 +78,20 @@ void CommandLogger::WaitForRecovery() {
     param_counts[i] = param_wrappers_[i].size();
     total_param_count += param_wrappers_[i].size();
   }
+
   for (size_t i = 0; i < total_param_count; ++i) {
     cid_t min_cid = MAX_CID;
     size_t thread_id = SIZE_MAX;
-    ParamWrapper *wrapper_ptr = nullptr;
+    ParamWrapper *min_wrapper_ptr = nullptr;
 
     for (size_t j = 0; j < recovery_thread_count; ++j) {
       if (param_offsets[j] == param_counts[j]) {
         continue;
       }
-      wrapper_ptr = &(param_wrappers_[j][param_offsets[j]]);
+      ParamWrapper *wrapper_ptr = &(param_wrappers_[j][param_offsets[j]]);
       if (min_cid > wrapper_ptr->txn_cid_) {
         min_cid = wrapper_ptr->txn_cid_;
+        min_wrapper_ptr = wrapper_ptr;
         thread_id = j;
       } else {
         PL_ASSERT(min_cid != wrapper_ptr->txn_cid_);
@@ -98,7 +100,7 @@ void CommandLogger::WaitForRecovery() {
 
     PL_ASSERT(thread_id != SIZE_MAX);
     
-    ordered_param_wrappers_.push_back(*wrapper_ptr);
+    ordered_param_wrappers_.push_back(*min_wrapper_ptr);
 
     param_offsets[thread_id] += 1;
 

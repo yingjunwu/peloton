@@ -99,10 +99,24 @@ void RunBenchmark() {
       log_timer.Start();
 
       if (state.logging_type == LOGGING_TYPE_COMMAND) {
+
         auto &log_manager = TpccCommandLogManager::GetInstance();
         log_manager.SetDirectories(state.log_directories);
         log_manager.SetRecoveryThreadCount(state.replay_log_num);
 
+        //////
+        auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+
+        epoch_manager.SetCurrentEpochId(persist_checkpoint_eid);
+        
+        gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
+        concurrency::TransactionManagerFactory::Configure(state.protocol);
+        index::IndexFactory::Configure(state.sindex);
+        epoch_manager.RegisterTxnWorker(false);
+
+        logging::DurabilityFactory::Configure(LOGGING_TYPE_INVALID, CHECKPOINT_TYPE_INVALID, TIMER_OFF);
+        //////
+        
         log_manager.DoRecovery(persist_checkpoint_eid);
 
       } else {
