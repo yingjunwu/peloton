@@ -39,6 +39,12 @@ class DataTable;
 namespace benchmark {
 namespace smallbank {
 
+#define SMALLBANK_TRANSACTION_TYPE_AMALGAMATE            0
+#define SMALLBANK_TRANSACTION_TYPE_BALANCE               1
+#define SMALLBANK_TRANSACTION_TYPE_DEPOSIT_CHECKING      2
+#define SMALLBANK_TRANSACTION_TYPE_TRANSACT_SAVING       3
+#define SMALLBANK_TRANSACTION_TYPE_WRITE_CHECK           4
+
 extern configuration state;
 
 void RunWorkload();

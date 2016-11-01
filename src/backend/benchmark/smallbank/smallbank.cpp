@@ -23,7 +23,7 @@
 #include "backend/logging/durability_factory.h"
 
 #include "backend/common/logger.h"
-//#include "backend/benchmark/smallbank/smallbank_command_log_manager.h"
+#include "backend/benchmark/smallbank/smallbank_command_log_manager.h"
 
 namespace peloton {
 namespace benchmark {
@@ -53,11 +53,11 @@ void RunBenchmark() {
     logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
     
     if (state.logging_type == LOGGING_TYPE_COMMAND) {
-      // auto &log_manager = SmallbankCommandLogManager::GetInstance();
-      // log_manager.SetDirectories(state.log_directories);
-      // log_manager.SetRecoveryThreadCount(state.replay_log_num);
+      auto &log_manager = SmallbankCommandLogManager::GetInstance();
+      log_manager.SetDirectories(state.log_directories);
+      log_manager.SetRecoveryThreadCount(state.replay_log_num);
 
-      // log_manager.DoRecovery(0);
+      log_manager.DoRecovery(0);
 
     } else {
       auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
@@ -99,11 +99,11 @@ void RunBenchmark() {
       log_timer.Start();
 
       if (state.logging_type == LOGGING_TYPE_COMMAND) {
-        // auto &log_manager = SmallbankCommandLogManager::GetInstance();
-        // log_manager.SetDirectories(state.log_directories);
-        // log_manager.SetRecoveryThreadCount(state.replay_log_num);
+        auto &log_manager = SmallbankCommandLogManager::GetInstance();
+        log_manager.SetDirectories(state.log_directories);
+        log_manager.SetRecoveryThreadCount(state.replay_log_num);
 
-        // log_manager.DoRecovery(0);
+        log_manager.DoRecovery(persist_checkpoint_eid);
 
       } else {
         auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
