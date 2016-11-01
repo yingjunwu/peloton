@@ -101,8 +101,8 @@ public:
   virtual void DeregisterWorker() override;
 
   void LogInsert(const ItemPointer &tuple_pos);
-  void LogUpdate(const ItemPointer &tuple_pos);
-  void LogDelete(const ItemPointer &tuple_pos_deleted);
+  void LogUpdate(const ItemPointer &tuple_pos, const ItemPointer &old_pos);
+  void LogDelete(const ItemPointer &tuple_pos, const ItemPointer &old_pos);
 
   void StartPersistTxn();
   void EndPersistTxn();
@@ -119,6 +119,7 @@ public:
 private:
 
   void WriteRecordToBuffer(LogRecord &record);
+  size_t RecoverPepoch();
 
 private:
   std::atomic<oid_t> worker_count_;
