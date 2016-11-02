@@ -42,6 +42,7 @@ void PhysicalLogManager::DeregisterWorker() {
   size_t logger_id = HashToLogger(tl_worker_ctx->worker_id);
 
   loggers_[logger_id]->DeregisterWorker(tl_worker_ctx);
+  tl_worker_ctx = nullptr;
 }
 
 void PhysicalLogManager::WriteRecordToBuffer(LogRecord &record) {

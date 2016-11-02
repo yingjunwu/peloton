@@ -75,6 +75,8 @@ public:
   virtual ~CommandLogManager() {}
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) override {
+    logger_dirs_ = logging_dirs;
+
     if (logging_dirs.size() > 0) {
       pepoch_dir_ = logging_dirs.at(0);
     }
@@ -94,6 +96,10 @@ public:
     for (size_t i = 0; i < logger_count_; ++i) {
       loggers_.emplace_back(new CommandLogger(i, logging_dirs.at(i)));
     }
+  }
+
+  virtual const std::vector<std::string> &GetDirectories() override {
+    return logger_dirs_;
   }
 
   // Worker side logic
@@ -131,6 +137,8 @@ protected:
   std::atomic<oid_t> worker_count_;
 
   std::vector<std::shared_ptr<CommandLogger>> loggers_;
+
+  std::vector<std::string> logger_dirs_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;

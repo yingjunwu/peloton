@@ -124,7 +124,7 @@ namespace gc {
 
     void StopGC(int thread_id) {
       if (this->gc_threads_[thread_id] == nullptr) {
-        return;;
+        return;
       }
       this->is_running_ = false;
       this->gc_threads_[thread_id]->join();

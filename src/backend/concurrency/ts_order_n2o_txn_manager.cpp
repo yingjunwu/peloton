@@ -216,6 +216,7 @@ bool TsOrderN2OTxnManager::PerformRead(const ItemPointer &location) {
   oid_t tile_group_id = location.block;
   oid_t tuple_id = location.offset;
 
+
   LOG_TRACE("PerformRead (%u, %u)\n", location.block, location.offset);
   auto &manager = catalog::Manager::GetInstance();
   auto tile_group = manager.GetTileGroup(tile_group_id);

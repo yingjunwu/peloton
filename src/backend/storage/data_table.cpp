@@ -91,7 +91,7 @@ void DataTable::PrepareTupleSlotForPhysicalRecovery(ItemPointer tuple_slot) {
     tile_group_lock_.WriteLock();
     tg = manager.TryGetTileGroup(tg_id).get();
     // Double check after we get the lock
-    if (tg != nullptr) {
+    if (tg == nullptr) {
       // Allocate the tile group with the id
       auto col_map = GetTileGroupLayout();
       tg = GetTileGroupWithLayout(col_map, tg_id);

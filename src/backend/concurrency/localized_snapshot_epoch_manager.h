@@ -83,6 +83,13 @@ namespace peloton {
         }
         ts_thread_.reset(nullptr);
 
+        txnid_generator_ = 0;
+        worker_id_generator_ = 0;
+        auto max_worker_count = worker_current_epoch_ctxs_.size();
+        worker_current_epoch_ctxs_ = std::vector<EpochIdCacheLineHolder>(max_worker_count);
+        ro_worker_current_epoch_ctxs_ = std::vector<EpochIdCacheLineHolder>(max_worker_count);
+
+        // TODO: Check if after recovery we need to adjust the start eid for snapshots -- Jiexi
         global_current_epoch_ = begin_eid;
         StartEpochManager();
       };

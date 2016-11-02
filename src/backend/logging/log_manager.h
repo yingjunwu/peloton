@@ -40,6 +40,8 @@ public:
 
   virtual void SetDirectories(const std::vector<std::string> &logging_dirs) = 0;
 
+  virtual const std::vector<std::string> &GetDirectories() = 0;
+
   void SetRecoveryThreadCount(const size_t &recovery_thread_count) {
     recovery_thread_count_ = recovery_thread_count;
   }
