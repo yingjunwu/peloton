@@ -71,11 +71,11 @@ namespace logging {
         }
         auto tile_group_header = catalog::Manager::GetInstance().GetTileGroup(location.block)->GetHeader();
 
+        concurrency::TransactionManagerFactory::GetInstance().InitInsertedTupleForRecovery(tile_group_header, location.offset, itemptr_ptr);
+
         tile_group_header->SetBeginCommitId(location.offset, current_cid);
         tile_group_header->SetEndCommitId(location.offset, MAX_CID);
         tile_group_header->SetTransactionId(location.offset, INITIAL_TXN_ID);
-
-        concurrency::TransactionManagerFactory::GetInstance().InitInsertedTupleForRecovery(tile_group_header, location.offset, itemptr_ptr);
 
       } // end while
 
