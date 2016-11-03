@@ -206,6 +206,12 @@ namespace logging {
       std::this_thread::sleep_for(std::chrono::seconds(1));
       ++count;
       if (count == checkpoint_interval_ || is_init == true) {
+
+        LOG_INFO("start performing checkpoint...");
+
+        Timer<std::milli> checkpoint_timer;
+        checkpoint_timer.Start();
+        
         is_init = false;
         // first of all, we should get a snapshot txn id.
         auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
@@ -271,12 +277,17 @@ namespace logging {
         LoggingUtil::FFlushFsync(file_handle);
     
         count = 0;
+
+    
+        checkpoint_timer.Stop();
+    
+        LOG_INFO("checkpoint duration: %lf ms", checkpoint_timer.GetDuration());
       }
     }
   }
 
   void CheckpointManager::PerformCheckpoint(const cid_t &begin_cid, const std::vector<std::vector<size_t>> &database_structures) {
-    std::cout<<"perform checkpoint..."<<std::endl;
+    
     size_t epoch_id = begin_cid >> 32;
 
     // creating files
