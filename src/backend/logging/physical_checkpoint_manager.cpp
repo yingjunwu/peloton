@@ -104,14 +104,20 @@ namespace logging {
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
         tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
         
+        target_table->PrepareTupleSlotForPhysicalRecovery(item_pointer);
+
         auto &manager = catalog::Manager::GetInstance();
         auto tile_group = manager.GetTileGroup(item_pointer.block);
         auto tile_group_header = tile_group->GetHeader();
 
-        tile_group->InsertTupleFromCheckpoint(item_pointer.offset, tuple.get());
+        // Copy the tuple content
+        tile_group->CopyTuple(tuple.get(), item_pointer.offset);
 
-        ItemPointer *itemptr_ptr = nullptr;
-        target_table->InsertTupleFromCheckpoint(item_pointer, tuple.get(), &itemptr_ptr);
+        // tile_group->InsertTupleFromCheckpoint(item_pointer.offset, tuple.get());
+
+        // ItemPointer *itemptr_ptr = nullptr;
+        // target_table->InsertTupleFromCheckpoint(item_pointer, tuple.get(), &itemptr_ptr);
+
         tile_group_header->SetBeginCommitId(item_pointer.offset, current_cid);
         tile_group_header->SetEndCommitId(item_pointer.offset, MAX_CID);
         tile_group_header->SetTransactionId(item_pointer.offset, INITIAL_TXN_ID);

@@ -125,7 +125,7 @@ namespace logging {
     }
 
     // before parallel recovery, we may need to prepare tables.
-    PrepareTables(database_structures);
+    // PrepareTables(database_structures);
 
     /////////////////////////////////////////////////////////////////////
     // after obtaining the database structures, we can start recovering checkpoints in parallel.
