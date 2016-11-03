@@ -26,6 +26,7 @@ void Usage(FILE *out) {
   fprintf(out,
           "Command line options : tpcc <options> \n"
           "   -h --help              :  Print help message \n"
+          "   -l --load              :  # of loading threads\n"
           "   -i --index             :  index type could be hash index or bwtree\n"
           "   -k --scale_factor      :  scale factor \n"
           "   -d --duration          :  execution duration \n"
@@ -64,6 +65,7 @@ void Usage(FILE *out) {
 
 static struct option opts[] = {
   { "scale_factor", optional_argument, NULL, 'k'},
+  { "load", optional_argument, NULL, 'l'},
   { "index", optional_argument, NULL, 'i'},
   { "duration", optional_argument, NULL, 'd' },
   { "snapshot_duration", optional_argument, NULL, 's'},
@@ -295,15 +297,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.normal_txn_for_scan = false;
   state.mock_sleep_millisec = 0;
   state.adhoc_ratio = 0;
+  state.load = 1;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPaenh:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:A:J", opts, &idx);
+    int c = getopt_long(argc, argv, "RPaenh:l:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:A:J", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'l':
+        state.load = atoi(optarg);
+        break;
       case 'A':
         state.adhoc_ratio = atof(optarg);
         break;

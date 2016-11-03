@@ -119,9 +119,6 @@ const std::string data_constant = std::string("FOO");
 NURandConstant nu_rand_const;
 
 
-const int loading_thread_count = 4;
-
-
 /////////////////////////////////////////////////////////
 // Create the tables
 /////////////////////////////////////////////////////////
@@ -666,24 +663,24 @@ void CreateCustomerTable() {
 
   
   // Secondary index on C_W_ID, C_D_ID, C_LAST
-  key_attrs = {1, 2, 5};
-  key_schema = catalog::Schema::CopySchema(tuple_schema, key_attrs);
-  key_schema->SetIndexedColumns(key_attrs);
+  // key_attrs = {1, 2, 5};
+  // key_schema = catalog::Schema::CopySchema(tuple_schema, key_attrs);
+  // key_schema->SetIndexedColumns(key_attrs);
 
-  index_metadata = new index::IndexMetadata(
-    "customer_skey", customer_table_skey_index_oid, GetSKeyIndexType(),
-    INDEX_CONSTRAINT_TYPE_INVALID, tuple_schema, key_schema, false);
+  // index_metadata = new index::IndexMetadata(
+  //   "customer_skey", customer_table_skey_index_oid, GetSKeyIndexType(),
+  //   INDEX_CONSTRAINT_TYPE_INVALID, tuple_schema, key_schema, false);
 
-  index::Index *skey_index = nullptr;
+  // index::Index *skey_index = nullptr;
 
-  if (GetSKeyIndexType() == INDEX_TYPE_HASH) {
-    // no one will update the column that is indexed in customer table.
-    skey_index = index::IndexFactory::GetInstance(index_metadata, state.warehouse_count * state.districts_per_warehouse * state.customers_per_district);
-  } else {
-    skey_index = index::IndexFactory::GetInstance(index_metadata);
-  }
+  // if (GetSKeyIndexType() == INDEX_TYPE_HASH) {
+  //   // no one will update the column that is indexed in customer table.
+  //   skey_index = index::IndexFactory::GetInstance(index_metadata, state.warehouse_count * state.districts_per_warehouse * state.customers_per_district);
+  // } else {
+  //   skey_index = index::IndexFactory::GetInstance(index_metadata);
+  // }
 
-  customer_table->AddIndex(skey_index);
+  // customer_table->AddIndex(skey_index);
 
 }
 
@@ -1800,11 +1797,12 @@ void LoadTPCCDatabase() {
   start_time = std::chrono::steady_clock::now();
   LoadItems();
 
+  // expired. load database using a single thread.
   // for (auto warehouse_itr = 0; warehouse_itr < state.warehouse_count; warehouse_itr++) {
   //   LoadWarehouses(warehouse_itr);
   // }
 
-  if (state.warehouse_count < loading_thread_count) {
+  if (state.warehouse_count < state.load) {
     std::vector<std::unique_ptr<std::thread>> load_threads(state.warehouse_count);
     for (int thread_id = 0; thread_id < state.warehouse_count; ++thread_id) {
       int warehouse_from = thread_id;
@@ -1817,19 +1815,19 @@ void LoadTPCCDatabase() {
     }
 
   } else {
-    std::vector<std::unique_ptr<std::thread>> load_threads(loading_thread_count);
-    int warehouse_per_thread = state.warehouse_count / loading_thread_count;
-    for (int thread_id = 0; thread_id < loading_thread_count - 1; ++thread_id) {
+    std::vector<std::unique_ptr<std::thread>> load_threads(state.load);
+    int warehouse_per_thread = state.warehouse_count / state.load;
+    for (int thread_id = 0; thread_id < state.load - 1; ++thread_id) {
       int warehouse_from = warehouse_per_thread * thread_id;
       int warehouse_to = warehouse_per_thread * (thread_id + 1);
       load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
     }
-    int thread_id = loading_thread_count - 1;
+    int thread_id = state.load - 1;
     int warehouse_from = warehouse_per_thread * thread_id;
     int warehouse_to = state.warehouse_count;
     load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
 
-    for (auto thread_id = 0; thread_id < loading_thread_count; ++thread_id) {
+    for (auto thread_id = 0; thread_id < state.load; ++thread_id) {
       load_threads[thread_id]->join();
     }
   }

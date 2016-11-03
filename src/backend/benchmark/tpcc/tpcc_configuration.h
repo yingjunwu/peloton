@@ -77,6 +77,8 @@ class configuration {
 
   int order_range;
 
+  int load;
+
   // execution duration
   double duration;
 
