@@ -129,6 +129,11 @@ namespace logging {
 
     /////////////////////////////////////////////////////////////////////
     // after obtaining the database structures, we can start recovering checkpoints in parallel.
+    recovery_pools_.resize(recovery_thread_count_);
+    for (size_t i = 0; i < recovery_thread_count_; ++i) {
+      recovery_pools_[i].reset(new VarlenPool(BACKEND_TYPE_MM)); 
+    }
+    
     std::vector<std::unique_ptr<std::thread>> recovery_threads;
     recovery_threads.resize(recovery_thread_count_);
     for (size_t i = 0; i < recovery_thread_count_; ++i) {

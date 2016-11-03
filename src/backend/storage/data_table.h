@@ -149,13 +149,13 @@ class DataTable : public AbstractTable {
   // STATS
   //===--------------------------------------------------------------------===//
 
-  void IncreaseNumberOfTuplesBy(const float &amount);
+  void IncreaseNumberOfTuplesBy(const size_t &amount);
 
-  void DecreaseNumberOfTuplesBy(const float &amount);
+  void DecreaseNumberOfTuplesBy(const size_t &amount);
 
-  void SetNumberOfTuples(const float &num_tuples);
+  void SetNumberOfTuples(const size_t &num_tuples);
 
-  float GetNumberOfTuples() const;
+  size_t GetNumberOfTuples() const;
 
   bool IsDirty() const;
 
@@ -242,7 +242,7 @@ class DataTable : public AbstractTable {
   std::atomic<oid_t> unique_constraint_count_ = ATOMIC_VAR_INIT(START_OID);
 
   // # of tuples
-  float number_of_tuples_ = 0.0;
+  std::atomic<size_t> number_of_tuples_ = ATOMIC_VAR_INIT(0);
 
   // dirty flag
   bool dirty_ = false;

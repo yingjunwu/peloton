@@ -44,8 +44,7 @@ class CheckpointManager {
 public:
   CheckpointManager() : 
     is_running_(false), 
-    checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL),
-    recovery_pool_(new VarlenPool(BACKEND_TYPE_MM)) {
+    checkpoint_interval_(DEFAULT_CHECKPOINT_INTERVAL) {
     recovery_thread_count_ = 1;
     // max_checkpointer_count_ = std::thread::hardware_concurrency() / 2;
     max_checkpointer_count_ = 10;
@@ -139,7 +138,7 @@ protected:
 
   CopySerializeOutput ckpt_pepoch_buffer_;
 
-  std::unique_ptr<VarlenPool> recovery_pool_;
+  std::vector<std::unique_ptr<VarlenPool>> recovery_pools_;
 };
 
 }

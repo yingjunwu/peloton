@@ -651,8 +651,8 @@ bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
  * @brief Increase the number of tuples in this table
  * @param amount amount to increase
  */
-void DataTable::IncreaseNumberOfTuplesBy(const float &amount) {
-  number_of_tuples_ += amount;
+void DataTable::IncreaseNumberOfTuplesBy(const size_t &amount) {
+  number_of_tuples_.fetch_add(amount);
   dirty_ = true;
 }
 
@@ -660,8 +660,8 @@ void DataTable::IncreaseNumberOfTuplesBy(const float &amount) {
  * @brief Decrease the number of tuples in this table
  * @param amount amount to decrease
  */
-void DataTable::DecreaseNumberOfTuplesBy(const float &amount) {
-  number_of_tuples_ -= amount;
+void DataTable::DecreaseNumberOfTuplesBy(const size_t &amount) {
+  number_of_tuples_.fetch_sub(amount);
   dirty_ = true;
 }
 
@@ -669,7 +669,7 @@ void DataTable::DecreaseNumberOfTuplesBy(const float &amount) {
  * @brief Set the number of tuples in this table
  * @param num_tuples number of tuples
  */
-void DataTable::SetNumberOfTuples(const float &num_tuples) {
+void DataTable::SetNumberOfTuples(const size_t &num_tuples) {
   number_of_tuples_ = num_tuples;
   dirty_ = true;
 }
@@ -678,7 +678,7 @@ void DataTable::SetNumberOfTuples(const float &num_tuples) {
  * @brief Get the number of tuples in this table
  * @return number of tuples
  */
-float DataTable::GetNumberOfTuples() const { return number_of_tuples_; }
+size_t DataTable::GetNumberOfTuples() const { return number_of_tuples_; }
 
 /**
  * @brief return dirty flag

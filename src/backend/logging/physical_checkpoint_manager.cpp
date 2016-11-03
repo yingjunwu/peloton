@@ -102,7 +102,7 @@ namespace logging {
         CopySerializeInputBE record_decode((const void *) buffer, tuple_size);
 
         std::unique_ptr<storage::Tuple> tuple(new storage::Tuple(schema, true));
-        tuple->DeserializeFrom(record_decode, this->recovery_pool_.get());
+        tuple->DeserializeFrom(record_decode, this->recovery_pools_[thread_id].get());
         
         target_table->PrepareTupleSlotForPhysicalRecovery(item_pointer);
 
