@@ -171,7 +171,7 @@ namespace peloton {
           size_t head = global_current_epoch_.load();
 
           if (head - tail >= GetEpochQueueCapacity()) {
-            LOG_ERROR("Epoch queue over flow");
+            LOG_ERROR("Epoch queue overflow");
           } else {
             global_current_epoch_++;
           }
