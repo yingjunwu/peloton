@@ -289,7 +289,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.checkpoint_interval = 30;
   state.timer_type = TIMER_OFF;
   state.disable_insert = false;
-  state.epoch_type = EPOCH_SINGLE_QUEUE;
+  state.epoch_type = EPOCH_LOCALIZED;
   state.recover_checkpoint = false;
   state.replay_log = false;
   state.recover_checkpoint_num = 1;
@@ -373,6 +373,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.epoch_type = EPOCH_SINGLE_QUEUE;
         } else if (strcmp(epoch_type, "local") == 0) {
           state.epoch_type = EPOCH_LOCALIZED;
+        } else if (strcmp(epoch_type, "localsnapshot") == 0) {
+          state.epoch_type = EPOCH_LOCALIZED_SNAPSHOT;
         } else {
           fprintf(stderr, "\nUnknown epoch protocol: %s\n", epoch_type);
           exit(EXIT_FAILURE);
