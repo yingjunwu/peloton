@@ -492,13 +492,22 @@ void RunWorkload() {
     if (round_id != 0) {
       state.snapshot_memory.push_back(current_tile_group_id - last_tile_group_id);
       // Get the latency of thread 0
-      state.snapshot_latency.push_back(log_worker_ctxs[0]->txn_summary.GetRecentAvgLatency());
+
+      if (logging::DurabilityFactory::GetLoggingType() != LOGGING_TYPE_INVALID) {
+        state.snapshot_latency.push_back(log_worker_ctxs[0]->txn_summary.GetRecentAvgLatency());
+      } else {
+        state.snapshot_latency.push_back(0);        
+      }
     }
     last_tile_group_id = current_tile_group_id;
   }
   state.snapshot_memory.push_back(state.snapshot_memory.at(state.snapshot_memory.size() - 1));
   // Get the latency of thread 0
-  state.snapshot_latency.push_back(state.snapshot_latency.back());
+  if (logging::DurabilityFactory::GetLoggingType() != LOGGING_TYPE_INVALID) {
+    state.snapshot_latency.push_back(state.snapshot_latency.back());
+  } else {
+    state.snapshot_latency.push_back(0);    
+  }
 
   is_running = false;
 
