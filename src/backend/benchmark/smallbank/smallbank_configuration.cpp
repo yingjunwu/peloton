@@ -242,7 +242,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.backend_count = 1;
   state.run_backoff = false;
   state.protocol = CONCURRENCY_TYPE_TO_N2O;
-  state.gc_protocol = GC_TYPE_OFF;
+  state.gc_protocol = GC_TYPE_N2O_TXN;
   state.index = INDEX_TYPE_HASH;
   state.gc_thread_count = 1;
   state.sindex = SECONDARY_INDEX_TYPE_TUPLE;
