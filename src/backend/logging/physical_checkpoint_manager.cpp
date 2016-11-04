@@ -195,6 +195,10 @@ namespace logging {
 
         } // end if isvisible
       }   // end for
+
+      // Call fsync
+      LoggingUtil::FFlushFsync(file_handle);
+
     }     // end while
     
   }

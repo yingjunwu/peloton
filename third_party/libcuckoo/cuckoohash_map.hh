@@ -152,8 +152,9 @@ private:
 
     // number of cores on the machine
     static size_t kNumCores() {
-        static size_t cores = std::thread::hardware_concurrency() == 0 ?
-            sysconf(_SC_NPROCESSORS_ONLN) : std::thread::hardware_concurrency();
+        //static size_t cores = std::thread::hardware_concurrency() == 0 ?
+        //    sysconf(_SC_NPROCESSORS_ONLN) : std::thread::hardware_concurrency();
+        static size_t cores = std::thread::hardware_concurrency() / 4;
         return cores;
     }
 
