@@ -603,6 +603,26 @@ void WriteOutput() {
   } else {
     out << "sindex=tuple ";
   }
+  if (state.logging_type == LOGGING_TYPE_INVALID) {
+    out << "log=off ";
+  } else if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    out << "log=command ";
+  } else if (state.logging_type == LOGGING_TYPE_PHYSICAL) {
+    out << "log=physical ";
+  } else if (state.logging_type == LOGGING_TYPE_PHYLOG) {
+    out << "log=phylog ";
+  } else if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
+    out << "log=dep ";
+  }
+  out << "log_count=" << state.log_directories.size() << " ";
+  if (state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
+    out << "ckpt=off ";
+  } else if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+    out << "ckpt=physical ";
+  } else if (state.checkpoint_type == CHECKPOINT_TYPE_PHYLOG) {
+    out << "ckpt=phylog ";
+  }
+  out << "ckpt_count=" << state.checkpoint_directories.size() << " ";
   out << "\n";
 
   out << state.throughput << " ";
@@ -610,12 +630,12 @@ void WriteOutput() {
   
   out << total_snapshot_memory <<"\n";
 
-  out << "average commit latency = " << state.commit_latency << "\n";
-  out << "min commit latency = " <<  state.latency_summary.min_lat << "\n";
-  out << "max commit latency = " <<  state.latency_summary.max_lat << "\n";
-  out << "p50 commit latency = " <<  state.latency_summary.percentile_50 << "\n";
-  out << "p90 commit latency = " <<  state.latency_summary.percentile_90 << "\n";
-  out << "p99 commit latency = " <<  state.latency_summary.percentile_99 << "\n";
+  out << state.commit_latency << "\n";
+  out << state.latency_summary.min_lat << "\n";
+  out << state.latency_summary.max_lat << "\n";
+  out << state.latency_summary.percentile_50 << "\n";
+  out << state.latency_summary.percentile_90 << "\n";
+  out << state.latency_summary.percentile_99 << "\n";
 
   out.flush();
   out.close();

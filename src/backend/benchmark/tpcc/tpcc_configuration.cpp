@@ -658,11 +658,11 @@ void WriteOutput() {
   } 
   if (state.gc_protocol == GC_TYPE_OFF) {
     out << "gc=off ";
-  }else if (state.gc_protocol == GC_TYPE_VACUUM) {
+  } else if (state.gc_protocol == GC_TYPE_VACUUM) {
     out << "gc=va ";
-  }else if (state.gc_protocol == GC_TYPE_CO) {
+  } else if (state.gc_protocol == GC_TYPE_CO) {
     out << "gc=co ";
-  }else if (state.gc_protocol == GC_TYPE_N2O) {
+  } else if (state.gc_protocol == GC_TYPE_N2O) {
     out << "gc=n2o ";
   } else if (state.gc_protocol == GC_TYPE_N2O_TXN) {
     out << "gc=n2otxn ";
@@ -675,6 +675,26 @@ void WriteOutput() {
   } else {
     out << "sindex=tuple ";
   }
+  if (state.logging_type == LOGGING_TYPE_INVALID) {
+    out << "log=off ";
+  } else if (state.logging_type == LOGGING_TYPE_COMMAND) {
+    out << "log=command ";
+  } else if (state.logging_type == LOGGING_TYPE_PHYSICAL) {
+    out << "log=physical ";
+  } else if (state.logging_type == LOGGING_TYPE_PHYLOG) {
+    out << "log=phylog ";
+  } else if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
+    out << "log=dep ";
+  }
+  out << "log_count=" << state.log_directories.size() << " ";
+  if (state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
+    out << "ckpt=off ";
+  } else if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
+    out << "ckpt=physical ";
+  } else if (state.checkpoint_type == CHECKPOINT_TYPE_PHYLOG) {
+    out << "ckpt=phylog ";
+  }
+  out << "ckpt_count=" << state.checkpoint_directories.size() << " ";
   out << "\n";
 
   out << state.throughput << " ";
@@ -690,14 +710,14 @@ void WriteOutput() {
   out << state.order_status_latency << " ";
   out << state.scan_stock_latency << " ";
 
-  out << total_snapshot_memory <<"\n";
+  out << total_snapshot_memory <<" ";
 
-  out << "average commit latency = " << state.commit_latency << "\n";
-  out << "min commit latency = " <<  state.latency_summary.min_lat << "\n";
-  out << "max commit latency = " <<  state.latency_summary.max_lat << "\n";
-  out << "p50 commit latency = " <<  state.latency_summary.percentile_50 << "\n";
-  out << "p90 commit latency = " <<  state.latency_summary.percentile_90 << "\n";
-  out << "p99 commit latency = " <<  state.latency_summary.percentile_99 << "\n";
+  out << state.commit_latency << " ";
+  out << state.latency_summary.min_lat << " ";
+  out << state.latency_summary.max_lat << " ";
+  out << state.latency_summary.percentile_50 << " ";
+  out << state.latency_summary.percentile_90 << " ";
+  out << state.latency_summary.percentile_99 << "\n";
 
   out.flush();
   out.close();
