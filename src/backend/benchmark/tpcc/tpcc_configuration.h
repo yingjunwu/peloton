@@ -97,6 +97,8 @@ class configuration {
 
   std::vector<int> snapshot_memory;
 
+  std::vector<double> snapshot_latency;
+
   double throughput;
 
   double abort_rate;

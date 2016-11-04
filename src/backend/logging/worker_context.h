@@ -40,21 +40,21 @@ namespace logging {
 
   class TxnSummary {
   private:
-    std::vector<uint64_t> per_10k_txn_lat;
+    std::list<uint64_t> per_batch_txn_lat;
     std::unique_ptr<std::list<uint64_t>> per_txn_lat;
 
     uint64_t last_count;
     uint64_t last_total_usec;
 
-    const static uint64_t batch_size = 10000;
+    const static uint64_t batch_size = 100;
   public:
-    TxnSummary() : per_10k_txn_lat(), per_txn_lat(new std::list<uint64_t>()), last_count(0), last_total_usec(0) {};
+    TxnSummary() : per_batch_txn_lat(), per_txn_lat(new std::list<uint64_t>()), last_count(0), last_total_usec(0) {};
     ~TxnSummary() {}
 
     void AddTxnLatReport(uint64_t lat, bool distribution = false) {
         last_total_usec += lat;
         if ((++last_count) == batch_size) {
-          per_10k_txn_lat.push_back(last_total_usec);
+          per_batch_txn_lat.push_back(last_total_usec);
           last_count = 0;
           last_total_usec = 0;
         }
@@ -98,16 +98,24 @@ namespace logging {
       return res;
     }
 
+    double GetRecentAvgLatency() {
+      if (per_batch_txn_lat.empty()) {
+        return 0;
+      }
+      auto last_10k = per_batch_txn_lat.rbegin();
+      return *last_10k / 1000.0 / batch_size;
+    }
+
     double GetAverageLatencyInMs() {
       double avg_sum = 0.0;
-      for (uint64_t lat_10k : per_10k_txn_lat) {
+      for (uint64_t lat_10k : per_batch_txn_lat) {
         avg_sum += (lat_10k) * 1.0 / batch_size;
       }
 
       double last_avg = 0.0;
       if (last_count != 0) last_avg = last_total_usec * 1.0 / last_count;
 
-      return ((avg_sum + last_avg) / (per_10k_txn_lat.size() + last_count * 1.0 / batch_size)) / 1000;
+      return ((avg_sum + last_avg) / (per_batch_txn_lat.size() + last_count * 1.0 / batch_size)) / 1000;
     }
   };
 

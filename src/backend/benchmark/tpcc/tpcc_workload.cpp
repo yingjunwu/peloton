@@ -90,6 +90,7 @@ oid_t *abort_counts;
 oid_t *commit_counts;
 double *commit_latencies;
 LatSummary *commit_lat_summaries;
+logging::WorkerContext **log_worker_ctxs;
 
 oid_t *payment_abort_counts;
 oid_t *payment_commit_counts;
@@ -140,6 +141,7 @@ void RunScanBackend(oid_t thread_id, bool read_only, int sleep_time) {
 
   if (read_only == false) {
     log_manager.RegisterWorker();
+    log_worker_ctxs[thread_id] = logging::tl_worker_ctx;
   }
 
   bool slept = false;
@@ -181,6 +183,7 @@ void RunBackend(oid_t thread_id) {
 
   epoch_manager.RegisterTxnWorker(false);
   log_manager.RegisterWorker();
+  log_worker_ctxs[thread_id] = logging::tl_worker_ctx;
 
   oid_t &execution_count_ref = abort_counts[thread_id];
   oid_t &transaction_count_ref = commit_counts[thread_id];
@@ -438,6 +441,8 @@ void RunWorkload() {
   order_status_commit_counts = new oid_t[num_threads];
   memset(order_status_commit_counts, 0, sizeof(oid_t) * num_threads);
 
+  log_worker_ctxs = new logging::WorkerContext *[num_threads];
+
   stock_level_count = 0;
   stock_level_avg_latency = 0.0;
 
@@ -486,10 +491,14 @@ void RunWorkload() {
     oid_t current_tile_group_id = manager.GetLastTileGroupId();
     if (round_id != 0) {
       state.snapshot_memory.push_back(current_tile_group_id - last_tile_group_id);
+      // Get the latency of thread 0
+      state.snapshot_latency.push_back(log_worker_ctxs[0]->txn_summary.GetRecentAvgLatency());
     }
     last_tile_group_id = current_tile_group_id;
   }
   state.snapshot_memory.push_back(state.snapshot_memory.at(state.snapshot_memory.size() - 1));
+  // Get the latency of thread 0
+  state.snapshot_latency.push_back(state.snapshot_latency.back());
 
   is_running = false;
 
@@ -675,6 +684,9 @@ void RunWorkload() {
   order_status_abort_counts = nullptr;
   delete[] order_status_commit_counts;
   order_status_commit_counts = nullptr;
+
+  delete [] log_worker_ctxs;
+  log_worker_ctxs = nullptr;
 
   // LOG_INFO("============TABLE SIZES==========");
   // LOG_INFO("warehouse count = %u", warehouse_table->GetAllCurrentTupleCount());

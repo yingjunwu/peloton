@@ -608,7 +608,8 @@ void WriteOutput() {
         << std::left << state.snapshot_duration * (round_id + 1)
         << " s]: " << state.snapshot_throughput[round_id] << " "
         << state.snapshot_abort_rate[round_id] << " "
-        << state.snapshot_memory[round_id] << "\n";
+        << state.snapshot_memory[round_id] << " "
+        << state.snapshot_latency[round_id] << "\n";
   }
 
 

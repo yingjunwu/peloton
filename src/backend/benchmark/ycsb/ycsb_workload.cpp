@@ -85,6 +85,7 @@ oid_t *abort_counts;
 oid_t *commit_counts;
 double *commit_latencies;
 LatSummary *commit_lat_summaries;
+logging::WorkerContext **log_worker_ctxs;
 
 oid_t *ro_abort_counts;
 oid_t *ro_commit_counts;
@@ -101,6 +102,7 @@ void RunBackend(oid_t thread_id) {
   epoch_manager.RegisterTxnWorker(false);
 
   log_manager.RegisterWorker();
+  log_worker_ctxs[thread_id] = logging::tl_worker_ctx;
 
   auto update_ratio = state.update_ratio;
   auto operation_count = state.operation_count;
@@ -175,6 +177,8 @@ void RunReadOnlyBackend(oid_t thread_id) {
     auto SLEEP_TIME = std::chrono::milliseconds(500);
     std::this_thread::sleep_for(SLEEP_TIME);
   }
+
+  log_worker_ctxs[thread_id] = logging::tl_worker_ctx;
   oid_t &ro_execution_count_ref = ro_abort_counts[thread_id];
   oid_t &ro_transaction_count_ref = ro_commit_counts[thread_id];
 
@@ -300,6 +304,8 @@ void RunWorkload() {
   ro_commit_counts = new oid_t[num_threads];
   memset(ro_commit_counts, 0, sizeof(oid_t) * num_threads);
 
+  log_worker_ctxs = new logging::WorkerContext *[num_threads];
+
   scan_count = 0;
   scan_avg_latency = 0.0;
 
@@ -341,15 +347,20 @@ void RunWorkload() {
            sizeof(oid_t) * num_threads);
     memcpy(commit_counts_snapshots[round_id], commit_counts,
            sizeof(oid_t) * num_threads);
+
     auto& manager = catalog::Manager::GetInstance();
     
     oid_t current_tile_group_id = manager.GetLastTileGroupId();
     if (round_id != 0) {
       state.snapshot_memory.push_back(current_tile_group_id - last_tile_group_id);
+      // Get the latency of thread 0
+      state.snapshot_latency.push_back(log_worker_ctxs[0]->txn_summary.GetRecentAvgLatency());
     }
     last_tile_group_id = current_tile_group_id;
   }
   state.snapshot_memory.push_back(state.snapshot_memory.at(state.snapshot_memory.size() - 1));
+  // Get the latency of thread 0
+  state.snapshot_latency.push_back(state.snapshot_latency.back());
 
   is_running = false;
   // Join the threads with the main thread
@@ -471,6 +482,9 @@ void RunWorkload() {
   ro_abort_counts = nullptr;
   delete[] ro_commit_counts;
   ro_commit_counts = nullptr;
+
+  delete [] log_worker_ctxs;
+  log_worker_ctxs = nullptr;
 }
 
 
