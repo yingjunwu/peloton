@@ -46,7 +46,6 @@ void PhyLogLogger::DeregisterWorker(WorkerContext *phylog_worker_ctx) {
 void PhyLogLogger::StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count) {
 
   GetSortedLogFileIdList(checkpoint_eid, persist_eid);
-  printf("recovery_thread_count = %lu\n", recovery_thread_count);
   recovery_pools_.resize(recovery_thread_count);
   recovery_threads_.resize(recovery_thread_count);
 
@@ -154,6 +153,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
     txn_id_t old_txn_id = LockTuple(insert_tg_header, insert_location.offset);
     PL_ASSERT(old_txn_id == INVALID_TXN_ID);
 
+    // TODO: Move some logic into data_table (some logics are similar to DataTable.InsertTuple) -- Jiexi
     // Insert into primary index
     ItemPointer *itemptr_ptr = new ItemPointer(insert_location);
     if (pindex->CondInsertEntryInTupleIndex(key.get(), itemptr_ptr, fn) == false) {
@@ -197,6 +197,7 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
 
   // Check if we have a newer version of that tuple
   auto old_cid = tg_header->GetBeginCommitId(overwrite_location.offset);
+  PL_ASSERT(tg_header->GetEndCommitId(overwrite_location.offset) == MAX_CID);
   if (old_cid < cur_cid) {
     // Overwrite the old version if we are not deleting a tuple
     if (type != LOGRECORD_TYPE_TUPLE_DELETE) {
@@ -207,7 +208,6 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
       }
     }
 
-    // TODO: Delete and reinsert all secondary indexes
     // TODO: May be we should rebuild all secondary indexes after we finish the log replay,
     // so that we can ensure some constraints on the sindexes. --Jiexi
 

@@ -84,6 +84,10 @@ class TileGroupHeader : public Printable {
     }
   }
 
+  void SetCurrentNextTupleSlotToEnd() {
+    next_tuple_slot = num_tuple_slots;
+  }
+
   oid_t GetCurrentNextTupleSlot() const {
     // Carefully check if the next_tuple_slot is out of boundary
     oid_t next_tid = next_tuple_slot;

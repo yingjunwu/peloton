@@ -108,10 +108,6 @@ private:
   txn_id_t LockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
   void UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tuple_offset, txn_id_t new_txn_id);
 
-  void SetTupleDeletedFlag(storage::TileGroupHeader *tg_header, oid_t tuple_offset, bool deleted);
-
-  bool GetTupleDeletedFlag(storage::TileGroupHeader *tg_header, oid_t tuple_offset);
-
 private:
   size_t logger_id_;
   std::string log_dir_;

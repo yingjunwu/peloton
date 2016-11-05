@@ -134,20 +134,11 @@ void PhysicalLogger::UnlockTuple(storage::TileGroupHeader *tg_header, oid_t tupl
   tg_header->SetAtomicTransactionId(tuple_offset, (txn_id_t) (START_TXN_ID + this->logger_id_), new_txn_id);
 }
 
-void PhysicalLogger::SetTupleDeletedFlag(storage::TileGroupHeader *tg_header, oid_t tuple_offset, bool deleted) {
-  auto reserved_field = tg_header->GetReservedFieldRef(tuple_offset);
-  (*reinterpret_cast<bool *>(reserved_field)) = deleted;
-}
-
-bool PhysicalLogger::GetTupleDeletedFlag(storage::TileGroupHeader *tg_header, oid_t tuple_offset) {
-  auto reserved_field = tg_header->GetReservedFieldRef(tuple_offset);
-  return *reinterpret_cast<bool *>(reserved_field);
-}
-
 bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tuple_pos, ItemPointer old_tuple_pos,
                                         storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid) {
+  PL_ASSERT(cur_cid != INVALID_CID);
+
   auto &manager = catalog::Manager::GetInstance();
-//  auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
   oid_t old_tg_id = old_tuple_pos.block;
   oid_t old_tuple_offset = old_tuple_pos.offset;
@@ -173,7 +164,7 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
       if ((old_bcid == MAX_CID && old_ecid == MAX_CID) || cur_cid > old_bcid) {
         // Delete the tuple
         if (old_bcid == MAX_CID) {
-          old_tg_header->SetBeginCommitId(old_tuple_offset, START_CID);
+          old_tg_header->SetBeginCommitId(old_tuple_offset, cur_cid);
         }
         old_tg_header->SetEndCommitId(old_tuple_offset, cur_cid);
         UnlockTuple(old_tg_header, old_tuple_offset, INVALID_TXN_ID);
@@ -189,7 +180,9 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
       cid_t new_bcid = new_tg_header->GetBeginCommitId(new_tuple_offset);
       cid_t new_ecid = new_tg_header->GetEndCommitId(new_tuple_offset);
 
-      if ((new_bcid == MAX_CID && new_ecid == MAX_CID) || cur_cid > new_bcid) {
+      if ((new_bcid == MAX_CID && new_ecid == MAX_CID) // Free tuple slot
+          || (cur_cid > new_bcid && (new_ecid == MAX_CID || cur_cid >= new_ecid))) // Stale tuple slot
+      {
         // Update the tuple
         // Set header
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
@@ -220,8 +213,9 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
       cid_t bcid = new_tg_header->GetBeginCommitId(new_tuple_offset);
       cid_t ecid = new_tg_header->GetEndCommitId(new_tuple_offset);
 
-      if ((bcid == MAX_CID && ecid == MAX_CID) || cur_cid > bcid) {
-        // Insert the tuple
+      if ((bcid == MAX_CID && ecid == MAX_CID) // Free tuple slot
+          || (cur_cid > bcid && (ecid == MAX_CID || cur_cid >= ecid))) // Stale tuple slot
+      {        // Insert the tuple
         // Set header
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
         new_tg_header->SetEndCommitId(new_tuple_offset, MAX_CID);
@@ -233,6 +227,7 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
         UnlockTuple(new_tg_header, new_tuple_offset, INITIAL_TXN_ID);
       } else {
         // The insert is stale
+        // printf("[JX]: Inserting an stale tuple (%d, %d) during recovery\n", (int) new_tg_id, (int) new_tuple_offset);
         UnlockTuple(new_tg_header, new_tuple_offset, tid);
       }
 
@@ -287,6 +282,7 @@ bool PhysicalLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_hand
     /*
      * Decode the record
      */
+
     // Get record type
     LogRecordType record_type = (LogRecordType) (record_decode.ReadEnumInSingleByte());
     switch (record_type) {
@@ -387,7 +383,6 @@ bool PhysicalLogger::ReplayLogFile(const size_t thread_id, FileHandle &file_hand
     }
 
   }
-
   return true;
 }
 
@@ -445,26 +440,30 @@ void PhysicalLogger::RebuildIndexForTable(const size_t logger_count, storage::Da
   auto &gc_manager = gc::GCManagerFactory::GetInstance();
 
   size_t tg_count = table->GetTileGroupCount();
-
-  std::function<bool(const void *)> fn =
-    std::bind(&concurrency::TransactionManager::IsOccupied,
-              &txn_manager, std::placeholders::_1);
+  size_t tuple_recovered = 0;
 
   // Loop all the tile groups, shared by thread id
   for (size_t tg_idx = logger_id_; tg_idx < tg_count; tg_idx += logger_count) {
     auto tg = table->GetTileGroup(tg_idx).get();
     auto tg_header = tg->GetHeader();
     auto tg_id = tg->GetTileGroupId();
+
+    // XXX: Skip preallocated tile group
+    if (tg->GetHeader()->GetCurrentNextTupleSlot() == 0) {
+      continue;
+    }
+
     // Loop all tuples headers in the tile group
     oid_t tg_capacity = tg_header->GetCapacity();
     for (oid_t tuple_offset = 0; tuple_offset < tg_capacity; ++tuple_offset) {
       // Check if the tuple is valid
       if (tg_header->GetTransactionId(tuple_offset) == INITIAL_TXN_ID) {
+        tuple_recovered++;
         // Insert in into the index
         expression::ContainerTuple<storage::TileGroup> container_tuple(tg, tuple_offset);
         ItemPointer *itemptr = nullptr;
 
-        auto res = table->InsertInIndexes(&container_tuple, ItemPointer(tg_id, tuple_offset), &itemptr);
+        auto res = table->InsertInIndexes(&container_tuple, ItemPointer(tg_id, tuple_offset), &itemptr, true);
         if (res == false) {
           LOG_ERROR("Index constraint violation");
         } else {
@@ -477,6 +476,7 @@ void PhysicalLogger::RebuildIndexForTable(const size_t logger_count, storage::Da
       }
     }
   }
+  LOG_INFO("Rebuild index for %lu tuples.", tuple_recovered);
 }
 
 

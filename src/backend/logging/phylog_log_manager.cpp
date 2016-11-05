@@ -171,6 +171,18 @@ void PhyLogLogManager::DoRecovery(const size_t &begin_eid){
   for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
     loggers_[logger_id]->WaitForRecovery();
   }
+
+  // Rebuild all secondary indexes
+  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
+    loggers_[logger_id]->StartIndexRebulding(logger_count_);
+  }
+
+  for (size_t logger_id = 0; logger_id < logger_count_; ++logger_id) {
+    loggers_[logger_id]->WaitForIndexRebuilding();
+  }
+
+  // Reset the epoch manager
+  concurrency::EpochManagerFactory::GetInstance().Reset(end_eid + 1);
 }
 
 void PhyLogLogManager::StartLoggers() {

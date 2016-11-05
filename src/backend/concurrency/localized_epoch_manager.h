@@ -28,6 +28,7 @@ namespace peloton {
 
       struct EpochContext {
         size_t current_epoch;
+        EpochContext() : current_epoch(MAX_EPOCH_ID) {}
 
         void Reset() {
           current_epoch = MAX_EPOCH_ID;
@@ -89,7 +90,7 @@ namespace peloton {
         ro_worker_current_epoch_ctxs_ = std::vector<EpochIdCacheLineHolder>(max_worker_count);
 
         global_current_epoch_ = begin_eid;
-        StartEpochManager();
+        ts_thread_.reset(new std::thread(&LocalizedEpochManager::Start, this));
       };
 
       virtual void SetCurrentEpochId(size_t epoch_id) {

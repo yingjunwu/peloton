@@ -195,7 +195,8 @@ class DataTable : public AbstractTable {
 
   // try to insert into the indices
   // the forth argument return the itempointer ptr inserted into the primary index
-  bool InsertInIndexes(const AbstractTuple *tuple, ItemPointer location, ItemPointer **itemptr_ptr);
+  bool InsertInIndexes(const AbstractTuple *tuple, ItemPointer location, ItemPointer **itemptr_ptr, bool recovery = false);
+
   // For RB
   bool InsertInIndexes(const storage::Tuple *tuple, ItemPointer location, index::RBItemPointer **rb_itemptr_ptr);
 

@@ -96,19 +96,26 @@ void DataTable::PrepareTupleSlotForPhysicalRecovery(ItemPointer tuple_slot) {
       auto col_map = GetTileGroupLayout();
       tg = GetTileGroupWithLayout(col_map, tg_id);
 
+      // printf("[JX] Prepare tilegorup %d\n", (int) tg_id);
+
       // Set the tg's tuple count to MAX tuple count
       tg->SetAllocatedTupleCount(tg->GetHeader()->GetCapacity());
+      tg->GetHeader()->SetCurrentNextTupleSlotToEnd();
 
       auto shared_tg = std::shared_ptr<TileGroup>(tg);
       manager.AddTileGroup(tg_id, shared_tg);
-      size_t tg_seq_id = std::hash<std::thread::id>()(std::this_thread::get_id()) % NUM_PREALLOCATION;
-      auto last_tg_id = last_tile_groups_[tg_seq_id]->GetTileGroupId();
-      if (tg_id > last_tg_id) {
-        last_tile_groups_[tg_seq_id] = shared_tg;
-      }
+
+      // Note: We don't need to modify the last_tile_groups here.
+
       tile_groups_.push_back(tg_id);
+      COMPILER_MEMORY_FENCE;
+      tile_group_count_++;
     }
     tile_group_lock_.Unlock();
+  } else {
+    // Init the tile group for recovery
+    tg->SetAllocatedTupleCount(tg->GetHeader()->GetCapacity());
+    tg->GetHeader()->SetCurrentNextTupleSlotToEnd();
   }
 }
 
@@ -423,17 +430,23 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
  *primary/unique).
  */
 bool DataTable::InsertInIndexes(const AbstractTuple *tuple,
-                                ItemPointer location, ItemPointer **itempointer_ptr) {
+                                ItemPointer location, ItemPointer **itempointer_ptr, bool recovery) {
   *itempointer_ptr = nullptr;
   ItemPointer *temp_ptr = nullptr;
 
   int index_count = GetIndexCount();
-  auto &transaction_manager =
-      concurrency::TransactionManagerFactory::GetInstance();
+  std::function<bool(const void *)> fn;
 
-  std::function<bool(const void *)> fn =
-      std::bind(&concurrency::TransactionManager::IsOccupied,
-                &transaction_manager, std::placeholders::_1);
+  if (recovery == false) {
+    auto &transaction_manager =
+      concurrency::TransactionManagerFactory::GetInstance();
+    fn = std::bind(&concurrency::TransactionManager::IsOccupied,
+                   &transaction_manager, std::placeholders::_1);
+  } else {
+    // This is for recovery. During recovery, we don't check visibility.
+    // Whenever there is a duplicate key, the index constraint is violated
+    fn = [](const void *a) -> bool {(void) a; return true;};
+  }
 
   // (A) Check existence for primary/unique indexes
   // FIXME Since this is NOT protected by a lock, concurrent insert may happen.
@@ -477,7 +490,7 @@ bool DataTable::InsertInIndexes(const AbstractTuple *tuple,
         // If some of the indexes have been inserted,
         // the pointer has a chance to be dereferenced by readers and it can not be deleted
         if (success_count == 0) {
-          delete itempointer_ptr;
+          delete *itempointer_ptr;
         }
         *itempointer_ptr = nullptr;
         return false;

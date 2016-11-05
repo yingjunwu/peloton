@@ -28,6 +28,7 @@ namespace peloton {
 
       struct EpochContext {
         size_t current_epoch;
+        EpochContext() : current_epoch(MAX_EPOCH_ID) {}
 
         void Reset() {
           current_epoch = MAX_EPOCH_ID;
@@ -91,7 +92,7 @@ namespace peloton {
 
         // TODO: Check if after recovery we need to adjust the start eid for snapshots -- Jiexi
         global_current_epoch_ = begin_eid;
-        StartEpochManager();
+        ts_thread_.reset(new std::thread(&LocalizedSnapshotEpochManager::Start, this));
       };
 
 

@@ -191,6 +191,69 @@ static void ValidateMVCC() {
   gc_manager.StartGC();
 }
 
+// Check the basic correctness after recovery (single threaded)
+void CheckRecovery() {
+  LOG_INFO("Start checking recovery result");
+  // Setup the database
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+
+  gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
+  concurrency::TransactionManagerFactory::Configure(state.protocol);
+  index::IndexFactory::Configure(state.sindex);
+
+
+  // for now, we do not perform logging when loading tables. --Yingjun
+  // Create and load the user table
+  epoch_manager.RegisterTxnWorker(false);
+
+  logging::DurabilityFactory::Configure(LOGGING_TYPE_INVALID, CHECKPOINT_TYPE_INVALID, TIMER_OFF);
+  // Start the logger
+  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  log_manager.SetDirectories(state.log_directories);
+  log_manager.StartLoggers();
+
+  auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+
+  // (1) Seq scan and count all visible tuples
+  RunScan();
+
+  // (2) pindex scan for all primary key
+  MixedPlans mixed_plans = PrepareMixedPlan();
+  concurrency::Transaction *txn = txn_manager.BeginTransaction();
+
+  uint64_t key_upper_bound = (uint64_t) (state.scale_factor * 1000);
+  for (uint64_t key = 0; key < key_upper_bound; ++key) {
+    mixed_plans.index_scan_executor_->ResetState();
+
+    // set up parameter values
+    std::vector<Value> values;
+
+    values.push_back(ValueFactory::GetIntegerValue(key));
+
+    mixed_plans.index_scan_executor_->SetValues(values);
+
+    auto ret_result = ExecuteReadTest(mixed_plans.index_scan_executor_);
+
+    if (txn->GetResult() != Result::RESULT_SUCCESS) {
+      txn_manager.AbortTransaction();
+      LOG_ERROR("Unexpected abort");
+    }
+
+    if ((ret_result.size() > 1 && state.sindex_scan == false) || ret_result.size() < 1) {
+      LOG_ERROR("Error: result size = %d\n", (int)ret_result.size());
+    }
+  }
+  auto result = txn_manager.CommitTransaction();
+  if (result != RESULT_SUCCESS) {
+    LOG_ERROR("Unexpected abort");
+  }
+
+  // Stop the logger
+  log_manager.StopLoggers();
+
+  LOG_INFO("Finish checking");
+}
+
 // Main Entry Point
 void RunBenchmark() {
 
@@ -220,6 +283,9 @@ void RunBenchmark() {
     log_timer.Stop();
   
     LOG_INFO("replay log duration: %lf", log_timer.GetDuration());
+
+    // Check correctness
+    CheckRecovery();
 
     return;
   }
@@ -260,6 +326,9 @@ void RunBenchmark() {
       LOG_INFO("replay log duration: %lf ms", log_timer.GetDuration());
     }
 
+    // Check correctness
+    CheckRecovery();
+
     return;
   }
 
@@ -275,18 +344,28 @@ void RunBenchmark() {
   index::IndexFactory::Configure(state.sindex);
 
 
-  // for now, we do not perform logging when loading tables. --Yingjun
-  // Create and load the user table
-  epoch_manager.RegisterTxnWorker(false);
-  CreateYCSBDatabase();
-  LoadYCSBDatabase();
-
-  // XXX: Change the logging type from INVALID to the logging type we want
+  // Enable logging here to test correctness -- Jiexi
   logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
   log_manager.StartLoggers();
+
+
+  // Create and load the user table
+  epoch_manager.RegisterTxnWorker(false);
+  log_manager.RegisterWorker();
+  CreateYCSBDatabase();
+  LoadYCSBDatabase();
+
+  log_manager.DeregisterWorker();
+
+//  // XXX: Change the logging type from INVALID to the logging type we want
+//  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+//  // Start the logger
+//  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+//  log_manager.SetDirectories(state.log_directories);
+//  log_manager.StartLoggers();
 
   auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
   checkpoint_manager.SetCheckpointInterval(state.checkpoint_interval);
@@ -310,6 +389,10 @@ void RunBenchmark() {
     ValidateMVCC();
   }
   // Stop the logger
+
+//  LOG_INFO("Sleep a while to let the logger persist all records");
+//  std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
   log_manager.StopLoggers();
   checkpoint_manager.StopCheckpointing();
 

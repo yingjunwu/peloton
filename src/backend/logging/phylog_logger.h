@@ -56,7 +56,10 @@ namespace logging {
     ~PhyLogLogger() {}
 
     void StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
+    void StartIndexRebulding(const size_t logger_count UNUSED_ATTRIBUTE) {}
+
     void WaitForRecovery();
+    void WaitForIndexRebuilding() {}
 
     void StartLogging() {
       is_running_ = true;
@@ -90,7 +93,11 @@ private:
   void GetSortedLogFileIdList(const size_t checkpoint_eid, const size_t persist_eid);
   
   void RunRecoveryThread(const size_t thread_id, const size_t checkpoint_eid, const size_t persist_eid);
-  
+
+  void RunSecIndexRebuildThread(const size_t logger_count);
+
+  void RebuildSecIndexForTable(const size_t logger_count, storage::DataTable *table);
+
   bool ReplayLogFile(const size_t thread_id, FileHandle &file_handle, size_t checkpoint_eid, size_t pepoch_eid);
   bool InstallTupleRecord(LogRecordType type, storage::Tuple *tuple, storage::DataTable *table, cid_t cur_cid);
 

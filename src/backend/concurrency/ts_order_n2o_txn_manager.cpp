@@ -244,9 +244,6 @@ bool TsOrderN2OTxnManager::PerformRead(const ItemPointer &location) {
 }
 
 void TsOrderN2OTxnManager::InitInsertedTupleForRecovery(storage::TileGroupHeader *tg_header, oid_t tuple_slot, ItemPointer *itemptr_ptr) {
-  PL_ASSERT(tg_header->GetBeginCommitId(tuple_slot) == MAX_CID);
-  PL_ASSERT(tg_header->GetEndCommitId(tuple_slot) == MAX_CID);
-
   InitTupleReserved(tg_header, tuple_slot);
   SetHeadPtr(tg_header, tuple_slot, itemptr_ptr);
 }
