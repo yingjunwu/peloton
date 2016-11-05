@@ -56,10 +56,10 @@ namespace logging {
     ~PhyLogLogger() {}
 
     void StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count);
-    void StartIndexRebulding(const size_t logger_count UNUSED_ATTRIBUTE) {}
+    void StartIndexRebulding(const size_t logger_count);
 
     void WaitForRecovery();
-    void WaitForIndexRebuilding() {}
+    void WaitForIndexRebuilding();
 
     void StartLogging() {
       is_running_ = true;

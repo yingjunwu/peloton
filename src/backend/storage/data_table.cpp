@@ -229,12 +229,12 @@ bool DataTable::InstallVersion(const AbstractTuple *tuple, const ItemPointer &lo
   // Index checks and updates
   if ( concurrency::TransactionManagerFactory::IsRB() == false
       && index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
-    if (InsertInSecondaryTupleIndexes(tuple, targets_ptr, master_ptr) == false) {
+    if (InsertInSecondaryTupleIndexes(tuple, targets_ptr, master_ptr, false) == false) {
       LOG_TRACE("Index constraint violated when inserting secondary index");
       return false;
     }
   } else {
-    if (InsertInSecondaryIndexes(tuple, location) == false) {
+    if (InsertInSecondaryIndexes(tuple, location, false) == false) {
       LOG_TRACE("Index constraint violated when inserting secondary index");
       return false;
     }
@@ -541,19 +541,31 @@ bool DataTable::InsertInIndexes(const AbstractTuple *tuple,
   return true;
 }
 
-bool DataTable::InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const TargetList *targets_ptr, ItemPointer *master_ptr) {
+bool DataTable::InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const TargetList *targets_ptr, ItemPointer *master_ptr,
+                                              bool recovery) {
   int index_count = GetIndexCount();
-  auto &transaction_manager = concurrency::TransactionManagerFactory::GetInstance();
 
-  std::function<bool(const void *)> fn =
-    std::bind(&concurrency::TransactionManager::IsOccupied,
-              &transaction_manager, std::placeholders::_1);
-
-  // Transaform the target list into a hash set
+  std::function<bool(const void *)> fn;
   std::unordered_set<oid_t> targets_set;
-  for (auto target : *targets_ptr) {
-    targets_set.insert(target.first);
+
+  if (recovery == false) {
+    auto &transaction_manager =
+      concurrency::TransactionManagerFactory::GetInstance();
+    fn = std::bind(&concurrency::TransactionManager::IsOccupied,
+                   &transaction_manager, std::placeholders::_1);
+
+    // Transaform the target list into a hash set
+    for (auto target : *targets_ptr) {
+      targets_set.insert(target.first);
+    }
+  } else {
+    // This is for recovery. During recovery, we don't check visibility.
+    // Whenever there is a duplicate key, the index constraint is violated
+    fn = [](const void *a) -> bool {(void) a; return true;};
   }
+
+
+
 
 
   // (A) Check existence for primary/unique indexes
@@ -564,14 +576,14 @@ bool DataTable::InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const 
     auto indexed_columns = index_schema->GetIndexedColumns();
 
     if (index->GetIndexType() == INDEX_CONSTRAINT_TYPE_PRIMARY_KEY) {
-//      fprintf(stdout, "skip primary index\n");
       continue;
     }
 
     // Check if we need to update the secondary index
     bool updated = false;
     for (auto col : indexed_columns) {
-      if (targets_set.find(col) != targets_set.end()) {
+      // Always update secondary index in recovery mode
+      if (recovery == true || targets_set.find(col) != targets_set.end()) {
         updated = true;
         break;
       }
@@ -579,7 +591,6 @@ bool DataTable::InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const 
 
     // If attributes on key are not updated, skip the index update
     if (updated == false) {
-//      fprintf(stdout, "No need to update sindex\n");
       continue;
     }
 
@@ -612,15 +623,21 @@ bool DataTable::InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const 
 }
 
 
-bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
-                                         ItemPointer location) {
+bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple, ItemPointer location, bool recovery) {
   int index_count = GetIndexCount();
-  auto &transaction_manager =
-      concurrency::TransactionManagerFactory::GetInstance();
+  std::function<bool(const void *)> fn;
 
-  std::function<bool(const void *)> fn =
-      std::bind(&concurrency::TransactionManager::IsOccupied,
-                &transaction_manager, std::placeholders::_1);
+  if (recovery == false) {
+    auto &transaction_manager =
+      concurrency::TransactionManagerFactory::GetInstance();
+    fn = std::bind(&concurrency::TransactionManager::IsOccupied,
+                   &transaction_manager, std::placeholders::_1);
+  } else {
+    // This is for recovery. During recovery, we don't check visibility.
+    // Whenever there is a duplicate key, the index constraint is violated
+    fn = [](const void *a) -> bool {(void) a; return true;};
+  }
+
 
   // (A) Check existence for primary/unique indexes
   // FIXME Since this is NOT protected by a lock, concurrent insert may happen.

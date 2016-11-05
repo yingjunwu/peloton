@@ -17,12 +17,14 @@
 #include <cstdio>
 #include <backend/gc/gc_manager_factory.h>
 #include <backend/concurrency/transaction_manager_factory.h>
+#include <backend/index/index_factory.h>
 
 #include "backend/catalog/manager.h"
 #include "backend/concurrency/epoch_manager_factory.h"
 #include "backend/expression/container_tuple.h"
 #include "backend/logging/logging_util.h"
 #include "backend/storage/tile_group.h"
+#include "backend/storage/database.h"
 #include "backend/storage/tile_group_header.h"
 
 #include "backend/logging/phylog_logger.h"
@@ -42,6 +44,14 @@ void PhyLogLogger::DeregisterWorker(WorkerContext *phylog_worker_ctx) {
   worker_map_lock_.Unlock();
 }
 
+void PhyLogLogger::StartIndexRebulding(const size_t logger_count) {
+  PL_ASSERT(recovery_threads_.size() != 0);
+  recovery_threads_[0].reset(new std::thread(&PhyLogLogger::RunSecIndexRebuildThread, this, logger_count));
+}
+
+void PhyLogLogger::WaitForIndexRebuilding() {
+  recovery_threads_[0]->join();
+}
 
 void PhyLogLogger::StartRecovery(const size_t checkpoint_eid, const size_t persist_eid, const size_t recovery_thread_count) {
 
@@ -168,6 +178,9 @@ bool PhyLogLogger::InstallTupleRecord(LogRecordType type, storage::Tuple *tuple,
     } else {
       // Successfully inserted into the primary index
       // Initialize the tuple's header
+      // Fill in the master pointer
+      insert_tg_header->SetMasterPointer(insert_location.offset, itemptr_ptr);
+
       concurrency::TransactionManagerFactory::GetInstance()
         .InitInsertedTupleForRecovery(insert_tg_header, insert_location.offset, itemptr_ptr);
 
@@ -399,6 +412,57 @@ void PhyLogLogger::RunRecoveryThread(const size_t thread_id, const size_t checkp
 
 }
 
+void PhyLogLogger::RunSecIndexRebuildThread(const size_t logger_count) {
+  auto &manager = catalog::Manager::GetInstance();
+  auto db_count = manager.GetDatabaseCount();
+
+  // Loop all databases
+  for (oid_t db_idx = 0; db_idx < db_count; db_idx ++) {
+    auto database = manager.GetDatabase(db_idx);
+    auto table_count = database->GetTableCount();
+
+    // Loop all tables
+    for (oid_t table_idx = 0; table_idx < table_count; table_idx++) {
+      // Get the target table
+      storage::DataTable *table = database->GetTable(table_idx);
+      RebuildSecIndexForTable(logger_count, table);
+    }
+  }
+}
+
+void PhyLogLogger::RebuildSecIndexForTable(const size_t logger_count, storage::DataTable *table) {
+  size_t tg_count = table->GetTileGroupCount();
+
+  // Loop all the tile groups, shared by thread id
+  for (size_t tg_idx = logger_id_; tg_idx < tg_count; tg_idx += logger_count) {
+    auto tg = table->GetTileGroup(tg_idx).get();
+    auto tg_header = tg->GetHeader();
+    auto tg_id = tg->GetTileGroupId();
+    oid_t active_tuple_count = tg->GetNextTupleSlot();
+
+    // Loop all tuples headers in the tile group
+    for (oid_t tuple_offset = 0; tuple_offset < active_tuple_count; ++tuple_offset) {
+      // Check if the tuple is valid
+      PL_ASSERT(tg_header->GetTransactionId(tuple_offset) == INITIAL_TXN_ID);
+      // Insert in into the index
+      expression::ContainerTuple<storage::TileGroup> container_tuple(tg, tuple_offset);
+
+      bool res;
+      if (concurrency::TransactionManagerFactory::IsRB() == false &&
+          index::IndexFactory::GetSecondaryIndexType() == SECONDARY_INDEX_TYPE_TUPLE) {
+        // During recovery, the second parameter of InsertInSecondaryTupleIndexes won't be dereferenced.
+        // So it's OK to pass a nullptr.
+        res = table->InsertInSecondaryTupleIndexes(&container_tuple, nullptr, tg_header->GetMasterPointer(tuple_offset), true);
+      } else {
+        res = table->InsertInSecondaryIndexes(&container_tuple, ItemPointer(tg_id, tuple_offset), true);
+      }
+
+      if (res == false) {
+        LOG_ERROR("Index constraint violation");
+      }
+    }
+  }
+}
 
 void PhyLogLogger::Run() {
   // TODO: Ensure that we have called run recovery before

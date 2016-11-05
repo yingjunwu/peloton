@@ -468,6 +468,9 @@ void PhysicalLogger::RebuildIndexForTable(const size_t logger_count, storage::Da
           LOG_ERROR("Index constraint violation");
         } else {
           PL_ASSERT(itemptr != nullptr);
+          // Fill in the master pointer
+          tg_header->SetMasterPointer(tuple_offset, itemptr);
+
           txn_manager.InitInsertedTupleForRecovery(tg_header, tuple_offset, itemptr);
         }
       } else {

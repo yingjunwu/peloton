@@ -201,11 +201,10 @@ class DataTable : public AbstractTable {
   bool InsertInIndexes(const storage::Tuple *tuple, ItemPointer location, index::RBItemPointer **rb_itemptr_ptr);
 
 
-  bool InsertInSecondaryIndexes(const AbstractTuple *tuple,
-                                ItemPointer location);
+  bool InsertInSecondaryIndexes(const AbstractTuple *tuple, ItemPointer location, bool recovery = false);
 
-  bool InsertInSecondaryTupleIndexes(const AbstractTuple *tuple,
-          const TargetList *targetes_ptr, ItemPointer *masterPtr);
+  bool InsertInSecondaryTupleIndexes(const AbstractTuple *tuple, const TargetList *targetes_ptr, ItemPointer *masterPtr,
+                                       bool recovery = false);
 
  private:
   //===--------------------------------------------------------------------===//
