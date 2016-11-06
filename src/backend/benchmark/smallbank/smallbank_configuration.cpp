@@ -627,14 +627,14 @@ void WriteOutput() {
 
   out << state.throughput << " ";
   out << state.abort_rate << " ";
-  
-  out << total_snapshot_memory <<"\n";
 
-  out << state.commit_latency << "\n";
-  out << state.latency_summary.min_lat << "\n";
-  out << state.latency_summary.max_lat << "\n";
-  out << state.latency_summary.percentile_50 << "\n";
-  out << state.latency_summary.percentile_90 << "\n";
+  out << total_snapshot_memory <<" ";
+
+  out << state.commit_latency << " ";
+  out << state.latency_summary.min_lat << " ";
+  out << state.latency_summary.max_lat << " ";
+  out << state.latency_summary.percentile_50 << " ";
+  out << state.latency_summary.percentile_90 << " ";
   out << state.latency_summary.percentile_99 << "\n";
 
   out.flush();
