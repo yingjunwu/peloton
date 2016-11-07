@@ -147,11 +147,11 @@ namespace logging {
     /////////////////////////////////////////////////////////////////////
     // close files
 
-    auto &catalog_manager = catalog::Manager::GetInstance();
+    // auto &catalog_manager = catalog::Manager::GetInstance();
 
     // loop all databases
     for (oid_t database_idx = 0; database_idx < database_structures.size(); database_idx++) {
-      auto database = catalog_manager.GetDatabase(database_idx);
+      // auto database = catalog_manager.GetDatabase(database_idx);
       
       // loop all tables
       for (oid_t table_idx = 0; table_idx < database_structures[database_idx].size(); table_idx++) {
@@ -164,15 +164,15 @@ namespace logging {
         delete[] file_handles[database_idx][table_idx];
 
         // Get the target table
-        storage::DataTable *target_table = database->GetTable(table_idx);
-        PL_ASSERT(target_table);
+        // storage::DataTable *target_table = database->GetTable(table_idx);
+        // PL_ASSERT(target_table);
 
-        size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
-        printf("table %lu: num tuples = %lu\n", (size_t)table_idx, num_tuples);
-        for (size_t index_id = 0; index_id < target_table->GetIndexCount(); ++index_id) {
-          auto index = target_table->GetIndex(index_id);
-          printf("index %lu: num tuples = %lu\n", index_id, (size_t) index->GetNumberOfTuples());
-        }
+        // size_t num_tuples = (size_t)target_table->GetNumberOfTuples();
+        // printf("table %lu: num tuples = %lu\n", (size_t)table_idx, num_tuples);
+        // for (size_t index_id = 0; index_id < target_table->GetIndexCount(); ++index_id) {
+        //   auto index = target_table->GetIndex(index_id);
+        //   printf("index %lu: num tuples = %lu\n", index_id, (size_t) index->GetNumberOfTuples());
+        // }
 
 
       }  // end table looping

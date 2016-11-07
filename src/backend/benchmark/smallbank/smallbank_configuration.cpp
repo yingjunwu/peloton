@@ -524,11 +524,11 @@ void WriteOutput() {
     state.throughput, state.abort_rate, 
     total_snapshot_memory);
   LOG_INFO("average commit latency: %lf ms", state.commit_latency);
-  LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
-  LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
-  LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
-  LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
-  LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
+  // LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
+  // LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
+  // LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
+  // LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
+  // LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
 
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();
@@ -627,14 +627,14 @@ void WriteOutput() {
 
   out << state.throughput << " ";
   out << state.abort_rate << " ";
-  
-  out << total_snapshot_memory <<"\n";
 
-  out << state.commit_latency << "\n";
-  out << state.latency_summary.min_lat << "\n";
-  out << state.latency_summary.max_lat << "\n";
-  out << state.latency_summary.percentile_50 << "\n";
-  out << state.latency_summary.percentile_90 << "\n";
+  out << total_snapshot_memory <<" ";
+
+  out << state.commit_latency << " ";
+  out << state.latency_summary.min_lat << " ";
+  out << state.latency_summary.max_lat << " ";
+  out << state.latency_summary.percentile_50 << " ";
+  out << state.latency_summary.percentile_90 << " ";
   out << state.latency_summary.percentile_99 << "\n";
 
   out.flush();

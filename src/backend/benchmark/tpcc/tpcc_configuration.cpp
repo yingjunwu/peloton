@@ -588,19 +588,19 @@ void WriteOutput() {
   LOG_INFO("%lf tps, %lf, %d", 
     state.throughput, state.abort_rate, 
     total_snapshot_memory);
-  LOG_INFO("payment: %lf tps, %lf", state.payment_throughput, state.payment_abort_rate);
-  LOG_INFO("new_order: %lf tps, %lf", state.new_order_throughput, state.new_order_abort_rate);
-  LOG_INFO("delivery: %lf tps, %lf", state.delivery_throughput, state.delivery_abort_rate);
-  LOG_INFO("stock_level: %lf tps, %lf, %lf us", state.stock_level_throughput, state.stock_level_abort_rate, state.stock_level_latency);
-  LOG_INFO("order_status: %lf tps, %lf, %lf us", state.order_status_throughput, state.order_status_abort_rate, state.order_status_latency);
-  LOG_INFO("scan_stock latency: %lf us", state.scan_stock_latency);
+  // LOG_INFO("payment: %lf tps, %lf", state.payment_throughput, state.payment_abort_rate);
+  // LOG_INFO("new_order: %lf tps, %lf", state.new_order_throughput, state.new_order_abort_rate);
+  // LOG_INFO("delivery: %lf tps, %lf", state.delivery_throughput, state.delivery_abort_rate);
+  // LOG_INFO("stock_level: %lf tps, %lf, %lf us", state.stock_level_throughput, state.stock_level_abort_rate, state.stock_level_latency);
+  // LOG_INFO("order_status: %lf tps, %lf, %lf us", state.order_status_throughput, state.order_status_abort_rate, state.order_status_latency);
+  // LOG_INFO("scan_stock latency: %lf us", state.scan_stock_latency);
 
   LOG_INFO("average commit latency: %lf ms", state.commit_latency);
-  LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
-  LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
-  LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
-  LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
-  LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
+  // LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
+  // LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
+  // LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
+  // LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
+  // LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
 
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();

@@ -192,12 +192,13 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
         new_tg_header->SetEndCommitId(new_tuple_offset, MAX_CID);
 
-        // Copy the tuple content
-        new_tg->CopyTuple(tuple, new_tuple_offset);
-
         // Unlock with tid as initial id on update/ invalid tid on delete
         UnlockTuple(new_tg_header, new_tuple_offset,
                     (type == LOGRECORD_TYPE_TUPLE_UPDATE) ? INITIAL_TXN_ID : INVALID_TXN_ID);
+
+        // Copy the tuple content
+        new_tg->CopyTuple(tuple, new_tuple_offset);
+
       } else {
         // Another newer update is replayed on this tuple slot
         // Unlock with the original tid
@@ -228,11 +229,12 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
         new_tg_header->SetEndCommitId(new_tuple_offset, MAX_CID);
 
-        // Copy the tuple content
-        new_tg->CopyTuple(tuple, new_tuple_offset);
-
         // Unlock with initial tid
         UnlockTuple(new_tg_header, new_tuple_offset, INITIAL_TXN_ID);
+
+        // Copy the tuple content
+        new_tg->CopyTuple(tuple, new_tuple_offset);
+        
       } else {
         // The insert is stale
         // printf("[JX]: Inserting an stale tuple (%d, %d) during recovery\n", (int) new_tg_id, (int) new_tuple_offset);
@@ -404,7 +406,7 @@ void PhysicalLogger::RunRecoveryThread(const size_t thread_id, const size_t chec
     }
 
     size_t file_eid = file_eids_.at(replay_file_id);
-    printf("start replaying file id = %d, file eid = %lu\n", replay_file_id, file_eid);
+    // printf("start replaying file id = %d, file eid = %lu\n", replay_file_id, file_eid);
     // Replay a single file
     std::string filename = GetLogFileFullPath(file_eid);
     FileHandle file_handle;
@@ -570,7 +572,7 @@ void PhysicalLogger::Run() {
           }
           while (file_handle == nullptr) {
             current_file_eid = current_file_eid + file_epoch_count;
-            printf("create new file with epoch id = %lu, last persist eid = %lu, current eid = %lu\n", current_file_eid, last_persist_eid, worker_current_eid);
+            // printf("create new file with epoch id = %lu, last persist eid = %lu, current eid = %lu\n", current_file_eid, last_persist_eid, worker_current_eid);
             FileHandle *new_file_handle = new FileHandle();
             file_handles.push_back(std::make_pair(new_file_handle, current_file_eid));
 

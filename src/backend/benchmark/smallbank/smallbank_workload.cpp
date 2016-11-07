@@ -80,11 +80,11 @@ namespace smallbank {
 /////////////////////////////////////////////////////////
 
 
-#define FREQUENCY_AMALGAMATE 0.04
-#define FREQUENCY_BALANCE 0.24
-#define FREQUENCY_DEPOSIT_CHECKING 0.24
-#define FREQUENCY_TRANSACT_SAVINGS 0.24
-#define FREQUENCY_WRITE_CHECK 0.24
+#define FREQUENCY_AMALGAMATE 0.05 // 0.04
+#define FREQUENCY_BALANCE 0 // 0.24
+#define FREQUENCY_DEPOSIT_CHECKING 0.32 // 0.24
+#define FREQUENCY_TRANSACT_SAVINGS 0.32 // 0.24
+#define FREQUENCY_WRITE_CHECK 0.31 // 0.24
 
 volatile bool is_running = true;
 
