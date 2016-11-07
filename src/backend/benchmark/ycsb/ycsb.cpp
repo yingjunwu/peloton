@@ -265,9 +265,6 @@ void RunBenchmark() {
     CreateYCSBDatabase();
   
     checkpoint_timer.Stop();
-  
-    LOG_INFO("reload checkpoint duration: %lf", checkpoint_timer.GetDuration());
-    
 
     Timer<std::milli> log_timer;
     log_timer.Start();

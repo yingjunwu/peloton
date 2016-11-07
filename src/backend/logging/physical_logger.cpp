@@ -164,6 +164,7 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
       if ((old_bcid == MAX_CID && old_ecid == MAX_CID) || cur_cid > old_bcid) {
         // Delete the tuple
         if (old_bcid == MAX_CID) {
+          PL_ASSERT(tid == INVALID_TXN_ID);
           old_tg_header->SetBeginCommitId(old_tuple_offset, cur_cid);
         }
         old_tg_header->SetEndCommitId(old_tuple_offset, cur_cid);
@@ -180,8 +181,11 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
       cid_t new_bcid = new_tg_header->GetBeginCommitId(new_tuple_offset);
       cid_t new_ecid = new_tg_header->GetEndCommitId(new_tuple_offset);
 
-      if ((new_bcid == MAX_CID && new_ecid == MAX_CID) // Free tuple slot
-          || (cur_cid > new_bcid && (new_ecid == MAX_CID || cur_cid >= new_ecid))) // Stale tuple slot
+      if (
+        (new_bcid == MAX_CID && new_ecid == MAX_CID)   // Free tuple slot
+        || (cur_cid > new_bcid && new_ecid == MAX_CID) // Stale tuple slot
+        || (new_ecid < MAX_CID && new_ecid <= cur_cid) // Used tuple slot
+        )
       {
         // Update the tuple
         // Set header
@@ -213,9 +217,13 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
       cid_t bcid = new_tg_header->GetBeginCommitId(new_tuple_offset);
       cid_t ecid = new_tg_header->GetEndCommitId(new_tuple_offset);
 
-      if ((bcid == MAX_CID && ecid == MAX_CID) // Free tuple slot
-          || (cur_cid > bcid && (ecid == MAX_CID || cur_cid >= ecid))) // Stale tuple slot
-      {        // Insert the tuple
+      if (
+        (bcid == MAX_CID && ecid == MAX_CID)   // Free tuple slot
+        || (cur_cid > bcid && ecid == MAX_CID) // Stale tuple slot
+        || (ecid < MAX_CID && ecid <= cur_cid) // Used tuple slot
+        )
+      {
+        // Insert the tuple
         // Set header
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
         new_tg_header->SetEndCommitId(new_tuple_offset, MAX_CID);
