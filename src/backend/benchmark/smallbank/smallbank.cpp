@@ -44,7 +44,7 @@ void RunBenchmark() {
   
     checkpoint_timer.Stop();
   
-    LOG_INFO("reload checkpoint duration: %lf", checkpoint_timer.GetDuration());
+    LOG_INFO("reload checkpoint duration: %lf ms", checkpoint_timer.GetDuration());
     
 
     Timer<std::milli> log_timer;
@@ -69,7 +69,7 @@ void RunBenchmark() {
     
     log_timer.Stop();
   
-    LOG_INFO("replay log duration: %lf", log_timer.GetDuration());
+    LOG_INFO("replay log duration: %lf ms", log_timer.GetDuration());
 
     return;
   }

@@ -188,12 +188,13 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
         new_tg_header->SetEndCommitId(new_tuple_offset, MAX_CID);
 
-        // Copy the tuple content
-        new_tg->CopyTuple(tuple, new_tuple_offset);
-
         // Unlock with tid as initial id on update/ invalid tid on delete
         UnlockTuple(new_tg_header, new_tuple_offset,
                     (type == LOGRECORD_TYPE_TUPLE_UPDATE) ? INITIAL_TXN_ID : INVALID_TXN_ID);
+
+        // Copy the tuple content
+        new_tg->CopyTuple(tuple, new_tuple_offset);
+
       } else {
         // Another newer update is replayed on this tuple slot
         // Unlock with the original tid
@@ -220,11 +221,12 @@ bool PhysicalLogger::InstallTupleRecord(LogRecordType type, ItemPointer new_tupl
         new_tg_header->SetBeginCommitId(new_tuple_offset, cur_cid);
         new_tg_header->SetEndCommitId(new_tuple_offset, MAX_CID);
 
-        // Copy the tuple content
-        new_tg->CopyTuple(tuple, new_tuple_offset);
-
         // Unlock with initial tid
         UnlockTuple(new_tg_header, new_tuple_offset, INITIAL_TXN_ID);
+
+        // Copy the tuple content
+        new_tg->CopyTuple(tuple, new_tuple_offset);
+        
       } else {
         // The insert is stale
         // printf("[JX]: Inserting an stale tuple (%d, %d) during recovery\n", (int) new_tg_id, (int) new_tuple_offset);
