@@ -169,7 +169,7 @@ namespace peloton {
 
       const std::string logging_filename_prefix_ = "log";
 
-      const int new_file_interval_ = 2000; // 2000 milliseconds.
+      const int new_file_interval_ = 500; // 500 milliseconds.
 
     };
 

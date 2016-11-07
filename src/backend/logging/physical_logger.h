@@ -141,7 +141,7 @@ private:
 
   const size_t sleep_period_us_ = 40000;
 
-  const int new_file_interval_ = 2000; // 2000 milliseconds.
+  const int new_file_interval_ = 500; // 500 milliseconds.
 };
 
 

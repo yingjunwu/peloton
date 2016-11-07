@@ -396,7 +396,7 @@ void PhysicalLogger::RunRecoveryThread(const size_t thread_id, const size_t chec
     }
 
     size_t file_eid = file_eids_.at(replay_file_id);
-    printf("start replaying file id = %d, file eid = %lu\n", replay_file_id, file_eid);
+    // printf("start replaying file id = %d, file eid = %lu\n", replay_file_id, file_eid);
     // Replay a single file
     std::string filename = GetLogFileFullPath(file_eid);
     FileHandle file_handle;
@@ -562,7 +562,7 @@ void PhysicalLogger::Run() {
           }
           while (file_handle == nullptr) {
             current_file_eid = current_file_eid + file_epoch_count;
-            printf("create new file with epoch id = %lu, last persist eid = %lu, current eid = %lu\n", current_file_eid, last_persist_eid, worker_current_eid);
+            // printf("create new file with epoch id = %lu, last persist eid = %lu, current eid = %lu\n", current_file_eid, last_persist_eid, worker_current_eid);
             FileHandle *new_file_handle = new FileHandle();
             file_handles.push_back(std::make_pair(new_file_handle, current_file_eid));
 
