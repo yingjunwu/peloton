@@ -174,7 +174,7 @@ void RunReadOnlyBackend(oid_t thread_id) {
     auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
     log_manager.RegisterWorker();
   } else {
-    auto SLEEP_TIME = std::chrono::milliseconds(500);
+    auto SLEEP_TIME = std::chrono::milliseconds(300);
     std::this_thread::sleep_for(SLEEP_TIME);
   }
 

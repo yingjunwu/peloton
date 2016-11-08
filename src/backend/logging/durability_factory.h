@@ -20,6 +20,7 @@
 #include "backend/logging/phylog_checkpoint_manager.h"
 #include "backend/logging/physical_checkpoint_manager.h"
 #include "backend/logging/dummy_checkpoint_manager.h"
+#include "backend/logging/reordered_physical_log_manager.h"
 
 namespace peloton {
 namespace logging {
@@ -37,6 +38,8 @@ class DurabilityFactory {
         return CommandLogManager::GetInstance();
       case LOGGING_TYPE_DEPENDENCY:
         return DepLogManager::GetInstance();
+      case LOGGING_TYPE_REORDERED_PHYSICAL:
+        return ReorderedPhysicalLogManager::GetInstance();
       default:
         return DummyLogManager::GetInstance();
     }

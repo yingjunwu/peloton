@@ -806,7 +806,7 @@ void WriteOutput() {
   out << state.latency_summary.percentile_50 << " ";
   out << state.latency_summary.percentile_90 << " ";
   out << state.latency_summary.percentile_99 << "\n";
-  
+
   out.flush();
   out.close();
 }

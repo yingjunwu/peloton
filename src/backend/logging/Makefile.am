@@ -21,7 +21,9 @@ logging_FILES = \
 			   backend/logging/command_logger.cpp \
 			   backend/logging/command_log_manager.cpp \
 			   backend/logging/dep_logger.cpp \
-			   backend/logging/dep_log_manager.cpp
+			   backend/logging/dep_log_manager.cpp \
+			   backend/logging/reordered_physical_log_manager.cpp \
+			   backend/logging/reordered_physical_logger.cpp
 
 logging_INCLUDES = \
                   -I$(srcdir)/logging
