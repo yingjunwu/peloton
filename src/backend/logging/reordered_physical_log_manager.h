@@ -27,7 +27,7 @@
 #include "backend/logging/log_manager.h"
 #include "backend/logging/logging_util.h"
 #include "backend/logging/worker_context.h"
-#include "backend/logging/physical_logger.h"
+#include "backend/logging/reordered_physical_logger.h"
 #include "backend/common/types.h"
 #include "backend/common/serializer.h"
 #include "backend/common/lockfree_queue.h"
@@ -94,7 +94,7 @@ public:
 
     logger_count_ = logging_dirs.size();
     for (size_t i = 0; i < logger_count_; ++i) {
-      loggers_.emplace_back(new PhysicalLogger(i, logging_dirs.at(i)));
+      loggers_.emplace_back(new ReorderedPhysicalLogger(i, logging_dirs.at(i)));
     }
   }
 
@@ -105,6 +105,8 @@ public:
   // Worker side logic
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
+
+  virtual void StartTxn(concurrency::Transaction *txn) override ;
 
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos, const ItemPointer &old_pos);
@@ -132,7 +134,7 @@ private:
 
   std::vector<std::string> logger_dirs_;
 
-  std::vector<std::shared_ptr<PhysicalLogger>> loggers_;
+  std::vector<std::shared_ptr<ReorderedPhysicalLogger>> loggers_;
 
   std::unique_ptr<std::thread> pepoch_thread_;
   volatile bool is_running_;

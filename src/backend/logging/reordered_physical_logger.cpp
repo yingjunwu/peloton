@@ -539,9 +539,7 @@ void ReorderedPhysicalLogger::Run() {
         size_t last_persist_eid = worker_ctx_ptr->persist_eid;
 
         // Since idle worker has MAX_EPOCH_ID, we need a std::min here
-        size_t worker_current_eid = std::min(epoch_mamager.GetRwTxnWorkerCurrentEid(worker_ctx_ptr->transaction_worker_id),
-                                             current_global_eid);
-
+        size_t worker_current_eid = std::min(worker_ctx_ptr->current_commit_eid, current_global_eid);
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 
         if (last_persist_eid == worker_current_eid) {

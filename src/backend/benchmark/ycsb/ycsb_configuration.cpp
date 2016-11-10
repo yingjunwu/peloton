@@ -54,7 +54,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  mode of secondary index: version or tuple\n"
           "   -j --sindex_scan       :  use secondary index to scan\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, physical, command, off, dep\n"
+          "   -L --log_type          :  log type could be phylog, physical, command, off, dep, rephy\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -496,6 +496,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "dep") == 0) {
           state.logging_type = LOGGING_TYPE_DEPENDENCY;
+        } else if (strcmp(logging_proto, "rephy") == 0) {
+          state.logging_type = LOGGING_TYPE_REORDERED_PHYSICAL;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);
