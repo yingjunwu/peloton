@@ -16,6 +16,8 @@ logging_FILES = \
 			   backend/logging/log_manager.cpp \
 			   backend/logging/phylog_logger.cpp \
 			   backend/logging/phylog_log_manager.cpp \
+         backend/logging/reordered_phylog_logger.cpp \
+         backend/logging/reordered_phylog_log_manager.cpp \
 			   backend/logging/physical_logger.cpp \
 			   backend/logging/physical_log_manager.cpp \
 			   backend/logging/command_logger.cpp \
