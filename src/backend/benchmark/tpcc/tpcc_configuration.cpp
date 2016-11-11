@@ -45,7 +45,7 @@ void Usage(FILE *out) {
           "   -q --sindex_mode       :  secondary index mode: version or tuple\n"
           "   -n --disable_insert    :  disable insert\n"
           "   -f --epoch_length      :  epoch length\n"
-          "   -L --log_type          :  log type could be phylog, physical, command, dep, off\n"
+          "   -L --log_type          :  log type could be phylog, physical, command, dep, off, rephysical, rephylog\n"
           "   -D --log_directories   :  multiple log directories, e.g., /data1/,/data2/,/data3/,...\n"
           "   -C --checkpoint_type   :  checkpoint type could be phylog, physical, off\n"
           "   -F --ckpt_directories  :  multiple checkpoint directories, e.g., /data1/,/data2/,/data3/,...\n"
@@ -404,6 +404,10 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           state.logging_type = LOGGING_TYPE_COMMAND;
         } else if (strcmp(logging_proto, "dep") == 0) {
           state.logging_type = LOGGING_TYPE_DEPENDENCY;
+        } else if (strcmp(logging_proto, "rephysical") == 0) {
+          state.logging_type = LOGGING_TYPE_REORDERED_PHYSICAL;
+        } else if (strcmp(logging_proto, "rephylog") == 0) {
+          state.logging_type = LOGGING_TYPE_REORDERED_PHYLOG;
         } else {
           fprintf(stderr, "\nUnknown logging protocol: %s\n", logging_proto);
           exit(EXIT_FAILURE);
@@ -685,7 +689,12 @@ void WriteOutput() {
     out << "log=phylog ";
   } else if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
     out << "log=dep ";
+  } else if (state.logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
+    out << "log=rephylog ";
+  } else if (state.logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
+    out << "log=rephysical ";
   }
+
   out << "log_count=" << state.log_directories.size() << " ";
   if (state.checkpoint_type == CHECKPOINT_TYPE_INVALID) {
     out << "ckpt=off ";

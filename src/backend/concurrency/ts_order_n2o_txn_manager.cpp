@@ -579,6 +579,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     ((logging::DepLogManager *) (&log_manager))->StartPersistTxn();
   } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
     ((logging::ReorderedPhysicalLogManager *) (&log_manager))->StartPersistTxn();
+  } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
+    ((logging::ReorderedPhyLogLogManager*)(&log_manager))->StartPersistTxn();
   }
   
   auto &rw_set = current_txn->GetRWSet();
@@ -640,6 +642,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           log_manager_ptr->LogUpdate(new_version);
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
           ((logging::ReorderedPhysicalLogManager*)(&log_manager))->LogUpdate(new_version, ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
+          ((logging::ReorderedPhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
         }
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
@@ -682,6 +686,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           log_manager_ptr->LogDelete(new_version);
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
           ((logging::ReorderedPhysicalLogManager*)(&log_manager))->LogDelete(new_version, ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
+          ((logging::ReorderedPhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
         }
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
@@ -709,6 +715,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           log_manager_ptr->LogInsert(ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
           ((logging::ReorderedPhysicalLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
+        } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
+          ((logging::ReorderedPhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
         }
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
@@ -742,6 +750,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     ((logging::DepLogManager *) (&log_manager))->EndPersistTxn();
   } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
     ((logging::ReorderedPhysicalLogManager*)(&log_manager))->EndPersistTxn();
+  } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
+    ((logging::ReorderedPhyLogLogManager*)(&log_manager))->EndPersistTxn();
   }
 
   EndTransaction();

@@ -26,7 +26,7 @@ namespace logging {
     // Record the txn timer
     DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_ctx);
 
-    PL_ASSERT(tl_worker_ctx->current_commit_eid == INVALID_EPOCH_ID || tl_worker_ctx->current_commit_eid <= txn_eid);
+    PL_ASSERT(tl_worker_ctx->current_commit_eid == MAX_EPOCH_ID || tl_worker_ctx->current_commit_eid <= txn_eid);
 
     // Handle the epoch id
     if (tl_worker_ctx->current_commit_eid == INVALID_EPOCH_ID

@@ -106,6 +106,8 @@ public:
   virtual void RegisterWorker() override;
   virtual void DeregisterWorker() override;
 
+  virtual void StartTxn(concurrency::Transaction *txn) override ;
+
   void LogInsert(const ItemPointer &tuple_pos);
   void LogUpdate(const ItemPointer &tuple_pos);
   void LogDelete(const ItemPointer &tuple_pos_deleted);

@@ -139,6 +139,27 @@ void ReorderedPhyLogLogManager::EndPersistTxn() {
   PL_ASSERT(tl_worker_ctx);
   LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_worker_ctx->current_cid);
   WriteRecordToBuffer(record);
+  tl_worker_ctx->current_commit_eid = MAX_EPOCH_ID;
+}
+
+void ReorderedPhyLogLogManager::StartTxn(concurrency::Transaction *txn) {
+  PL_ASSERT(tl_worker_ctx);
+  size_t cur_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
+
+  tl_worker_ctx->current_commit_eid = cur_eid;
+
+  size_t epoch_idx = cur_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+
+  if (tl_worker_ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == true) {
+    RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer(cur_eid)));
+  }
+
+  // Record the txn timer
+  DurabilityFactory::StartTxnTimer(cur_eid, tl_worker_ctx);
+
+  // Handle the commit id
+  cid_t txn_cid = txn->GetEndCommitId();
+  tl_worker_ctx->current_cid = txn_cid;
 }
 
 void ReorderedPhyLogLogManager::LogInsert(const ItemPointer &tuple_pos) {

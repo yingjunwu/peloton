@@ -33,6 +33,7 @@ const int INVALID_TRANSACTION_TYPE = 100;
 enum LoggingType {
   LOGGING_TYPE_INVALID = 0,
   LOGGING_TYPE_PHYLOG, // physiological logging
+  LOGGING_TYPE_REORDERED_PHYLOG,  // reordered physiological logging
   LOGGING_TYPE_PHYSICAL, // physical logging
   LOGGING_TYPE_REORDERED_PHYSICAL, // reordered physical logging
   LOGGING_TYPE_COMMAND, // command logging
