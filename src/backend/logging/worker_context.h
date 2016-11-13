@@ -148,6 +148,7 @@ namespace logging {
 
 
     // Every epoch has a buffer stack
+    // TODO: Remove this, workers should push the buffer to the logger. -- Jiexi
     std::vector<std::stack<std::unique_ptr<LogBuffer>>> per_epoch_buffer_ptrs;
 
     // each worker thread has a buffer pool. each buffer pool contains 16 log buffers.
@@ -158,6 +159,7 @@ namespace logging {
     // current epoch id
     size_t current_commit_eid;
     // persisted epoch id
+    // TODO: Move this to logger -- Jiexi
     size_t persist_eid;
     // reported epoch id
     size_t reported_eid;
@@ -179,6 +181,7 @@ namespace logging {
 
     // Note: Only used by dep log manager
     // Per epoch dependency graph
+    // TODO: Remove this, workers should push the dependencies along with the buffer to the logger. -- Jiexi
     std::vector<std::unordered_set<size_t>> per_epoch_dependencies;
   };
 
