@@ -510,7 +510,11 @@ void ReorderedPhyLogLogger::Run() {
         size_t last_persist_eid = worker_ctx_ptr->persist_eid;
 
         // Since idle worker has MAX_EPOCH_ID, we need a std::min here
-        size_t worker_current_eid = std::min(worker_ctx_ptr->current_commit_eid, current_global_eid);
+        // Note: std::min pass a const & of into the function. We need to first copy the shared worker_ctx_ptr->current_commit_eid
+        // into a local variable before calling std::min. Otherwise we will have a Heisenbug where std::min first check which one is smaller,
+        // and before it returns, other thread modify the variable and we actually return the larger one.
+        size_t worker_current_eid = worker_ctx_ptr->current_commit_eid;
+        worker_current_eid = std::min(worker_current_eid, current_global_eid);
 
         PL_ASSERT(last_persist_eid <= worker_current_eid);
 
