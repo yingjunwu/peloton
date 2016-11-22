@@ -62,6 +62,14 @@ namespace logging {
  *
  */
 
+
+/**
+ * WARNING: Dependency tracking is incorrect when there is DELETE tuple operations -- Jiexi
+ *
+ * The reason is that we track dependency based on the read set of a transaction. However, the fact that
+ * a tranction encounter a deleted tuple does not reflect in its read set. As a result, we lose the RAW dependency
+ * from this txn to the txn that deleted the tuple.
+ */
 class DepLogManager : public LogManager {
   DepLogManager(const DepLogManager &) = delete;
   DepLogManager &operator=(const DepLogManager &) = delete;

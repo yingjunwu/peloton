@@ -93,8 +93,8 @@ namespace peloton {
             size_t last_persist_eid = worker_ctx_ptr->persist_eid;
             // It's possible that the worker's current eid is larger than the global observed by the logger.
             // In such case, taking a min is safe.
-            size_t worker_current_eid = std::min(current_global_eid,
-                                                 epoch_manager.GetRwTxnWorkerCurrentEid(worker_ctx_ptr->transaction_worker_id));
+            size_t worker_current_eid = worker_ctx_ptr->current_commit_eid;
+            worker_current_eid = std::min(current_global_eid, worker_current_eid);
             worker_current_eids.push_back(worker_current_eid);
             min_worker_cur_eid = std::min(min_worker_cur_eid, worker_current_eid);
 

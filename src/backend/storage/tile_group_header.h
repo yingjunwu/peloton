@@ -161,6 +161,10 @@ class TileGroupHeader : public Printable {
     return *(ItemPointer **)(TUPLE_HEADER_LOCATION + master_pointer_offset);
   }
 
+  inline size_t GetLoggingCommitEpochId(const oid_t &tuple_slot_id) const {
+    return *(size_t *)(TUPLE_HEADER_LOCATION + commit_epoch_id_offset);
+  }
+
   // Setters
 
   inline void SetTileGroup(TileGroup *tile_group) {
@@ -211,6 +215,10 @@ class TileGroupHeader : public Printable {
     *((const ItemPointer **)(TUPLE_HEADER_LOCATION + master_pointer_offset)) = master_ptr;
   }
 
+  inline void SetLoggingCommitEpochId(const oid_t &tuple_slot_id, const size_t epoch_id) {
+    *((size_t *)(TUPLE_HEADER_LOCATION + commit_epoch_id_offset)) = epoch_id;
+  }
+
   // Getters for addresses
   inline txn_id_t *GetTransactionIdLocation(const oid_t &tuple_slot_id) const {
     return ((txn_id_t *)(TUPLE_HEADER_LOCATION));
@@ -256,7 +264,7 @@ class TileGroupHeader : public Printable {
 
   // FIXME: there is no space reserved for index count?
   static const size_t header_entry_size = sizeof(txn_id_t) + 2 * sizeof(cid_t) +
-                                          3 * sizeof(ItemPointer) + sizeof(ItemPointer *) + reserved_size +
+                                          3 * sizeof(ItemPointer) + sizeof(ItemPointer *) + sizeof(size_t) + reserved_size +
                                           2 * sizeof(bool);
   static const size_t txn_id_offset = 0;
   static const size_t begin_cid_offset = txn_id_offset + sizeof(txn_id_t);
@@ -265,7 +273,8 @@ class TileGroupHeader : public Printable {
   static const size_t prev_pointer_offset = next_pointer_offset + sizeof(ItemPointer);
   static const size_t next_snapshot_pointer_offset = prev_pointer_offset + sizeof(ItemPointer);
   static const size_t master_pointer_offset = next_snapshot_pointer_offset + sizeof(ItemPointer);
-  static const size_t reserved_field_offset = master_pointer_offset + sizeof(ItemPointer*);
+  static const size_t commit_epoch_id_offset = master_pointer_offset + sizeof(ItemPointer*);
+  static const size_t reserved_field_offset = commit_epoch_id_offset + sizeof(size_t);
   static const size_t insert_commit_offset = reserved_field_offset + reserved_size;
   static const size_t delete_commit_offset = insert_commit_offset + sizeof(bool);
 

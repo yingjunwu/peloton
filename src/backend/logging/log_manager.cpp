@@ -13,6 +13,7 @@
 
 #include "backend/logging/durability_factory.h"
 #include "backend/logging/log_manager.h"
+#include "backend/storage/tile_group_header.h"
 
 namespace peloton {
 namespace logging {
@@ -45,6 +46,12 @@ namespace logging {
     PL_ASSERT(tl_worker_ctx);
     size_t glob_peid = global_persist_epoch_id_.load();
     DurabilityFactory::StopTimersByPepoch(glob_peid, tl_worker_ctx);
+  }
+
+  void LogManager::MarkTupleCommitEpochId(storage::TileGroupHeader *tg_header, oid_t tuple_slot) {
+    PL_ASSERT(tl_worker_ctx != nullptr);
+    PL_ASSERT(tl_worker_ctx->current_commit_eid != MAX_EPOCH_ID && tl_worker_ctx->current_commit_eid != INVALID_EPOCH_ID);
+    tg_header->SetLoggingCommitEpochId(tuple_slot, tl_worker_ctx->current_commit_eid);
   }
 
 }

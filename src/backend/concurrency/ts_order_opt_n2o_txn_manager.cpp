@@ -618,6 +618,9 @@ void TsOrderOptN2OTxnManager::PerformDelete(const ItemPointer &location) {
   }
 }
 
+/**
+ * NOTE: The logging logic in this transactino manager is out-of-date. -- Jiexi
+ */
 Result TsOrderOptN2OTxnManager::CommitTransaction() {
   LOG_TRACE("Committing peloton txn : %lu ", current_txn->GetTransactionId());
 

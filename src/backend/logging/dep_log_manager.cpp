@@ -137,26 +137,17 @@ namespace peloton {
 
     void DepLogManager::StartTxn(concurrency::Transaction *txn) {
       PL_ASSERT(tl_worker_ctx);
-      size_t txn_eid = txn->GetEpochId();
+      size_t cur_eid = concurrency::EpochManagerFactory::GetInstance().GetCurrentEpochId();
+      tl_worker_ctx->current_commit_eid = cur_eid;
+
+      size_t epoch_idx = cur_eid % concurrency::EpochManager::GetEpochQueueCapacity();
+
+      if (tl_worker_ctx->per_epoch_buffer_ptrs[epoch_idx].empty() == true) {
+        RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer(cur_eid)));
+      }
 
       // Record the txn timer
-      DurabilityFactory::StartTxnTimer(txn_eid, tl_worker_ctx);
-
-      PL_ASSERT(tl_worker_ctx->current_commit_eid == INVALID_EPOCH_ID || tl_worker_ctx->current_commit_eid <= txn_eid);
-
-      // Handle the epoch id
-      if (tl_worker_ctx->current_commit_eid == INVALID_EPOCH_ID
-          || tl_worker_ctx->current_commit_eid != txn_eid) {
-        // if this is a new epoch, then write to a new buffer
-        tl_worker_ctx->current_commit_eid = txn_eid;
-
-        // Reset the dependency
-        // TODO: Pay attention to epoch overflow...
-        size_t epoch_idx = txn_eid % concurrency::EpochManager::GetEpochQueueCapacity();
-        tl_worker_ctx->per_epoch_dependencies[epoch_idx].clear();
-
-        RegisterNewBufferToEpoch(std::move(tl_worker_ctx->buffer_pool.GetBuffer(txn_eid)));
-      }
+      DurabilityFactory::StartTxnTimer(cur_eid, tl_worker_ctx);
 
       // Handle the commit id
       cid_t txn_cid = txn->GetEndCommitId();
@@ -173,6 +164,7 @@ namespace peloton {
       PL_ASSERT(tl_worker_ctx);
       LogRecord record = LogRecordFactory::CreateTxnRecord(LOGRECORD_TYPE_TRANSACTION_COMMIT, tl_worker_ctx->current_cid);
       WriteRecordToBuffer(record);
+      tl_worker_ctx->current_commit_eid = MAX_EPOCH_ID;
     }
 
     void DepLogManager::FinishPendingTxn() {
@@ -209,7 +201,9 @@ namespace peloton {
 
     void DepLogManager::RecordReadDependency(const storage::TileGroupHeader *tg_header, const oid_t tuple_slot) {
       auto ctx = tl_worker_ctx;
-      size_t dep_eid = concurrency::EpochManager::GetEidFromCid(tg_header->GetBeginCommitId(tuple_slot));
+
+      // Read the reordered commit eid from tile group header
+      size_t dep_eid = tg_header->GetLoggingCommitEpochId(tuple_slot);
 
       // Filter out self dependency
       if (dep_eid == ctx->current_commit_eid) {

@@ -615,6 +615,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
                                                 end_commit_id);
         new_tile_group_header->SetEndCommitId(new_version.offset, cid);
 
+        // Set the header for logger
+        log_manager.MarkTupleCommitEpochId(new_tile_group_header, new_version.offset);
+
         COMPILER_MEMORY_FENCE;
 
         tile_group_header->SetEndCommitId(tuple_slot, end_commit_id);
@@ -658,6 +661,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
                                                 end_commit_id);
         new_tile_group_header->SetEndCommitId(new_version.offset, cid);
 
+        // Set the header for logger
+        log_manager.MarkTupleCommitEpochId(new_tile_group_header, new_version.offset);
+
         COMPILER_MEMORY_FENCE;
 
         tile_group_header->SetEndCommitId(tuple_slot, end_commit_id);
@@ -697,6 +703,9 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
         tile_group_header->SetBeginCommitId(tuple_slot, end_commit_id);
         tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
 
+        // Set the header for logger
+        log_manager.MarkTupleCommitEpochId(tile_group_header, tuple_slot);
+
         COMPILER_MEMORY_FENCE;
 
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
@@ -725,6 +734,8 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
 
         tile_group_header->SetBeginCommitId(tuple_slot, MAX_CID);
         tile_group_header->SetEndCommitId(tuple_slot, MAX_CID);
+        // Set the header for logger
+        log_manager.MarkTupleCommitEpochId(tile_group_header, tuple_slot);
 
         COMPILER_MEMORY_FENCE;
 

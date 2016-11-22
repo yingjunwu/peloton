@@ -20,6 +20,11 @@
 #include "backend/logging/worker_context.h"
 
 namespace peloton {
+
+namespace storage {
+  class TileGroupHeader;
+}
+
 namespace logging {
 
 
@@ -57,6 +62,8 @@ public:
   virtual void StartTxn(concurrency::Transaction *txn);
 
   virtual void FinishPendingTxn();
+
+  void MarkTupleCommitEpochId(storage::TileGroupHeader *tg_header, oid_t tuple_slot);
 
   size_t GetPersistEpochId() {
     return global_persist_epoch_id_.load();
