@@ -387,6 +387,9 @@ void RunBackend(oid_t thread_id) {
     commit_latency_ref = logging::tl_worker_ctx->txn_summary.GetAverageLatencyInMs();
     if (thread_id == 0) {
       lat_summary_ref = logging::tl_worker_ctx->txn_summary.GetLatSummary();
+      if (logging::DurabilityFactory::GenerateDetailedCsv() == true) {
+        logging::tl_worker_ctx->txn_summary.GenerateDetailedCsv();
+      }
     }
   }
 

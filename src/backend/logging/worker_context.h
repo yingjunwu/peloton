@@ -43,6 +43,10 @@ namespace logging {
     std::list<uint64_t> per_batch_txn_lat;
     std::unique_ptr<std::list<uint64_t>> per_txn_lat;
 
+    // TODO: Exp usage, remove it when merging back to master -- Jiexi
+    std::list<size_t> per_epoch_txn_count;
+    std::list<int64_t> per_epoch_avg_lat;
+
     uint64_t last_count;
     uint64_t last_total_usec;
 
@@ -50,6 +54,18 @@ namespace logging {
   public:
     TxnSummary() : per_batch_txn_lat(), per_txn_lat(new std::list<uint64_t>()), last_count(0), last_total_usec(0) {};
     ~TxnSummary() {}
+
+    // TODO: Exp usage, remove it when merging back to master -- Jiexi
+    void AddEpochLatReport(uint64_t epoch_lat_sum, size_t count) {
+      int64_t epoch_avg_lat = -1;
+      if (count != 0) {
+        epoch_avg_lat = epoch_lat_sum / count;
+      }
+
+      per_epoch_avg_lat.push_back(epoch_avg_lat);
+      per_epoch_txn_count.push_back(count);
+    }
+
 
     void AddTxnLatReport(uint64_t lat, bool distribution = false) {
         last_total_usec += lat;
@@ -66,6 +82,27 @@ namespace logging {
 
     const std::list<uint64_t>* GetLatencyList() {
       return per_txn_lat.get();
+    }
+
+    // TODO: Exp usage, remove it when merging back to master -- Jiexi
+    void GenerateDetailedCsv() {
+      {
+        LOG_INFO("Writing latency statistic file");
+        std::ofstream csv_out("lat-epoch.csv", std::ofstream::out);
+        auto lat_list = per_epoch_avg_lat;
+        auto itr = per_epoch_avg_lat.begin();
+        auto itr2 = per_epoch_txn_count.begin();
+        auto eid = 0;
+        while( itr != per_epoch_avg_lat.end()) {
+          csv_out << eid << " "  << *itr << " " <<  *itr2 << "\n";
+          itr++;
+          itr2++;
+          eid ++;
+        }
+
+        csv_out.flush();
+        csv_out.close();
+      }
     }
 
     LatSummary GetLatSummary() {
@@ -95,6 +132,9 @@ namespace logging {
 
       res.min_lat = *(per_txn_lat->begin()) / 1000.0;
       res.max_lat = *(per_txn_lat->rbegin()) / 1000.0;
+
+
+
       return res;
     }
 

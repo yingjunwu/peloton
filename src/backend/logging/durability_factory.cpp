@@ -23,6 +23,8 @@ namespace logging {
 
   TimerType DurabilityFactory::timer_type_ = TIMER_OFF;
 
+  bool DurabilityFactory::generate_detailed_csv_ = false;
+
 
   //////////////////////////////////
   void DurabilityFactory::StartTxnTimer(size_t eid, WorkerContext *worker_ctx) {
@@ -48,10 +50,21 @@ namespace logging {
     auto upper_itr = worker_ctx->pending_txn_timers.upper_bound(persist_eid);
     auto itr = worker_ctx->pending_txn_timers.begin();
     while (itr != upper_itr) {
+      uint64_t sum = 0;
+      size_t count = 0;
+
       for (uint64_t txn_start_us : itr->second) {
         PL_ASSERT(commit_time_usec > txn_start_us);
-        worker_ctx->txn_summary.AddTxnLatReport(commit_time_usec - txn_start_us, (timer_type_ == TIMER_DISTRIBUTION));
+        auto lat = commit_time_usec - txn_start_us;
+        worker_ctx->txn_summary.AddTxnLatReport(lat, (timer_type_ == TIMER_DISTRIBUTION));
+        sum += lat;
+        count += 1;
       }
+
+      if (generate_detailed_csv_ == true) {
+        worker_ctx->txn_summary.AddEpochLatReport(sum, count);
+      }
+
       itr = worker_ctx->pending_txn_timers.erase(itr);
     }
     worker_ctx->reported_eid = persist_eid;

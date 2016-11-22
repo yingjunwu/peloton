@@ -149,6 +149,8 @@ class configuration {
 
   LatSummary latency_summary;
 
+  bool detailed_csv;
+
   int ro_sleep_between_txn;
 
   EpochType epoch_type;

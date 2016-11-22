@@ -50,7 +50,7 @@ void RunBenchmark() {
     Timer<std::milli> log_timer;
     log_timer.Start();
 
-    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
     
     if (state.logging_type == LOGGING_TYPE_COMMAND) {
       auto &log_manager = TpccCommandLogManager::GetInstance();
@@ -82,7 +82,7 @@ void RunBenchmark() {
 
     CreateTPCCDatabase();
     
-    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
     auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
     checkpoint_manager.SetDirectories(state.checkpoint_directories);
     checkpoint_manager.SetRecoveryThreadCount(state.recover_checkpoint_num);
@@ -114,7 +114,7 @@ void RunBenchmark() {
         index::IndexFactory::Configure(state.sindex);
         epoch_manager.RegisterTxnWorker(false);
 
-        logging::DurabilityFactory::Configure(LOGGING_TYPE_INVALID, CHECKPOINT_TYPE_INVALID, TIMER_OFF);
+        logging::DurabilityFactory::Configure(LOGGING_TYPE_INVALID, CHECKPOINT_TYPE_INVALID, TIMER_OFF, false);
         //////
         
         log_manager.DoRecovery(persist_checkpoint_eid);
@@ -150,7 +150,7 @@ void RunBenchmark() {
   CreateTPCCDatabase();
   LoadTPCCDatabase();
 
-  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
 
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);

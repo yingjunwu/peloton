@@ -59,6 +59,7 @@ void Usage(FILE *out) {
           "   -W --mock_sleep        :  mock sleep time for each scan operation in ms. Default 0.\n"
           "   -J --long_rw           :  treat scan txn as rw txn\n"
           "   -A --adhoc_ratio       :  percentage of ad-hoc transactions\n"
+          "   -V --detailed_csv      :  generate a detailed csv file about latency and throughput\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -95,6 +96,7 @@ static struct option opts[] = {
   { "mock_sleep", optional_argument, NULL, 'W'},
   { "long_rw", no_argument, NULL, 'J'},
   { "adhoc_ratio", optional_argument, NULL, 'A'},
+  {"detailed_csv", optional_argument, NULL, 'V'},
   { NULL, 0, NULL, 0 }
 };
 
@@ -298,11 +300,12 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.mock_sleep_millisec = 0;
   state.adhoc_ratio = 0;
   state.load = 1;
+  state.detailed_csv = false;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPaenh:l:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:A:J", opts, &idx);
+    int c = getopt_long(argc, argv, "VRPaenh:l:r:k:w:d:s:b:p:g:i:t:q:y:f:L:D:T:E:C:F:I:M:N:W:A:J", opts, &idx);
 
     if (c == -1) break;
 
@@ -360,6 +363,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'f':
         state.epoch_length = atoi(optarg);
+        break;
+      case 'V':
+        state.detailed_csv = true;
         break;
       case 'W':
         state.mock_sleep_millisec = atoi(optarg);
@@ -600,11 +606,11 @@ void WriteOutput() {
   // LOG_INFO("scan_stock latency: %lf us", state.scan_stock_latency);
 
   LOG_INFO("average commit latency: %lf ms", state.commit_latency);
-  // LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
-  // LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
-  // LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
-  // LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
-  // LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
+  LOG_INFO("min commit latency: %lf ms", state.latency_summary.min_lat);
+  LOG_INFO("max commit latency: %lf ms", state.latency_summary.max_lat);
+  LOG_INFO("p50 commit latency: %lf ms", state.latency_summary.percentile_50);
+  LOG_INFO("p90 commit latency: %lf ms", state.latency_summary.percentile_90);
+  LOG_INFO("p99 commit latency: %lf ms", state.latency_summary.percentile_99);
 
 
   for (size_t round_id = 0; round_id < state.snapshot_throughput.size();

@@ -176,6 +176,8 @@ class configuration {
   double commit_latency;
   LatSummary latency_summary;
 
+  bool detailed_csv;
+
   // Timer on
   TimerType timer_type;
 

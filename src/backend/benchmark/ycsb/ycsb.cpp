@@ -206,7 +206,7 @@ void CheckRecovery() {
   // Create and load the user table
   epoch_manager.RegisterTxnWorker(false);
 
-  logging::DurabilityFactory::Configure(LOGGING_TYPE_INVALID, CHECKPOINT_TYPE_INVALID, TIMER_OFF);
+  logging::DurabilityFactory::Configure(LOGGING_TYPE_INVALID, CHECKPOINT_TYPE_INVALID, TIMER_OFF, false);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
@@ -269,7 +269,7 @@ void RunBenchmark() {
     Timer<std::milli> log_timer;
     log_timer.Start();
     
-    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
     
     auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
     log_manager.SetDirectories(state.log_directories);
@@ -295,7 +295,7 @@ void RunBenchmark() {
 
     CreateYCSBDatabase();
     
-    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+    logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
 
     auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
     checkpoint_manager.SetDirectories(state.checkpoint_directories);
@@ -342,7 +342,7 @@ void RunBenchmark() {
 
 
   // Enable logging here to test correctness -- Jiexi
-  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
+  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);

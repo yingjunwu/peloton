@@ -59,10 +59,11 @@ class DurabilityFactory {
     }
   }
 
-  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, TimerType timer_type) {
+  static void Configure(LoggingType logging_type, CheckpointType checkpoint_type, TimerType timer_type, bool detailed_csv = false) {
     logging_type_ = logging_type;
     checkpoint_type_ = checkpoint_type;
     timer_type_ = timer_type;
+    generate_detailed_csv_ = detailed_csv;
   }
 
   inline static LoggingType GetLoggingType() { return logging_type_; }
@@ -71,6 +72,7 @@ class DurabilityFactory {
 
   inline static TimerType GetTimerType() { return timer_type_; }
 
+  inline static bool GenerateDetailedCsv() { return generate_detailed_csv_; }
 
   /* Statistics */
   static void StartTxnTimer(size_t eid, WorkerContext *worker_ctx);
@@ -86,6 +88,7 @@ private:
   static LoggingType logging_type_;
   static CheckpointType checkpoint_type_;
   static TimerType  timer_type_;
+  static bool generate_detailed_csv_;
 
 };
 } // namespace gc

@@ -66,6 +66,7 @@ void Usage(FILE *out) {
           "   -P --replay_log        :  replay log\n"
           "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
           "   -N --replay_log_num    :  # threads for replaying logs\n"
+          "   -V --detailed_csv      :  generate a detailed csv file about latency and throughput\n"
   );
   exit(EXIT_FAILURE);
 }
@@ -107,6 +108,7 @@ static struct option opts[] = {
     {"replay_log", no_argument, NULL, 'P'},
     {"recover_ckpt_num", optional_argument, NULL, 'M'},
     {"replay_log_num", optional_argument, NULL, 'N'},
+    {"detailed_csv", optional_argument, NULL, 'V'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -365,7 +367,8 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.checkpoint_directories = {TMP_DIR};
   state.checkpoint_interval = 30;
   state.timer_type = TIMER_OFF;
-  state.ro_sleep_between_txn = 0;
+  state.ro_sleep_between_txn = 200;
+  state.detailed_csv = false;
   state.epoch_type = EPOCH_LOCALIZED;
   state.recover_checkpoint = false;
   state.replay_log = false;
@@ -375,7 +378,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "RPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:", opts, &idx);
+    int c = getopt_long(argc, argv, "VRPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:", opts, &idx);
 
     if (c == -1) break;
 
@@ -454,6 +457,9 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         break;
       case 'f':
         state.epoch_length = atof(optarg);
+        break;
+      case 'V':
+        state.detailed_csv = true;
         break;
       case 'E' : {
         char *epoch_type = optarg;
