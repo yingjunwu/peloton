@@ -626,6 +626,7 @@ oid_t DataTable::AddDefaultTileGroup(const size_t &active_tile_group_id) {
   tile_group_id = tile_group->GetTileGroupId();
 
   LOG_TRACE("Added a tile group ");
+  printf("add tile group %d\n", tile_group_id);
 
   tile_groups_.Append(tile_group_id);
 

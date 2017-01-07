@@ -140,6 +140,17 @@ public:
     IncreaseQueueTail();
     IncreaseReclaimTail();
 
+
+  // std::atomic<size_t> queue_tail_;
+  // std::atomic<size_t> reclaim_tail_;
+  // std::atomic<size_t> current_epoch_;
+
+
+    auto epoch_idx = queue_tail_.load() % epoch_queue_size_;
+    int rw_txn_ref_count = epoch_queue_[epoch_idx].rw_txn_ref_count_;
+
+    printf("queue = %d, reclaim = %d, current epoch = %d, rw_txn_ref_count = %d\n", (int)queue_tail_.load(), (int)reclaim_tail_.load(), (int)current_epoch_.load(), rw_txn_ref_count);
+
     return max_cid_gc_;
   }
 
