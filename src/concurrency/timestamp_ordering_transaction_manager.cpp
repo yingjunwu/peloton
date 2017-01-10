@@ -86,6 +86,8 @@ void TimestampOrderingTransactionManager::InitTupleReserved(
 }
 
 Transaction *TimestampOrderingTransactionManager::BeginTransaction() {
+  txn_counter ++;
+
   auto &log_manager = logging::LogManager::GetInstance();
   log_manager.PrepareLogging();
 
@@ -125,6 +127,7 @@ Transaction *TimestampOrderingTransactionManager::BeginReadonlyTransaction() {
 }
 
 void TimestampOrderingTransactionManager::EndTransaction(Transaction *current_txn) {
+  txn_counter--;
   EpochManagerFactory::GetInstance().ExitEpoch(current_txn->GetEpochId());
   auto &log_manager = logging::LogManager::GetInstance();
 

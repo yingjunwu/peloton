@@ -26,9 +26,16 @@ namespace concurrency {
 
 class TimestampOrderingTransactionManager : public TransactionManager {
  public:
-  TimestampOrderingTransactionManager() {}
+  TimestampOrderingTransactionManager() {
+    txn_counter = 0;
+    stop = false;
+    moniter_thread.reset(new std::thread(&TimestampOrderingTransactionManager::Monitor, this));
+  }
 
-  virtual ~TimestampOrderingTransactionManager() {}
+  virtual ~TimestampOrderingTransactionManager() {
+    stop = true;
+    moniter_thread->join();
+  }
 
   static TimestampOrderingTransactionManager &GetInstance();
 
@@ -109,8 +116,19 @@ class TimestampOrderingTransactionManager : public TransactionManager {
   virtual void EndReadonlyTransaction(Transaction *current_txn);
 
 private:
+  std::atomic<int> txn_counter;
+
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);
+
+  std::unique_ptr<std::thread> moniter_thread;
+  bool stop;
+  void Monitor() {
+    while (!stop) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+      printf("Transaction counter: %d\n", txn_counter.load());
+    }
+  }
 
   Spinlock *GetSpinlockField(
       const storage::TileGroupHeader *const tile_group_header,
