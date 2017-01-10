@@ -136,7 +136,9 @@ private:
       int commitc = commit_counter.load();
       int abortc = abort_counter.load();
       int rbeginc = rbegin_counter.load();
-      printf("left: %d, robegin: %d, commit: %d, abort: %d，tcop:  %d\n", beginc - abortc - commitc, rbeginc, commitc, abortc, concurrency::TransactionManager::txn_counter.load());
+      int left = beginc + rbeginc - abortc - commitc;
+      printf("left: %d, begin = %d, robegin: %d, commit: %d, abort: %d，tcop:  %d\n",
+       left, beginc, rbeginc, commitc, abortc, concurrency::TransactionManager::txn_counter.load());
     }
   }
 
