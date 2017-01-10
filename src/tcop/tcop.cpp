@@ -40,7 +40,7 @@ namespace peloton {
 namespace tcop {
 
 TrafficCop::TrafficCop() {
-  LOG_TRACE("Starting a new TrafficCop");
+  LOG_INFO("Starting a new TrafficCop");
   optimizer_.reset(new optimizer::SimpleOptimizer());
 }
 
@@ -214,6 +214,7 @@ bridge::peloton_status TrafficCop::ExecuteStatementPlan(
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
     // new txn, reset result status
     curr_state.second = Result::RESULT_SUCCESS;
+
     concurrency::TransactionManager::txn_counter++;
     txn = txn_manager.BeginTransaction();
     single_statement_txn = true;
