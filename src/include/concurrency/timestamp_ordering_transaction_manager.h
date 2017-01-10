@@ -30,6 +30,7 @@ class TimestampOrderingTransactionManager : public TransactionManager {
     begin_counter = 0;
     abort_counter = 0;
     commit_counter = 0;
+    rbegin_counter = 0;
     stop = false;
     moniter_thread.reset(new std::thread(&TimestampOrderingTransactionManager::Monitor, this));
   }
@@ -121,6 +122,7 @@ private:
   std::atomic<int> begin_counter;
   std::atomic<int> abort_counter;
   std::atomic<int> commit_counter;
+  std::atomic<int> rbegin_counter;
 
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);

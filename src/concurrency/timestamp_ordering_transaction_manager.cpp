@@ -110,6 +110,7 @@ Transaction *TimestampOrderingTransactionManager::BeginTransaction() {
 }
 
 Transaction *TimestampOrderingTransactionManager::BeginReadonlyTransaction() {
+    rbegin_counter++;
     txn_id_t txn_id = READONLY_TXN_ID;
     auto &epoch_manager = EpochManagerFactory::GetInstance();
 
