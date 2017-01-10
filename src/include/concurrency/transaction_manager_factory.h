@@ -40,6 +40,8 @@ class TransactionManagerFactory {
 
   static IsolationLevelType GetIsolationLevel() { return isolation_level_; }
 
+  static std::atomic<int> txn_counter;
+
  private:
   static ConcurrencyType protocol_;
   static IsolationLevelType isolation_level_;

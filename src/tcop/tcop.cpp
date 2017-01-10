@@ -104,6 +104,7 @@ Result TrafficCop::CommitQueryHelper() {
   if (curr_state.second != Result::RESULT_ABORTED) {
     auto txn = curr_state.first;
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+    concurrency::TransactionManagerFactory::txn_counter--;
     auto result = txn_manager.CommitTransaction(txn);
     return result;
   } else {
@@ -121,6 +122,7 @@ Result TrafficCop::AbortQueryHelper() {
   if (curr_state.second != Result::RESULT_ABORTED) {
     auto txn = curr_state.first;
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+    concurrency::TransactionManagerFactory::txn_counter--;
     auto result = txn_manager.AbortTransaction(txn);
     return result;
   } else {
@@ -241,6 +243,7 @@ bridge::peloton_status TrafficCop::ExecuteStatementPlan(
         case Result::RESULT_SUCCESS:
           // Commit
           LOG_TRACE("Commit Transaction");
+          concurrency::TransactionManagerFactory::txn_counter--;
           p_status.m_result = txn_manager.CommitTransaction(txn);
           break;
 
@@ -248,6 +251,7 @@ bridge::peloton_status TrafficCop::ExecuteStatementPlan(
         default:
           // Abort
           LOG_TRACE("Abort Transaction");
+          concurrency::TransactionManagerFactory::txn_counter--;
           p_status.m_result = txn_manager.AbortTransaction(txn);
           curr_state.second = Result::RESULT_ABORTED;
       }

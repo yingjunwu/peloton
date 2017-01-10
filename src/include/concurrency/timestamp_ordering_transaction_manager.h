@@ -126,7 +126,7 @@ private:
   void Monitor() {
     while (!stop) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-      printf("Transaction counter: %d\n", txn_counter.load());
+      printf("Transaction counter: %d， counter in factory: %d\n", txn_counter.load(), concurrency::TransactionManagerFactory::txn_counter.load());
     }
   }
 
