@@ -105,7 +105,7 @@ Result TrafficCop::CommitQueryHelper() {
 
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return Result::RESULT_NOOP;
-  auto &curr_state = tcop_txn_state_.top();
+  TcopTxnState curr_state = tcop_txn_state_.top();
   tcop_txn_state_.pop();
   // commit the txn only if it has not aborted already
   if (curr_state.second != Result::RESULT_ABORTED) {
@@ -124,7 +124,7 @@ Result TrafficCop::AbortQueryHelper() {
   PL_ASSERT(tcop_txn_state_.size() <= 1);
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return Result::RESULT_NOOP;
-  auto &curr_state = tcop_txn_state_.top();
+  TcopTxnState curr_state = tcop_txn_state_.top();
   tcop_txn_state_.pop();
   // explicitly abort the txn only if it has not aborted already
   if (curr_state.second != Result::RESULT_ABORTED) {
