@@ -82,6 +82,7 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 
 Result TrafficCop::BeginQueryHelper() {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+  concurrency::TransactionManager::txn_counter++;
   auto txn = txn_manager.BeginTransaction();
 
   // this shouldn't happen
