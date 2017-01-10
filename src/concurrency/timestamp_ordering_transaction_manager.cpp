@@ -24,7 +24,7 @@
 namespace peloton {
 namespace concurrency {
 
-std::atomic<int> TransactionManager::txn_counter = 0;
+std::atomic<int> TransactionManager::txn_counter;
 
 // timestamp ordering requires a spinlock field for protecting the atomic access
 // to txn_id field and last_reader_cid field.
