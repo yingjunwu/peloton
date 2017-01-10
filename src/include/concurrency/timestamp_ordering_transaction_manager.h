@@ -133,7 +133,7 @@ private:
       int beginc = begin_counter.load();
       int commitc = commit_counter.load();
       int abortc = abort_counter.load();
-      printf("left: %d, commit: %d, abort: %d，tcop:  %d\n", beginc - abortc - commitc, abortc, commitc, concurrency::TransactionManager::txn_counter.load());
+      printf("left: %d, commit: %d, abort: %d，tcop:  %d\n", beginc - abortc - commitc, commitc, abortc, concurrency::TransactionManager::txn_counter.load());
     }
   }
 
