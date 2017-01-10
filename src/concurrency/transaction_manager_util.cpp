@@ -21,7 +21,7 @@ namespace concurrency {
 concurrency::Transaction* BeginTransaction() {
   
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-  TransactionManagerFactory::txn_counter++;
+  TransactionManager::txn_counter++;
   
   return txn_manager.BeginTransaction();
 
@@ -30,14 +30,14 @@ concurrency::Transaction* BeginTransaction() {
 Result CommitTransaction(concurrency::Transaction *transaction) {
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-  concurrency::TransactionManagerFactory::txn_counter--;
+  concurrency::TransactionManager::txn_counter--;
   return txn_manager.CommitTransaction(transaction);
 }
 
 Result AbortTransaction(concurrency::Transaction *transaction) {
 
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-  concurrency::TransactionManagerFactory::txn_counter--;
+  concurrency::TransactionManager::txn_counter--;
 
   return txn_manager.AbortTransaction(transaction);
 

@@ -146,7 +146,7 @@ int PlanExecutor::ExecutePlan(
   // This happens for single statement queries in PG
   // if (txn == nullptr) {
   single_statement_txn = true;
-  concurrency::TransactionManagerFactory::txn_counter++;
+  concurrency::TransactionManager::txn_counter++;
   auto txn = txn_manager.BeginTransaction();
   // }
   PL_ASSERT(txn);

@@ -16,8 +16,6 @@
 namespace peloton {
 namespace concurrency {
 
-std::atomic<int> TransactionManagerFactory::txn_counter = 0;
-
 ConcurrencyType TransactionManagerFactory::protocol_ =
     CONCURRENCY_TYPE_TIMESTAMP_ORDERING;
 IsolationLevelType TransactionManagerFactory::isolation_level_ =
