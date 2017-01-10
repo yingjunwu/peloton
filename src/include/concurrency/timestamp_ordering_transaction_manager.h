@@ -27,7 +27,9 @@ namespace concurrency {
 class TimestampOrderingTransactionManager : public TransactionManager {
  public:
   TimestampOrderingTransactionManager() {
-    txn_counter = 0;
+    begin_counter = 0;
+    abort_counter = 0;
+    commit_counter = 0;
     stop = false;
     moniter_thread.reset(new std::thread(&TimestampOrderingTransactionManager::Monitor, this));
   }
@@ -116,7 +118,9 @@ class TimestampOrderingTransactionManager : public TransactionManager {
   virtual void EndReadonlyTransaction(Transaction *current_txn);
 
 private:
-  std::atomic<int> txn_counter;
+  std::atomic<int> begin_counter;
+  std::atomic<int> abort_counter;
+  std::atomic<int> commit_counter;
 
   static const int LOCK_OFFSET = 0;
   static const int LAST_READER_OFFSET = (LOCK_OFFSET + 8);
@@ -126,7 +130,10 @@ private:
   void Monitor() {
     while (!stop) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-      printf("Transaction counter: %d， counter in factory: %d\n", txn_counter.load(), concurrency::TransactionManager::txn_counter.load());
+      int beginc = begin_counter.load();
+      int commitc = commit_counter.load();
+      int abortc = abort_counter.load();
+      printf("left: %d, commit: %d, abort: %d，tcop:  %d\n", beginc - abortc - commitc, abortc, commitc, concurrency::TransactionManager::txn_counter.load());
     }
   }
 
