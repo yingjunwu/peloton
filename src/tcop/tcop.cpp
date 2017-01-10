@@ -52,6 +52,7 @@ void TrafficCop::Reset() {
 }
 
 TrafficCop::~TrafficCop() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
   // Abort all running transactions
   while (tcop_txn_state_.empty() == false) {
     AbortQueryHelper();
@@ -74,6 +75,8 @@ TrafficCop::TcopTxnState &TrafficCop::GetDefaultTxnState() {
 }
 
 TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
+
   if (tcop_txn_state_.empty()) {
     return GetDefaultTxnState();
   }
@@ -81,6 +84,7 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 }
 
 Result TrafficCop::BeginQueryHelper() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   concurrency::TransactionManager::txn_counter++;
   auto txn = txn_manager.BeginTransaction();
@@ -97,6 +101,8 @@ Result TrafficCop::BeginQueryHelper() {
 }
 
 Result TrafficCop::CommitQueryHelper() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
+
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return Result::RESULT_NOOP;
   auto &curr_state = tcop_txn_state_.top();
@@ -115,6 +121,7 @@ Result TrafficCop::CommitQueryHelper() {
 }
 
 Result TrafficCop::AbortQueryHelper() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return Result::RESULT_NOOP;
   auto &curr_state = tcop_txn_state_.top();
@@ -204,6 +211,8 @@ Result TrafficCop::ExecuteStatement(
 bridge::peloton_status TrafficCop::ExecuteStatementPlan(
     const planner::AbstractPlan *plan, const std::vector<type::Value> &params,
     std::vector<ResultType> &result, const std::vector<int> &result_format) {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
+
   concurrency::Transaction *txn;
   bool single_statement_txn = false, init_failure = false;
   bridge::peloton_status p_status;
