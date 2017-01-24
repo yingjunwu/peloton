@@ -162,6 +162,8 @@ class configuration {
   int recover_checkpoint_num = 1;
   
   int replay_log_num = 1;
+
+  int loader_count = 1;
 };
 
 extern configuration state;

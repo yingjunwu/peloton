@@ -128,35 +128,36 @@ void CreateYCSBDatabase() {
   }
 }
 
-void LoadYCSBDatabase() {
-  const oid_t col_count = state.column_count + 1;
-  const int tuple_count = state.scale_factor * 1000;
+void LoadYCSBRows(const int begin_rowid, const int end_rowid) {
+  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  epoch_manager.RegisterTxnWorker(false);
 
+  const oid_t col_count = state.column_count + 1;
+  
   // Pick the user table
   auto table_schema = user_table->GetSchema();
-  // std::string field_raw_value(ycsb_field_length - 1, 'o');
-  // int field_raw_value = 1;
-
+  
   /////////////////////////////////////////////////////////
   // Load in the data
   /////////////////////////////////////////////////////////
 
+  std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
+  
   // Insert tuples into tile_group.
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   const bool allocate = true;
   auto txn = txn_manager.BeginTransaction();
-  // std::unique_ptr<VarlenPool> pool(new VarlenPool(BACKEND_TYPE_MM));
   std::unique_ptr<executor::ExecutorContext> context(
       new executor::ExecutorContext(txn));
 
   int rowid;
-  for (rowid = 0; rowid < tuple_count; rowid++) {
+  for (rowid = begin_rowid; rowid < end_rowid; rowid++) {
     std::unique_ptr<storage::Tuple> tuple(
         new storage::Tuple(table_schema, allocate));
+    
     auto key_value = ValueFactory::GetIntegerValue(rowid);
-    //auto field_value = ValueFactory::GetIntegerValue(field_raw_value);
-
     tuple->SetValue(0, key_value, nullptr);
+    
     for (oid_t col_itr = 1; col_itr < col_count; col_itr++) {
       tuple->SetValue(col_itr, key_value, nullptr);
     }
@@ -167,7 +168,37 @@ void LoadYCSBDatabase() {
   }
 
   txn_manager.CommitTransaction();
+}
 
+
+void LoadYCSBDatabase() {
+
+  std::chrono::steady_clock::time_point start_time;
+  start_time = std::chrono::steady_clock::now();
+
+  const int tuple_count = state.scale_factor * 1000;
+  int row_per_thread = tuple_count / state.loader_count;
+  std::vector<std::unique_ptr<std::thread>> load_threads(state.loader_count);
+  printf("loader count = %d\n", (int)state.loader_count);
+
+  for (int thread_id = 0; thread_id < state.loader_count - 1; ++thread_id) {
+    int begin_rowid = row_per_thread * thread_id;
+    int end_rowid = row_per_thread * (thread_id + 1);
+    load_threads[thread_id].reset(new std::thread(LoadYCSBRows, begin_rowid, end_rowid));
+  }
+  
+  int thread_id = state.loader_count - 1;
+  int begin_rowid = row_per_thread * thread_id;
+  int end_rowid = tuple_count;
+  load_threads[thread_id].reset(new std::thread(LoadYCSBRows, begin_rowid, end_rowid));
+
+  for (int thread_id = 0; thread_id < state.loader_count; ++thread_id) {
+    load_threads[thread_id]->join();
+  }
+
+  std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+  double diff = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+  LOG_INFO("time = %lf ms", diff);
 
   LOG_INFO("============TABLE SIZES==========");
   LOG_INFO("user count = %u", user_table->GetAllCurrentTupleCount());

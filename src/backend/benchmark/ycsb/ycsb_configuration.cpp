@@ -67,7 +67,7 @@ void Usage(FILE *out) {
           "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
           "   -N --replay_log_num    :  # threads for replaying logs\n"
           "   -V --detailed_csv      :  generate a detailed csv file about latency and throughput\n"
-  );
+          "   -O --loader_count      :  loader count\n");
   exit(EXIT_FAILURE);
 }
 
@@ -109,6 +109,7 @@ static struct option opts[] = {
     {"recover_ckpt_num", optional_argument, NULL, 'M'},
     {"replay_log_num", optional_argument, NULL, 'N'},
     {"detailed_csv", optional_argument, NULL, 'V'},
+    {"loader_count", optional_argument, NULL, 'O'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -374,15 +375,19 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.replay_log = false;
   state.recover_checkpoint_num = 1;
   state.replay_log_num = 1;
+  state.loader_count = 1;
 
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "VRPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:", opts, &idx);
+    int c = getopt_long(argc, argv, "VRPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:O:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'O':
+        state.loader_count = atoi(optarg);
+        break;
       case 'M':
         state.recover_checkpoint_num = atoi(optarg);
         break;
