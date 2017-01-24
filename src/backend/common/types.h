@@ -38,7 +38,6 @@ enum LoggingType {
   LOGGING_TYPE_PHYSICAL, // physical logging
   LOGGING_TYPE_REORDERED_PHYSICAL, // reordered physical logging
   LOGGING_TYPE_COMMAND, // command logging
-  LOGGING_TYPE_DEPENDENCY,
 };
 
 enum CheckpointType {
@@ -934,7 +933,6 @@ PlanNodeType StringToPlanNodeType(std::string str);
 std::string ConstraintTypeToString(ConstraintType type);
 ConstraintType StringToConstraintType(std::string str);
 
-std::string LoggingTypeToString(LoggingType type);
 std::string LoggingStatusToString(LoggingStatus type);
 
 ValueType PostgresValueTypeToPelotonValueType(

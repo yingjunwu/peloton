@@ -638,14 +638,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
     log_manager.StartTxn(current_txn);
   }
 
-  if (logging_type == LOGGING_TYPE_PHYLOG) {
-    ((logging::PhyLogLogManager*)(&log_manager))->StartPersistTxn();
-  } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
-
-  } else if (logging_type == LOGGING_TYPE_COMMAND) {
-
-  }
-
+  // TODO: Add logging
   auto &rw_set = current_txn->GetRWSet();
 
   // TODO: Add optimization for read only
@@ -698,14 +691,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // GC recycle.
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
-        // add to log manager
-        if (logging_type == LOGGING_TYPE_PHYLOG) {
-          ((logging::PhyLogLogManager*)(&log_manager))->LogUpdate(new_version);
-        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
-
-        } else if (logging_type == LOGGING_TYPE_COMMAND) {
-    
-        }
+        // TODO: Add logging
 
       } else if (tuple_entry.second == RW_TYPE_DELETE) {
         ItemPointer new_version =
@@ -732,14 +718,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         // GC recycle.
         RecycleOldTupleSlot(tile_group_id, tuple_slot, current_txn->GetEpochId());
 
-        // add to log manager
-        if (logging_type == LOGGING_TYPE_PHYLOG) {
-          ((logging::PhyLogLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
-        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
-
-        } else if (logging_type == LOGGING_TYPE_COMMAND) {
-    
-        }
+        // TODO: Add logging
 
       } else if (tuple_entry.second == RW_TYPE_INSERT) {
         PL_ASSERT(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -751,15 +730,8 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
         COMPILER_MEMORY_FENCE;
 
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
-        
-        // add to log manager
-        if (logging_type == LOGGING_TYPE_PHYLOG) {
-          ((logging::PhyLogLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
-        } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
 
-        } else if (logging_type == LOGGING_TYPE_COMMAND) {
-    
-        }
+        // TODO: Add logging
 
       } else if (tuple_entry.second == RW_TYPE_INS_DEL) {
         PL_ASSERT(tile_group_header->GetTransactionId(tuple_slot) ==
@@ -780,13 +752,7 @@ Result TsOrderOptN2OTxnManager::CommitTransaction() {
 
   gc::GCManagerFactory::GetInstance().EndGCContext();
 
-  if (logging_type == LOGGING_TYPE_PHYLOG) {
-    ((logging::PhyLogLogManager*)(&log_manager))->EndPersistTxn();
-  } else if (logging_type == LOGGING_TYPE_PHYSICAL) {
-
-  } else if (logging_type == LOGGING_TYPE_COMMAND) {
-    
-  }
+  // TODO: Add logging
 
   EndTransaction();
 

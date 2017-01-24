@@ -300,18 +300,6 @@ void ValidateEpochType(configuration &state) {
 }
 
 void ValidateLoggingType(configuration &state) {
-  if (state.logging_type == LOGGING_TYPE_PHYLOG) {
-    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
-      LOG_ERROR("logging and checkpointing types inconsistent!");
-      exit(EXIT_FAILURE);
-    }
-  }
-  else if (state.logging_type == LOGGING_TYPE_PHYSICAL) {
-    if (state.checkpoint_type == CHECKPOINT_TYPE_PHYLOG) {
-      LOG_ERROR("logging and checkpointing types inconsistent!");
-      exit(EXIT_FAILURE);
-    }
-  }
   if (state.logging_type == LOGGING_TYPE_COMMAND) {
     if (state.checkpoint_type == CHECKPOINT_TYPE_PHYSICAL) {
       LOG_ERROR("logging and checkpointing types inconsistent!");
@@ -498,10 +486,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
         char *logging_proto = optarg;
         if (strcmp(logging_proto, "off") == 0) {
           state.logging_type = LOGGING_TYPE_INVALID;
-        } else if (strcmp(logging_proto, "phylog") == 0) {
-          state.logging_type = LOGGING_TYPE_PHYLOG;
-        } else if (strcmp(logging_proto, "physical") == 0) {
-          state.logging_type = LOGGING_TYPE_PHYSICAL;
         } else if (strcmp(logging_proto, "command") == 0) {
           LOG_ERROR("command logging not allowed for YCSB!");
           state.logging_type = LOGGING_TYPE_INVALID;
@@ -785,10 +769,6 @@ void WriteOutput() {
     out << "log=off ";
   } else if (state.logging_type == LOGGING_TYPE_COMMAND) {
     out << "log=command ";
-  } else if (state.logging_type == LOGGING_TYPE_PHYSICAL) {
-    out << "log=physical ";
-  } else if (state.logging_type == LOGGING_TYPE_PHYLOG) {
-    out << "log=phylog ";
   } else if (state.logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
     out << "log=rephylog ";
   } else if (state.logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {

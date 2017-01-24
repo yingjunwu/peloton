@@ -302,35 +302,36 @@ bool HexDecodeToBinary(unsigned char* bufferdst, const char* hexString) {
   return true;
 }
 
-bool IsBasedOnWriteAheadLogging(const LoggingType& logging_type) {
-  bool status = false;
-
-  switch (logging_type) {
-    case LOGGING_TYPE_PHYLOG:
-      status = true;
-      break;
-
-    default:
-      status = false;
-      break;
-  }
-
-  return status;
+bool IsBasedOnWriteAheadLogging(UNUSED_ATTRIBUTE const LoggingType& logging_type) {
+//  bool status = false;
+//
+//  switch (logging_type) {
+//    case LOGGING_TYPE_PHYLOG:
+//      status = true;
+//      break;
+//
+//    default:
+//      status = false;
+//      break;
+//  }
+//
+//  return status;
+  return true;
 }
 
-BackendType GetBackendType(const LoggingType& logging_type) {
+BackendType GetBackendType(UNUSED_ATTRIBUTE const LoggingType& logging_type) {
   // Default backend type
   BackendType backend_type = BACKEND_TYPE_MM;
 
-  switch (logging_type) {
-
-    case LOGGING_TYPE_PHYLOG:
-      backend_type = BACKEND_TYPE_MM;
-      break;
-
-    default:
-      break;
-  }
+//  switch (logging_type) {
+//
+//    case LOGGING_TYPE_PHYLOG:
+//      backend_type = BACKEND_TYPE_MM;
+//      break;
+//
+//    default:
+//      break;
+//  }
 
   return backend_type;
 }
@@ -935,21 +936,6 @@ ConstraintType StringToConstraintType(std::string str) {
 // Log Types - String Utilities
 //===--------------------------------------------------------------------===//
 
-std::string LoggingTypeToString(LoggingType type) {
-  switch (type) {
-    case LOGGING_TYPE_INVALID:
-      return "INVALID";
-
-    // WAL Based
-    case LOGGING_TYPE_PHYLOG:
-      return "WAL_PHYLOG";
-    
-    default:
-      LOG_ERROR("Invalid logging_type :: %d", type);
-      exit(EXIT_FAILURE);
-  }
-  return "INVALID";
-}
 
 std::string LoggingStatusToString(LoggingStatus type) {
   switch (type) {
