@@ -289,15 +289,6 @@ void ValidateRoSleepInterval(const configuration &state) {
 }
 
 void ValidateEpochType(configuration &state) {
-  if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
-    if (state.epoch_type != EPOCH_LOCALIZED && state.epoch_type != EPOCH_LOCALIZED_SNAPSHOT) {
-      LOG_ERROR("Dependency logging should use localized epoch manager");
-      exit(EXIT_FAILURE);
-    } else {
-      LOG_INFO("Use dependency logging");
-    }
-  }
-
   if (state.gc_protocol == GC_TYPE_N2O_SNAPSHOT) {
     LOG_INFO("Use snapshot GC manager");
     if (state.epoch_type == EPOCH_SINGLE_QUEUE) {
@@ -515,8 +506,6 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
           LOG_ERROR("command logging not allowed for YCSB!");
           state.logging_type = LOGGING_TYPE_INVALID;
         } else if (strcmp(logging_proto, "dep") == 0) {
-          state.logging_type = LOGGING_TYPE_DEPENDENCY;
-        } else if (strcmp(logging_proto, "rephysical") == 0) {
           state.logging_type = LOGGING_TYPE_REORDERED_PHYSICAL;
         } else if (strcmp(logging_proto, "rephylog") == 0) {
           state.logging_type = LOGGING_TYPE_REORDERED_PHYLOG;
@@ -800,8 +789,6 @@ void WriteOutput() {
     out << "log=physical ";
   } else if (state.logging_type == LOGGING_TYPE_PHYLOG) {
     out << "log=phylog ";
-  } else if (state.logging_type == LOGGING_TYPE_DEPENDENCY) {
-    out << "log=dep ";
   } else if (state.logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
     out << "log=rephylog ";
   } else if (state.logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {

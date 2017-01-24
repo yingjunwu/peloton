@@ -575,8 +575,6 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
       ((logging::CommandLogManager*)(&log_manager))->StartPersistTxn(current_txn->transaction_type_, current_txn->txn_param_);
       ((logging::CommandLogManager*)(&log_manager))->EndPersistTxn();
     }
-  } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
-    ((logging::DepLogManager *) (&log_manager))->StartPersistTxn();
   } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
     ((logging::ReorderedPhysicalLogManager *) (&log_manager))->StartPersistTxn();
   } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
@@ -594,10 +592,7 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     auto tile_group_header = tile_group->GetHeader();
     for (auto &tuple_entry : tile_group_entry.second) {
       auto tuple_slot = tuple_entry.first;
-      if (logging_type == LOGGING_TYPE_DEPENDENCY && tuple_entry.second == RW_TYPE_READ) {
-        // Record read dependency
-        ((logging::DepLogManager*)(&log_manager))->RecordReadDependency(tile_group_header, tuple_slot);
-      } else if (tuple_entry.second == RW_TYPE_UPDATE) {
+      if (tuple_entry.second == RW_TYPE_UPDATE) {
         // we must guarantee that, at any time point, only one version is
         // visible.
         ItemPointer new_version =
@@ -639,10 +634,6 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
             ((logging::CommandLogManager*)(&log_manager))->LogUpdate(new_version);
           }
-        } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
-          auto log_manager_ptr = ((logging::DepLogManager*)(&log_manager));
-          log_manager_ptr->RecordReadDependency(tile_group_header, tuple_slot);
-          log_manager_ptr->LogUpdate(new_version);
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
           ((logging::ReorderedPhysicalLogManager*)(&log_manager))->LogUpdate(new_version, ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
@@ -686,10 +677,6 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
             ((logging::CommandLogManager*)(&log_manager))->LogDelete(ItemPointer(tile_group_id, tuple_slot));
           }
-        } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
-          auto log_manager_ptr = ((logging::DepLogManager*)(&log_manager));
-          log_manager_ptr->RecordReadDependency(tile_group_header, tuple_slot);
-          log_manager_ptr->LogDelete(new_version);
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
           ((logging::ReorderedPhysicalLogManager*)(&log_manager))->LogDelete(new_version, ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
@@ -719,9 +706,6 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
           if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
             ((logging::CommandLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
           }
-        } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
-          auto log_manager_ptr = ((logging::DepLogManager*)(&log_manager));
-          log_manager_ptr->LogInsert(ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
           ((logging::ReorderedPhysicalLogManager*)(&log_manager))->LogInsert(ItemPointer(tile_group_id, tuple_slot));
         } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
@@ -757,8 +741,6 @@ Result TsOrderN2OTxnManager::CommitTransaction() {
     if (current_txn->GetTransactionType() == INVALID_TRANSACTION_TYPE) {
       ((logging::CommandLogManager*)(&log_manager))->EndPersistTxn();
     }
-  } else if (logging_type == LOGGING_TYPE_DEPENDENCY) {
-    ((logging::DepLogManager *) (&log_manager))->EndPersistTxn();
   } else if (logging_type == LOGGING_TYPE_REORDERED_PHYSICAL) {
     ((logging::ReorderedPhysicalLogManager*)(&log_manager))->EndPersistTxn();
   } else if (logging_type == LOGGING_TYPE_REORDERED_PHYLOG) {
