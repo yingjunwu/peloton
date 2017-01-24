@@ -237,15 +237,13 @@ void RunBackend(oid_t thread_id) {
         stock_level_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
-          if (backoff_shifts < 63) {
+          if (backoff_shifts < 13) {
             ++backoff_shifts;
           }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+
+          uint64_t sleep_duration = 1UL << backoff_shifts;
+          sleep_duration *= 100;
+          std::this_thread::sleep_for(std::chrono::microseconds(sleep_duration));
         }
       }
       stock_level_transaction_count_ref++;
@@ -268,15 +266,13 @@ void RunBackend(oid_t thread_id) {
          order_status_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
-          if (backoff_shifts < 63) {
+          if (backoff_shifts < 13) {
             ++backoff_shifts;
           }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+
+          uint64_t sleep_duration = 1UL << backoff_shifts;
+          sleep_duration *= 100;
+          std::this_thread::sleep_for(std::chrono::microseconds(sleep_duration));
         }
        }
        order_status_transaction_count_ref++;
@@ -305,15 +301,13 @@ void RunBackend(oid_t thread_id) {
          delivery_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
-          if (backoff_shifts < 63) {
+          if (backoff_shifts < 13) {
             ++backoff_shifts;
           }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+
+          uint64_t sleep_duration = 1UL << backoff_shifts;
+          sleep_duration *= 100;
+          std::this_thread::sleep_for(std::chrono::microseconds(sleep_duration));
         }
        }
        delivery_transaction_count_ref++;
@@ -335,15 +329,13 @@ void RunBackend(oid_t thread_id) {
          payment_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
-          if (backoff_shifts < 63) {
+          if (backoff_shifts < 13) {
             ++backoff_shifts;
           }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+
+          uint64_t sleep_duration = 1UL << backoff_shifts;
+          sleep_duration *= 100;
+          std::this_thread::sleep_for(std::chrono::microseconds(sleep_duration));
         }
        }
        payment_transaction_count_ref++;
@@ -364,15 +356,13 @@ void RunBackend(oid_t thread_id) {
          new_order_execution_count_ref++;
         // backoff
         if (state.run_backoff) {
-          if (backoff_shifts < 63) {
+          if (backoff_shifts < 13) {
             ++backoff_shifts;
           }
-          uint64_t spins = 1UL << backoff_shifts;
-          spins *= 100;
-          while (spins) {
-            _mm_pause();
-            --spins;
-          }
+
+          uint64_t sleep_duration = 1UL << backoff_shifts;
+          sleep_duration *= 100;
+          std::this_thread::sleep_for(std::chrono::microseconds(sleep_duration));
         }
        }
        new_order_transaction_count_ref++;
