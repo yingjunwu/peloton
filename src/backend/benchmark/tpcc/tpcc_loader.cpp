@@ -1802,7 +1802,7 @@ void LoadTPCCDatabase() {
   //   LoadWarehouses(warehouse_itr);
   // }
 
-  if (state.warehouse_count < state.load) {
+  if (state.warehouse_count < state.loader_count) {
     std::vector<std::unique_ptr<std::thread>> load_threads(state.warehouse_count);
     for (int thread_id = 0; thread_id < state.warehouse_count; ++thread_id) {
       int warehouse_from = thread_id;
@@ -1815,19 +1815,19 @@ void LoadTPCCDatabase() {
     }
 
   } else {
-    std::vector<std::unique_ptr<std::thread>> load_threads(state.load);
-    int warehouse_per_thread = state.warehouse_count / state.load;
-    for (int thread_id = 0; thread_id < state.load - 1; ++thread_id) {
+    std::vector<std::unique_ptr<std::thread>> load_threads(state.loader_count);
+    int warehouse_per_thread = state.warehouse_count / state.loader_count;
+    for (int thread_id = 0; thread_id < state.loader_count - 1; ++thread_id) {
       int warehouse_from = warehouse_per_thread * thread_id;
       int warehouse_to = warehouse_per_thread * (thread_id + 1);
       load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
     }
-    int thread_id = state.load - 1;
+    int thread_id = state.loader_count - 1;
     int warehouse_from = warehouse_per_thread * thread_id;
     int warehouse_to = state.warehouse_count;
     load_threads[thread_id].reset(new std::thread(LoadWarehouses, warehouse_from, warehouse_to));
 
-    for (auto thread_id = 0; thread_id < state.load; ++thread_id) {
+    for (auto thread_id = 0; thread_id < state.loader_count; ++thread_id) {
       load_threads[thread_id]->join();
     }
   }

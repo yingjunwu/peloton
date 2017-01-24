@@ -19,6 +19,9 @@
 #include <sstream>
 #include <cstring>
 
+size_t NUM_PREALLOCATION = 10;
+size_t NUM_POOL_PREALLOCATION = 40;
+
 namespace peloton {
 
 ItemPointer INVALID_ITEMPOINTER;

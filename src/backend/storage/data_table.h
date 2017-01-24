@@ -25,6 +25,8 @@
 #include "backend/index/index.h"
 
 
+const int MAX_NUM_PREALLOCATION = 40;
+
 namespace peloton {
 
 namespace index {
@@ -219,7 +221,7 @@ class DataTable : public AbstractTable {
   // set of tile groups
   RWLock tile_group_lock_;
 
-  std::shared_ptr<storage::TileGroup> last_tile_groups_[NUM_PREALLOCATION];
+  std::shared_ptr<storage::TileGroup> last_tile_groups_[MAX_NUM_PREALLOCATION];
 
   std::vector<oid_t> tile_groups_;
 

@@ -77,8 +77,6 @@ class configuration {
 
   int order_range;
 
-  int load;
-
   // execution duration
   double duration;
 
@@ -194,6 +192,8 @@ class configuration {
   bool normal_txn_for_scan;
 
   int mock_sleep_millisec;
+
+  int loader_count = 1;
 };
 
 extern configuration state;

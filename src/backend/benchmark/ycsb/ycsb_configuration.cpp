@@ -67,6 +67,7 @@ void Usage(FILE *out) {
           "   -M --recover_ckpt_num  :  # threads for recovering checkpoints\n"
           "   -N --replay_log_num    :  # threads for replaying logs\n"
           "   -V --detailed_csv      :  generate a detailed csv file about latency and throughput\n"
+          "   -Q --preallocation     :  is preallocation\n"
           "   -O --loader_count      :  loader count\n");
   exit(EXIT_FAILURE);
 }
@@ -110,6 +111,7 @@ static struct option opts[] = {
     {"replay_log_num", optional_argument, NULL, 'N'},
     {"detailed_csv", optional_argument, NULL, 'V'},
     {"loader_count", optional_argument, NULL, 'O'},
+    {"preallocation", optional_argument, NULL, 'Q'},
     {NULL, 0, NULL, 0}};
 
 void ValidateScaleFactor(const configuration &state) {
@@ -377,14 +379,21 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.replay_log_num = 1;
   state.loader_count = 1;
 
+  NUM_PREALLOCATION = 10;
+  NUM_POOL_PREALLOCATION = 10;
+
   // Parse args
   while (1) {
     int idx = 0;
-    int c = getopt_long(argc, argv, "VRPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:O:", opts, &idx);
+    int c = getopt_long(argc, argv, "VRPhaexjk:d:s:c:l:r:o:u:b:z:p:g:i:t:y:v:n:q:w:f:L:D:T:S:E:C:F:I:M:N:O:Q:", opts, &idx);
 
     if (c == -1) break;
 
     switch (c) {
+      case 'Q':
+        NUM_PREALLOCATION = atoi(optarg);
+        NUM_POOL_PREALLOCATION = atoi(optarg);
+        break;
       case 'O':
         state.loader_count = atoi(optarg);
         break;

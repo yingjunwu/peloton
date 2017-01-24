@@ -27,8 +27,6 @@ typedef enum LayoutType {
 
 extern LayoutType peloton_layout_mode;
 
-const int NUM_PREALLOCATION = 10;
-
 namespace peloton {
 
 typedef std::map<oid_t, std::pair<oid_t, oid_t>> column_map_type;

@@ -25,7 +25,8 @@
 // GUC Variables
 //===--------------------------------------------------------------------===//
 
-
+extern size_t NUM_PREALLOCATION;
+extern size_t NUM_POOL_PREALLOCATION;
 
 const int INVALID_TRANSACTION_TYPE = 100;
 
