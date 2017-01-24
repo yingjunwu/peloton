@@ -334,7 +334,8 @@ void RunBenchmark() {
   // Force init
   // TODO: We should force the init order of singleton -- Jiexi
 
-  auto &epoch_manager = concurrency::EpochManagerFactory::GetInstance();
+  // auto &epoch_manager = 
+  concurrency::EpochManagerFactory::GetInstance();
 
   gc::GCManagerFactory::Configure(state.gc_protocol, state.gc_thread_count);
   concurrency::TransactionManagerFactory::Configure(state.protocol);
@@ -342,27 +343,27 @@ void RunBenchmark() {
 
 
   // Enable logging here to test correctness -- Jiexi
+  // logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
+  // // Start the logger
+  // auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
+  // log_manager.SetDirectories(state.log_directories);
+  // log_manager.StartLoggers();
+
+
+  // Create and load the user table
+  // epoch_manager.RegisterTxnWorker(false);
+  // log_manager.RegisterWorker();
+  CreateYCSBDatabase();
+  LoadYCSBDatabase();
+
+  // log_manager.DeregisterWorker();
+
+  // XXX: Change the logging type from INVALID to the logging type we want
   logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type, state.detailed_csv);
   // Start the logger
   auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
   log_manager.SetDirectories(state.log_directories);
   log_manager.StartLoggers();
-
-
-  // Create and load the user table
-  epoch_manager.RegisterTxnWorker(false);
-  log_manager.RegisterWorker();
-  CreateYCSBDatabase();
-  LoadYCSBDatabase();
-
-  log_manager.DeregisterWorker();
-
-//  // XXX: Change the logging type from INVALID to the logging type we want
-//  logging::DurabilityFactory::Configure(state.logging_type, state.checkpoint_type, state.timer_type);
-//  // Start the logger
-//  auto &log_manager = logging::DurabilityFactory::GetLoggerInstance();
-//  log_manager.SetDirectories(state.log_directories);
-//  log_manager.StartLoggers();
 
   auto &checkpoint_manager = logging::DurabilityFactory::GetCheckpointerInstance();
   checkpoint_manager.SetCheckpointInterval(state.checkpoint_interval);

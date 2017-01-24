@@ -179,7 +179,6 @@ void LoadYCSBDatabase() {
   const int tuple_count = state.scale_factor * 1000;
   int row_per_thread = tuple_count / state.loader_count;
   std::vector<std::unique_ptr<std::thread>> load_threads(state.loader_count);
-  printf("loader count = %d\n", (int)state.loader_count);
 
   for (int thread_id = 0; thread_id < state.loader_count - 1; ++thread_id) {
     int begin_rowid = row_per_thread * thread_id;
