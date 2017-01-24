@@ -18,6 +18,7 @@
 #include "backend/common/pool.h"
 #include "backend/common/printable.h"
 #include "backend/storage/rollback_segment.h"
+#include "backend/concurrency/transaction_manager.h"
 
 #include <mutex>
 
@@ -168,7 +169,10 @@ class Tile : public Printable {
   void DeserializeTuplesFromWithoutHeader(SerializeInputBE &input,
                                           VarlenPool *pool = nullptr);
 
-  VarlenPool *GetPool() { return (pool); }
+  VarlenPool *GetPool() { 
+  size_t pool_id = concurrency::current_txn->GetTransactionId() % NUM_POOL_PREALLOCATION;
+    return (pools[pool_id]);
+  }
 
   char *GetTupleLocation(const oid_t tuple_offset) const;
 
@@ -199,7 +203,7 @@ class Tile : public Printable {
   TileGroup *tile_group;
 
   // storage pool for uninlined data
-  VarlenPool *pool;
+  VarlenPool **pools;
 
   // number of tuple slots allocated
   oid_t num_tuple_slots;

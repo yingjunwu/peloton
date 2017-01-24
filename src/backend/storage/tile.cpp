@@ -44,7 +44,7 @@ Tile::Tile(BackendType backend_type, TileGroupHeader *tile_header,
       schema(tuple_schema),
       data(NULL),
       tile_group(tile_group),
-      pool(NULL),
+      pools(NULL),
       num_tuple_slots(tuple_count),
       column_count(tuple_schema.GetColumnCount()),
       tuple_length(tuple_schema.GetLength()),
@@ -65,8 +65,15 @@ Tile::Tile(BackendType backend_type, TileGroupHeader *tile_header,
   // zero out the data
   PL_MEMSET(data, 0, tile_size);
 
+  pools = new VarlenPool*[NUM_POOL_PREALLOCATION];
+  memset(pools, 0, sizeof(VarlenPool*) * NUM_POOL_PREALLOCATION);
+
   // allocate pool for blob storage if schema not inlined
-  if (schema.IsInlined() == false) pool = new VarlenPool(backend_type);
+  if (schema.IsInlined() == false) {
+    for (size_t i = 0; i < NUM_POOL_PREALLOCATION; ++i) {
+      pools[i] = new VarlenPool(backend_type);
+    }
+  } 
 }
 
 Tile::~Tile() {
@@ -76,12 +83,21 @@ Tile::~Tile() {
   data = NULL;
 
   // reclaim the tile memory (UNINLINED data)
-  if (schema.IsInlined() == false) delete pool;
-  pool = NULL;
+  if (schema.IsInlined() == false) {
+    for (size_t i = 0; i < NUM_POOL_PREALLOCATION; ++i) {
+      delete pools[i];
+      pools[i] = NULL;
+    }
+  }
 
+  delete[] pools;
+  pools = nullptr;
+  
   // clear any cached column headers
-  if (column_header) delete column_header;
-  column_header = NULL;
+  if (column_header) {
+    delete column_header;
+    column_header = NULL;
+  }
 }
 
 //===--------------------------------------------------------------------===//
@@ -242,8 +258,9 @@ void Tile::SetValue(const Value &value, const oid_t tuple_offset,
   size_t column_length = schema.GetAppropriateLength(column_id);
 
   const bool is_in_bytes = false;
+  size_t pool_id = concurrency::current_txn->GetTransactionId() % NUM_POOL_PREALLOCATION;
   value.SerializeToTupleStorageAllocateForObjects(
-      field_location, is_inlined, column_length, is_in_bytes, pool);
+      field_location, is_inlined, column_length, is_in_bytes, pools[pool_id]);
 }
 
 /*
@@ -261,8 +278,10 @@ void Tile::SetValueFast(const Value &value, const oid_t tuple_offset,
   char *field_location = tuple_location + column_offset;
 
   const bool is_in_bytes = false;
+  size_t pool_id = concurrency::current_txn->GetTransactionId() % NUM_POOL_PREALLOCATION;
   value.SerializeToTupleStorageAllocateForObjects(
-      field_location, is_inlined, column_length, is_in_bytes, pool);
+    field_location, is_inlined, column_length, is_in_bytes, pools[pool_id]);
+
 }
 
 Tile *Tile::CopyTile(BackendType backend_type) {

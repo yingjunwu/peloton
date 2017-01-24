@@ -380,7 +380,7 @@ void ParseArguments(int argc, char *argv[], configuration &state) {
   state.loader_count = 1;
 
   NUM_PREALLOCATION = 10;
-  NUM_POOL_PREALLOCATION = 10;
+  NUM_POOL_PREALLOCATION = 40;
 
   // Parse args
   while (1) {
