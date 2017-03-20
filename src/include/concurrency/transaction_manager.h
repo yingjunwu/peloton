@@ -42,7 +42,11 @@ class Transaction;
 
 class TransactionManager {
  public:
+  static std::atomic<int> txn_counter;
+
   TransactionManager() {
+    txn_counter = 0;
+    
     next_cid_ = ATOMIC_VAR_INIT(START_CID);
     maximum_grant_cid_ = ATOMIC_VAR_INIT(MAX_CID);
   }

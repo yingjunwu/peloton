@@ -166,8 +166,11 @@ void StatsAggregator::UpdateQueryMetrics(int64_t time_stamp, concurrency::Transa
 }
 
 void StatsAggregator::UpdateMetrics() {
+  // DEBUG JX REMOVE IT
+  PL_ASSERT(false);
   // All tuples are inserted in a single txn
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+  concurrency::TransactionManager::txn_counter++;
   auto txn = txn_manager.BeginTransaction();
 
   // Get the target table metrics table

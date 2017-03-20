@@ -40,7 +40,7 @@ namespace peloton {
 namespace tcop {
 
 TrafficCop::TrafficCop() {
-  LOG_TRACE("Starting a new TrafficCop");
+  LOG_INFO("Starting a new TrafficCop");
   optimizer_.reset(new optimizer::SimpleOptimizer());
 }
 
@@ -52,6 +52,7 @@ void TrafficCop::Reset() {
 }
 
 TrafficCop::~TrafficCop() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
   // Abort all running transactions
   while (tcop_txn_state_.empty() == false) {
     AbortQueryHelper();
@@ -74,6 +75,8 @@ TrafficCop::TcopTxnState &TrafficCop::GetDefaultTxnState() {
 }
 
 TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
+  PL_ASSERT(tcop_txn_state_.size() <= 1);
+
   if (tcop_txn_state_.empty()) {
     return GetDefaultTxnState();
   }
@@ -83,6 +86,8 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction(thread_id);
+
+  concurrency::TransactionManager::txn_counter++;
 
   // this shouldn't happen
   if (txn == nullptr) {
@@ -99,11 +104,13 @@ ResultType TrafficCop::CommitQueryHelper() {
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return ResultType::NOOP;
   auto &curr_state = tcop_txn_state_.top();
+
   tcop_txn_state_.pop();
   // commit the txn only if it has not aborted already
   if (curr_state.second != ResultType::ABORTED) {
     auto txn = curr_state.first;
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+    concurrency::TransactionManager::txn_counter--;
     auto result = txn_manager.CommitTransaction(txn);
     return result;
   } else {
@@ -116,11 +123,13 @@ ResultType TrafficCop::AbortQueryHelper() {
   // do nothing if we have no active txns
   if (tcop_txn_state_.empty()) return ResultType::NOOP;
   auto &curr_state = tcop_txn_state_.top();
+
   tcop_txn_state_.pop();
   // explicitly abort the txn only if it has not aborted already
   if (curr_state.second != ResultType::ABORTED) {
     auto txn = curr_state.first;
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+    concurrency::TransactionManager::txn_counter--;
     auto result = txn_manager.AbortTransaction(txn);
     return result;
   } else {
@@ -215,8 +224,11 @@ bridge::peloton_status TrafficCop::ExecuteStatementPlan(
     // no active txn, single-statement txn
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
     // new txn, reset result status
+
     curr_state.second = ResultType::SUCCESS;
     txn = txn_manager.BeginTransaction(thread_id);
+
+    concurrency::TransactionManager::txn_counter++;
     single_statement_txn = true;
   } else {
     // get ptr to current active txn
@@ -247,6 +259,7 @@ bridge::peloton_status TrafficCop::ExecuteStatementPlan(
         case ResultType::SUCCESS:
           // Commit
           LOG_TRACE("Commit Transaction");
+          concurrency::TransactionManager::txn_counter--;
           p_status.m_result = txn_manager.CommitTransaction(txn);
           break;
 
@@ -254,6 +267,7 @@ bridge::peloton_status TrafficCop::ExecuteStatementPlan(
         default:
           // Abort
           LOG_TRACE("Abort Transaction");
+          concurrency::TransactionManager::txn_counter--;
           p_status.m_result = txn_manager.AbortTransaction(txn);
           curr_state.second = ResultType::ABORTED;
       }

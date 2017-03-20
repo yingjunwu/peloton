@@ -26,6 +26,7 @@ void InsertTuple(storage::DataTable *table,
 
   if (txn == nullptr) {
     single_statement_txn = true;
+    concurrency::TransactionManager::txn_counter++;
     txn = txn_manager.BeginTransaction();
   }
 
@@ -37,6 +38,7 @@ void InsertTuple(storage::DataTable *table,
   executor.Execute();
 
   if (single_statement_txn) {
+    concurrency::TransactionManager::txn_counter--;
     txn_manager.CommitTransaction(txn);
   }
 }
@@ -48,6 +50,7 @@ void DeleteTuple(storage::DataTable *table, oid_t id,
 
   if (txn == nullptr) {
     single_statement_txn = true;
+    concurrency::TransactionManager::txn_counter++;
     txn = txn_manager.BeginTransaction();
   }
 
@@ -85,6 +88,7 @@ void DeleteTuple(storage::DataTable *table, oid_t id,
   delete_executor.Execute();
 
   if (single_statement_txn) {
+    concurrency::TransactionManager::txn_counter--;
     txn_manager.CommitTransaction(txn);
   }
 }
