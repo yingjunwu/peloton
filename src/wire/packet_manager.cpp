@@ -29,6 +29,8 @@
 #include "type/value_factory.h"
 #include "wire/marshal.h"
 
+#include "common/profiler.h"
+
 #define PROTO_MAJOR_VERSION(x) x >> 16
 
 namespace peloton {
@@ -320,6 +322,10 @@ void PacketManager::ExecQueryMessage(InputPacket *pkt, const size_t thread_id) {
       std::vector<FieldInfo> tuple_descriptor;
       std::string error_message;
       int rows_affected;
+
+
+
+      Profiler::InsertTimePoint(query);
 
       // execute the query using tcop
       auto status = traffic_cop_->ExecuteStatement(
@@ -770,6 +776,12 @@ bool PacketManager::ExecDescribeMessage(InputPacket *pkt) {
 }
 
 void PacketManager::ExecExecuteMessage(InputPacket *pkt, const size_t thread_id) {
+
+
+  if (Profiler::IsProfiling() == false) {
+    Profiler::BeginProfiling();
+  }
+  
   // EXECUTE message
   std::vector<StatementResult> results;
   std::string error_message, portal_name;
@@ -812,6 +824,8 @@ void PacketManager::ExecExecuteMessage(InputPacket *pkt, const size_t thread_id)
   auto statement_name = statement->GetStatementName();
   bool unnamed = statement_name.empty();
   auto param_values = portal->GetParameters();
+  
+  Profiler::InsertTimePoint(statement_name);
 
   auto status = traffic_cop_->ExecuteStatement(
       statement, param_values, unnamed, param_stat, result_format_, results,
@@ -837,6 +851,10 @@ void PacketManager::ExecExecuteMessage(InputPacket *pkt, const size_t thread_id)
       auto tuple_descriptor = statement->GetTupleDescriptor();
       SendDataRows(results, tuple_descriptor.size(), rows_affected);
       CompleteCommand(query_type, rows_affected);
+
+  
+      Profiler::InsertTimePoint("send back");
+
       return;
     }
   }

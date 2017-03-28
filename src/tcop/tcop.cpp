@@ -34,6 +34,8 @@
 
 #include "planner/plan_util.h"
 
+#include "common/profiler.h"
+
 #include <boost/algorithm/string.hpp>
 
 namespace peloton {
@@ -81,9 +83,11 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 }
 
 ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
+
+  Profiler::InsertTimePoint("begin transaction");
+
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction(thread_id);
-
   // this shouldn't happen
   if (txn == nullptr) {
     LOG_DEBUG("Begin txn failed");
@@ -105,6 +109,8 @@ ResultType TrafficCop::CommitQueryHelper() {
     auto txn = curr_state.first;
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
     auto result = txn_manager.CommitTransaction(txn);
+
+    Profiler::EndProfiling();
     return result;
   } else {
     // otherwise, the txn has already been aborted
@@ -188,9 +194,13 @@ ResultType TrafficCop::ExecuteStatement(
     else if (statement->GetQueryType() == "ROLLBACK")
       return AbortQueryHelper();
     else {
+
+      Profiler::InsertTimePoint("begin statement");
       auto status = ExecuteStatementPlan(statement->GetPlanTree().get(), params,
                                          result, result_format,
                                          thread_id);
+      Profiler::InsertTimePoint("end statement");
+
       LOG_TRACE("Statement executed. Result: %s",
                 ResultTypeToString(status.m_result).c_str());
       rows_changed = status.m_processed;

@@ -19,6 +19,8 @@
 #include "logging/records/transaction_record.h"
 #include "gc/gc_manager_factory.h"
 
+#include "common/profiler.h"
+
 
 namespace peloton {
 namespace concurrency {
@@ -62,7 +64,7 @@ Transaction *TransactionManager::BeginTransaction(const size_t thread_id, const 
     begin_cid = EpochManagerFactory::GetInstance().EnterEpoch(thread_id, false);
     
   }
-  
+
   txn = new Transaction(begin_cid, thread_id, type);
   
   if (FLAGS_stats_mode != STATS_TYPE_INVALID) {
