@@ -289,6 +289,8 @@ std::shared_ptr<Statement> TrafficCop::PrepareStatement(
   LOG_TRACE("Prepare Statement name: %s", statement_name.c_str());
   LOG_TRACE("Prepare Statement query: %s", query_string.c_str());
 
+  Profiler::InsertTimePoint("begin prepare stmt");
+
   std::shared_ptr<Statement> statement(
       new Statement(statement_name, query_string));
   try {
@@ -297,8 +299,12 @@ std::shared_ptr<Statement> TrafficCop::PrepareStatement(
     if (sql_stmt->is_valid == false) {
       throw ParserException("Error parsing SQL statement");
     }
+
+    Profiler::InsertTimePoint("begin build plan tree");
     auto plan = optimizer_->BuildPelotonPlanTree(sql_stmt);
     statement->SetPlanTree(plan);
+
+    Profiler::InsertTimePoint("end build plan tree");
 
     // Get the tables that our plan references so that we know how to
     // invalidate it at a later point when the catalog changes
@@ -321,6 +327,8 @@ std::shared_ptr<Statement> TrafficCop::PrepareStatement(
       LOG_TRACE("%s", statement->GetPlanTree().get()->GetInfo().c_str());
     }
 #endif
+
+    Profiler::InsertTimePoint("end prepare stmt");
     return std::move(statement);
   } catch (Exception &e) {
     error_message = e.what();
