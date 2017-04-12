@@ -366,6 +366,9 @@ void PacketManager::ExecQueryMessage(InputPacket *pkt, const size_t thread_id) {
  * exec_parse_message - handle PARSE message
  */
 void PacketManager::ExecParseMessage(InputPacket *pkt) {
+
+  Profiler::InsertTimePoint("begin parse transaction");
+
   std::string error_message, statement_name, query_string, query_type;
   GetStringToken(pkt, statement_name);
 
@@ -386,6 +389,8 @@ void PacketManager::ExecParseMessage(InputPacket *pkt) {
     std::unique_ptr<OutputPacket> response(new OutputPacket());
     response->msg_type = NetworkMessageType::PARSE_COMPLETE;
     responses.push_back(std::move(response));
+
+    Profiler::InsertTimePoint("end parse transaction");
     return;
   }
 
@@ -402,6 +407,9 @@ void PacketManager::ExecParseMessage(InputPacket *pkt) {
     SendErrorResponse(
         {{NetworkMessageType::HUMAN_READABLE_ERROR, error_message}});
     LOG_TRACE("ExecParse Error");
+
+    Profiler::InsertTimePoint("end parse transaction");
+
     return;
   }
 
@@ -446,6 +454,9 @@ void PacketManager::ExecParseMessage(InputPacket *pkt) {
   std::unique_ptr<OutputPacket> response(new OutputPacket());
   response->msg_type = NetworkMessageType::PARSE_COMPLETE;
   responses.push_back(std::move(response));
+  
+  Profiler::InsertTimePoint("end parse transaction");
+
 }
 
 void PacketManager::ExecBindMessage(InputPacket *pkt) {
