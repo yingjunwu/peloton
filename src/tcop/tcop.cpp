@@ -90,6 +90,7 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 
 ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+  printf("===========begin transaction 93\n");
   auto txn = txn_manager.BeginTransaction(thread_id);
 
   // this shouldn't happen
@@ -112,6 +113,8 @@ ResultType TrafficCop::CommitQueryHelper() {
   if (curr_state.second != ResultType::ABORTED) {
     auto txn = curr_state.first;
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+
+    printf("=============commit transaction 117\n");
     auto result = txn_manager.CommitTransaction(txn);
     return result;
   } else {
@@ -224,6 +227,8 @@ executor::ExecuteResult TrafficCop::ExecuteStatementPlan(
     auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
     // new txn, reset result status
     curr_state.second = ResultType::SUCCESS;
+
+    printf("===========begin transaction 229\n");
     txn = txn_manager.BeginTransaction(thread_id);
     single_statement_txn = true;
   } else {
@@ -255,6 +260,7 @@ executor::ExecuteResult TrafficCop::ExecuteStatementPlan(
         case ResultType::SUCCESS:
           // Commit
           LOG_TRACE("Commit Transaction");
+          printf("=============commit transaction 263\n");
           p_status.m_result = txn_manager.CommitTransaction(txn);
           break;
 
