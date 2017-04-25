@@ -43,7 +43,25 @@ class Transaction : public Printable {
     Init(begin_cid, thread_id, ro);
   }
 
-  ~Transaction() {}
+  ~Transaction() {
+    int read_count = 0;
+    int update_count = 0;
+
+    for (auto &entry : rw_set_) {
+      for (auto &elem : entry.second) {
+        if (elem.second == RWType::READ) {
+          read_count++;
+        } else if (elem.second == RWType::UPDATE) {
+          update_count++;
+        }
+      }
+    }
+
+    if (begin_cid_ % 1000 == 0) {
+      printf("read count = %d, update count = %d\n", read_count, update_count);
+    }
+
+  }
 
  private:
 
