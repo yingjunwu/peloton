@@ -901,6 +901,7 @@ bool PacketManager::ExecDescribeMessage(InputPacket *pkt) {
 
 void PacketManager::ExecExecuteMessage(InputPacket *pkt,
                                        const size_t thread_id) {
+
   // EXECUTE message
   std::vector<StatementResult> results;
   std::string error_message, portal_name;
@@ -1022,34 +1023,126 @@ bool PacketManager::ProcessPacket(InputPacket *pkt, const size_t thread_id) {
   // we see a SYNC
   switch (pkt->msg_type) {
     case NetworkMessageType::SIMPLE_QUERY_COMMAND: {
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin simple query");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin simple query");
+      }
+
       LOG_TRACE("SIMPLE_QUERY_COMMAND");
       ExecQueryMessage(pkt, thread_id);
       force_flush = true;
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end simple query");
+      }
+
     } break;
     case NetworkMessageType::PARSE_COMMAND: {
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin parse");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin parse");
+      }
+      
       LOG_TRACE("PARSE_COMMAND");
       ExecParseMessage(pkt);
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end parse");
+      }
+
     } break;
     case NetworkMessageType::BIND_COMMAND: {
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin bind");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin bind");
+      }
+
       LOG_TRACE("BIND_COMMAND");
       ExecBindMessage(pkt);
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end bind");
+      }
+
     } break;
     case NetworkMessageType::DESCRIBE_COMMAND: {
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin describe");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin describe");
+      }
+
       LOG_TRACE("DESCRIBE_COMMAND");
-      return ExecDescribeMessage(pkt);
+      bool rt = ExecDescribeMessage(pkt);
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end describe");
+      }
+
+      return rt;
     } break;
     case NetworkMessageType::EXECUTE_COMMAND: {
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin execute");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin execute");
+      }
+
       LOG_TRACE("EXECUTE_COMMAND");
       ExecExecuteMessage(pkt, thread_id);
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end execute");
+      }
+
     } break;
     case NetworkMessageType::SYNC_COMMAND: {
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin sync");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin sync");
+      }
+
       LOG_TRACE("SYNC_COMMAND");
       SendReadyForQuery(txn_state_);
       force_flush = true;
+
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end sync");
+      }
+
     } break;
     case NetworkMessageType::CLOSE_COMMAND: {
+      
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("begin close");
+      } else {
+        Profiler::BeginProfiling();
+        Profiler::InsertTimePoint("begin close");
+      }
+    
       LOG_TRACE("CLOSE_COMMAND");
       ExecCloseMessage(pkt);
+      
+      if (Profiler::IsProfiling()) {
+        Profiler::InsertTimePoint("end close");
+      }
+
     } break;
     case NetworkMessageType::TERMINATE_COMMAND: {
       LOG_TRACE("TERMINATE_COMMAND");

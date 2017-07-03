@@ -19,6 +19,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "common/profiler.h"
+
 #include "common/cache.h"
 #include "common/portal.h"
 #include "common/statement.h"

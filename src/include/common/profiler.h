@@ -25,7 +25,6 @@ public:
   static void BeginProfiling() {
     ++total_count_;
 
-    struct timeval begin_time_;
     gettimeofday(&begin_time_, NULL);
 
     time_points_.clear();
@@ -42,18 +41,18 @@ public:
       
       for (auto &time_point : time_points_) {
         double diff = (time_point.first.tv_sec - begin_time_.tv_sec) * 1000.0 * 1000.0;
-        diff + time_point.first.tv_usec - begin_time_.tv_usec;
+        diff += time_point.first.tv_usec - begin_time_.tv_usec;
 
         std::cout << "point: " << time_point.second << ", time: " << diff << " us." << std::endl;
       }
 
       double diff = end_time.tv_sec - begin_time_.tv_sec * 1000.0 * 1000.0;
-      diff + end_time.tv_usec - begin_time_.tv_usec;
+      diff += end_time.tv_usec - begin_time_.tv_usec;
 
       std::cout << "point: END, time: " << diff << " us." << std::endl;
 
     }
-    
+
     is_profiling_ = false;
   }
 

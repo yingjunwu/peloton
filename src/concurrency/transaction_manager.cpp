@@ -19,6 +19,8 @@
 #include "gc/gc_manager_factory.h"
 #include "storage/tile_group.h"
 
+#include "common/profiler.h"
+
 
 namespace peloton {
 namespace concurrency {
@@ -109,6 +111,8 @@ void TransactionManager::EndTransaction(Transaction *current_txn) {
         ->GetTxnLatencyMetric()
         .RecordLatency();
   }
+
+  Profiler::EndProfiling();
 }
 
 // this function checks whether a concurrent transaction is inserting the same
