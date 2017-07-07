@@ -88,15 +88,13 @@ shared_ptr<planner::AbstractPlan> Optimizer::BuildPelotonPlanTree(
   if (is_ddl_stmt) {
     return move(ddl_plan);
   }
-
   // Run binder
   auto bind_node_visitor = make_shared<binder::BindNodeVisitor>();
+  (*bind_node_visitor).consistentTxn = consistentTxn;
   bind_node_visitor->BindNameToNode(parse_tree);
-  
   // Generate initial operator tree from query tree
   shared_ptr<GroupExpression> gexpr = InsertQueryTree(parse_tree);
   GroupID root_id = gexpr->GetGroupID();
-
   // Get the physical properties the final plan must output
   PropertySet properties = GetQueryRequiredProperties(parse_tree);
 
@@ -115,7 +113,7 @@ shared_ptr<planner::AbstractPlan> Optimizer::BuildPelotonPlanTree(
 
   // Reset memo after finishing the optimization
   Reset();
-  
+
   //  return shared_ptr<planner::AbstractPlan>(best_plan.release());
   return move(best_plan);
 }
@@ -134,10 +132,10 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
     case StatementType::DROP: {
       LOG_TRACE("Adding Drop plan...");
       unique_ptr<planner::AbstractPlan> drop_plan(
-          new planner::DropPlan((parser::DropStatement *)tree));
+          new planner::DropPlan((parser::DropStatement *)tree, consistentTxn));
       ddl_plan = move(drop_plan);
       break;
-    } 
+    }
 
     case StatementType::CREATE: {
       LOG_TRACE("Adding Create plan...");
@@ -151,7 +149,8 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
       if (create_plan->GetCreateType() == peloton::CreateType::INDEX) {
         auto create_stmt = (parser::CreateStatement *)tree;
         auto target_table = catalog::Catalog::GetInstance()->GetTableWithName(
-            create_stmt->GetDatabaseName(), create_stmt->GetTableName());
+            create_stmt->GetDatabaseName(), create_stmt->GetTableName(),
+            consistentTxn);
         std::vector<oid_t> column_ids;
         auto schema = target_table->GetSchema();
         for (auto column_name : create_plan->GetIndexAttributes()) {
@@ -176,16 +175,9 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
     }
     case StatementType::ANALYZE: {
       LOG_TRACE("Adding Analyze plan...");
-      unique_ptr<planner::AbstractPlan> analyze_plan(
-        new planner::AnalyzePlan((parser::AnalyzeStatement *)tree));
+      unique_ptr<planner::AbstractPlan> analyze_plan(new planner::AnalyzePlan(
+          (parser::AnalyzeStatement *)tree, consistentTxn));
       ddl_plan = move(analyze_plan);
-      break;
-    }
-    case StatementType::COPY: {
-      LOG_TRACE("Adding Copy plan...");
-      parser::CopyStatement *copy_parse_tree =
-          static_cast<parser::CopyStatement *>(tree);
-      ddl_plan = std::move(util::CreateCopyPlan(copy_parse_tree));
       break;
     }
     default:
@@ -198,6 +190,9 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
 shared_ptr<GroupExpression> Optimizer::InsertQueryTree(
     parser::SQLStatement *tree) {
   QueryToOperatorTransformer converter;
+  //  LOG_INFO("InsertQueryTree Txn Id: %lu",
+  //  consistentTxn->GetTransactionId());
+  converter.consistentTxn = consistentTxn;
   shared_ptr<OperatorExpression> initial =
       converter.ConvertToOpExpression(tree);
   shared_ptr<GroupExpression> gexpr;
@@ -247,8 +242,7 @@ unique_ptr<planner::AbstractPlan> Optimizer::ChooseBestPlan(
       children_expr_map.push_back(move(child_expr_map));
     }
   }
-  
-  
+
   // Derive root plan
   shared_ptr<OperatorExpression> op =
       make_shared<OperatorExpression>(gexpr->Op());
@@ -362,7 +356,7 @@ void Optimizer::OptimizeExpression(shared_ptr<GroupExpression> gexpr,
 
 Property *Optimizer::GenerateNewPropertyCols(PropertySet requirements) {
   auto cols_prop = requirements.GetPropertyOfType(PropertyType::COLUMNS)
-                       ->As<PropertyColumns>();
+      ->As<PropertyColumns>();
   auto sort_prop =
       requirements.GetPropertyOfType(PropertyType::SORT)->As<PropertySort>();
 
@@ -469,7 +463,7 @@ void Optimizer::ExploreGroup(GroupID id) {
   if (memo_.GetGroupByID(id)->HasExplored()) return;
 
   for (shared_ptr<GroupExpression> gexpr :
-       memo_.GetGroupByID(id)->GetExpressions()) {
+      memo_.GetGroupByID(id)->GetExpressions()) {
     ExploreExpression(gexpr);
   }
   memo_.GetGroupByID(id)->SetExplorationFlag();
@@ -508,7 +502,7 @@ void Optimizer::ImplementGroup(GroupID id) {
   if (memo_.GetGroupByID(id)->HasImplemented()) return;
 
   for (shared_ptr<GroupExpression> gexpr :
-       memo_.GetGroupByID(id)->GetExpressions()) {
+      memo_.GetGroupByID(id)->GetExpressions()) {
     if (gexpr->Op().IsLogical()) ImplementExpression(gexpr);
   }
   memo_.GetGroupByID(id)->SetImplementationFlag();
@@ -571,7 +565,6 @@ vector<shared_ptr<GroupExpression>> Optimizer::TransformExpression(
 
 //////////////////////////////////////////////////////////////////////////////
 /// Memo insertion
-
 shared_ptr<GroupExpression> Optimizer::MakeGroupExpression(
     shared_ptr<OperatorExpression> expr) {
   vector<GroupID> child_groups;

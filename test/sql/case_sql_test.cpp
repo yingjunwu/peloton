@@ -55,9 +55,10 @@ TEST_F(CaseSQLTests, Simple) {
   std::unique_ptr<optimizer::AbstractOptimizer> optimizer(
       new optimizer::Optimizer());
 
-  LOG_DEBUG("Running SELECT a, case when a=1 then 2 else 0 end from test");	
+  LOG_DEBUG("Running SELECT a, case when a=1 then 2 else 0 end from test");
+
   TestingSQLUtil::ExecuteSQLQuery(
-      "SELECT a, case when a=1 then 2 else 0 end from test", 
+      "SELECT a, case when a=1 then 2 else 0 end from test",
       result, tuple_descriptor, rows_changed, error_message);
 
   // Check the return value
@@ -94,9 +95,9 @@ TEST_F(CaseSQLTests, SimpleWithArg) {
       new optimizer::Optimizer());
 
   LOG_DEBUG("Running SELECT a, case a when 1 then 2 when 2 then 3 "
-            "else 100 end from test");
+                "else 100 end from test");
   TestingSQLUtil::ExecuteSQLQuery(
-      "SELECT a, case a when 1 then 2 when 2 then 3 else 100 end from test", 
+      "SELECT a, case a when 1 then 2 when 2 then 3 else 100 end from test",
       result, tuple_descriptor, rows_changed, error_message);
 
   // Check the return value
@@ -133,10 +134,10 @@ TEST_F(CaseSQLTests, SimpleWithArgStringResult) {
       new optimizer::Optimizer());
 
   LOG_DEBUG("Running SELECT a, case a when 1 then '2' when 2 then '3' "
-            "else '100' end from test");
+                "else '100' end from test");
   TestingSQLUtil::ExecuteSQLQuery(
       "SELECT a, case a when 1 then '2' when 2 then '3' else '100' end "
-      "from test", result, tuple_descriptor, rows_changed, error_message);
+          "from test", result, tuple_descriptor, rows_changed, error_message);
 
   // Check the return value
   EXPECT_EQ(0, rows_changed);
