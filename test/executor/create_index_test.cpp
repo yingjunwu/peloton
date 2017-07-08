@@ -22,7 +22,7 @@
 #include "executor/insert_executor.h"
 #include "executor/plan_executor.h"
 #include "executor/update_executor.h"
-#include "optimizer/optimizer.h"
+#include "optimizer/simple_optimizer.h"
 #include "parser/postgresparser.h"
 #include "planner/create_plan.h"
 #include "planner/delete_plan.h"
@@ -50,15 +50,12 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   txn_manager.CommitTransaction(txn);
   LOG_INFO("Bootstrapping completed!");
 
-  std::unique_ptr<optimizer::AbstractOptimizer> optimizer;
-  optimizer.reset(new optimizer::Optimizer);
-
+  optimizer::SimpleOptimizer optimizer;
   auto& traffic_cop = tcop::TrafficCop::GetInstance();
 
   // Create a table first
   txn = txn_manager.BeginTransaction();
   traffic_cop.tcop_txn_state_.emplace(txn, ResultType::SUCCESS);
-  traffic_cop.single_statement_txn = true;
   LOG_INFO("Creating table");
   LOG_INFO(
       "Query: CREATE TABLE department_table(dept_id INT PRIMARY KEY,student_id "
@@ -78,7 +75,7 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   LOG_INFO("Building parse tree completed!");
 
   LOG_INFO("Building plan tree...");
-  statement->SetPlanTree(optimizer->BuildPelotonPlanTree(create_stmt));
+  statement->SetPlanTree(optimizer.BuildPelotonPlanTree(create_stmt));
   LOG_INFO("Building plan tree completed!");
 
   std::vector<type::Value> params;
@@ -86,16 +83,14 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   LOG_INFO("Executing plan...\n%s",
            planner::PlanUtil::GetInfo(statement->GetPlanTree().get()).c_str());
   std::vector<int> result_format;
-  LOG_INFO("Before Result Format...");
   result_format =
       std::move(std::vector<int>(statement->GetTupleDescriptor().size(), 0));
-  LOG_INFO("Result Format...");
   executor::ExecuteResult status = traffic_cop.ExecuteStatementPlan(
       statement->GetPlanTree().get(), params, result, result_format);
   LOG_INFO("Statement executed. Result: %s",
            ResultTypeToString(status.m_result).c_str());
   LOG_INFO("Table Created");
-//  txn_manager.CommitTransaction(txn);
+  traffic_cop.CommitQueryHelper();
 
   EXPECT_EQ(catalog::Catalog::GetInstance()
                 ->GetDatabaseWithName(DEFAULT_DB_NAME)
@@ -105,7 +100,6 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   // Inserting a tuple end-to-end
   txn = txn_manager.BeginTransaction();
   traffic_cop.tcop_txn_state_.emplace(txn, ResultType::SUCCESS);
-  traffic_cop.single_statement_txn = true;
   LOG_INFO("Inserting a tuple...");
   LOG_INFO(
       "Query: INSERT INTO department_table(dept_id,student_id ,dept_name) "
@@ -122,27 +116,24 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   LOG_INFO("Building parse tree completed!");
 
   LOG_INFO("Building plan tree...");
-  optimizer->Reset();
-  statement->SetPlanTree(optimizer->BuildPelotonPlanTree(insert_stmt));
+  statement->SetPlanTree(optimizer.BuildPelotonPlanTree(insert_stmt));
   LOG_INFO("Building plan tree completed!\n%s",
            planner::PlanUtil::GetInfo(statement->GetPlanTree().get()).c_str());
 
   LOG_INFO("Executing plan...");
-
   result_format =
       std::move(std::vector<int>(statement->GetTupleDescriptor().size(), 0));
-  LOG_INFO("Result Format...");
   status = traffic_cop.ExecuteStatementPlan(statement->GetPlanTree().get(),
                                             params, result, result_format);
   LOG_INFO("Statement executed. Result: %s",
            ResultTypeToString(status.m_result).c_str());
   LOG_INFO("Tuple inserted!");
+  traffic_cop.CommitQueryHelper();
 //  txn_manager.CommitTransaction(txn);
 
   // Now Updating end-to-end
   txn = txn_manager.BeginTransaction();
   traffic_cop.tcop_txn_state_.emplace(txn, ResultType::SUCCESS);
-  traffic_cop.single_statement_txn = true;
   LOG_INFO("Creating and Index");
   LOG_INFO("Query: CREATE INDEX saif ON department_table (student_id);");
   statement.reset(new Statement(
@@ -154,8 +145,7 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   LOG_INFO("Building parse tree completed!");
 
   LOG_INFO("Building plan tree...");
-  optimizer->Reset();
-  statement->SetPlanTree(optimizer->BuildPelotonPlanTree(update_stmt));
+  statement->SetPlanTree(optimizer.BuildPelotonPlanTree(update_stmt));
   LOG_INFO("Building plan tree completed!\n%s",
            planner::PlanUtil::GetInfo(statement->GetPlanTree().get()).c_str());
 
@@ -167,6 +157,7 @@ TEST_F(CreateIndexTests, CreatingIndex) {
   LOG_INFO("Statement executed. Result: %s",
            ResultTypeToString(status.m_result).c_str());
   LOG_INFO("INDEX CREATED!");
+  traffic_cop.CommitQueryHelper();
 //  txn_manager.CommitTransaction(txn);
 
   auto target_table_ = catalog::Catalog::GetInstance()->GetTableWithName(
