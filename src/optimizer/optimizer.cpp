@@ -73,6 +73,7 @@ Optimizer::Optimizer() {
   physical_implementation_rules_.emplace_back(new InnerJoinToInnerHashJoin());
 }
 
+
 shared_ptr<planner::AbstractPlan> Optimizer::BuildPelotonPlanTree(
     const unique_ptr<parser::SQLStatementList> &parse_tree_list) {
   // Base Case
@@ -130,7 +131,7 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
   auto stmt_type = tree->GetType();
   switch (stmt_type) {
     case StatementType::DROP: {
-      LOG_DEBUG("Adding Drop plan...");
+      LOG_TRACE("Adding Drop plan...");
       unique_ptr<planner::AbstractPlan> drop_plan(
           new planner::DropPlan((parser::DropStatement *)tree, consistentTxn));
       ddl_plan = move(drop_plan);
@@ -138,7 +139,7 @@ unique_ptr<planner::AbstractPlan> Optimizer::HandleDDLStatement(
     }
 
     case StatementType::CREATE: {
-      LOG_DEBUG("Adding Create plan...");
+      LOG_TRACE("Adding Create plan...");
 
       // This is adapted from the simple optimizer
       auto create_plan =
