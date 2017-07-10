@@ -74,7 +74,9 @@ Optimizer::Optimizer() {
 }
 
 shared_ptr<planner::AbstractPlan> Optimizer::BuildPelotonPlanTree(
-    const unique_ptr<parser::SQLStatementList> &parse_tree_list) {
+    const unique_ptr<parser::SQLStatementList> &parse_tree_list, 
+    concurrency::Transaction *txn UNUSED_ATTRIBUTE) {
+  printf("optimizer line 78\n");
   // Base Case
   if (parse_tree_list->GetStatements().size() == 0) return nullptr;
 

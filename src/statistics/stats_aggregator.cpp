@@ -186,6 +186,7 @@ void StatsAggregator::UpdateMetrics() {
   // All tuples are inserted in a single txn
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction();
+  printf("begin txn stats aggregator line 189\n");
 
   // Get the target table metrics table
   LOG_TRACE("Inserting stat tuples into catalog database..");

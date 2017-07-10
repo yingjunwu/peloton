@@ -71,6 +71,7 @@ void PelotonInit::Initialize() {
   // begin a transaction
   auto& txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction();
+  printf("initialize\n");
 
   // initialize the catalog and add the default database, so we don't do this on
   // the first query

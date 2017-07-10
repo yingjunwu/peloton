@@ -49,6 +49,7 @@ ExecuteResult PlanExecutor::ExecutePlan(const planner::AbstractPlan *plan,
                                         const std::vector<type::Value> &params,
                                         std::vector<StatementResult> &result,
                                         const std::vector<int> &result_format) {
+  printf("execute plan line 52\n");
   ExecuteResult p_status;
   if (plan == nullptr) return p_status;
 
@@ -178,6 +179,7 @@ int PlanExecutor::ExecutePlan(
     const planner::AbstractPlan *plan, const std::vector<type::Value> &params,
     std::vector<std::unique_ptr<executor::LogicalTile>> &logical_tile_list) {
   if (plan == nullptr) return -1;
+  printf("execute plan line 182\n");
 
   LOG_TRACE("PlanExecutor Start ");
 

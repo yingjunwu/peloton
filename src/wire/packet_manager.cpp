@@ -93,29 +93,29 @@ void PacketManager::InvalidatePreparedStatements(oid_t table_id) {
   }
 }
 
-void PacketManager::ReplanPreparedStatement(Statement *statement) {
-  std::string error_message;
-  auto new_statement = traffic_cop_->PrepareStatement(
-      statement->GetStatementName(), statement->GetQueryString(),
-      error_message);
-  // But then rip out its query plan and stick it in our old statement
-  if (new_statement.get() == nullptr) {
-    LOG_ERROR(
-        "Failed to generate a new query plan for PreparedStatement '%s'\n%s",
-        statement->GetStatementName().c_str(), error_message.c_str());
-  } else {
-    LOG_DEBUG("Generating new plan for PreparedStatement '%s'",
-              statement->GetStatementName().c_str());
+// void PacketManager::ReplanPreparedStatement(Statement *statement) {
+//   std::string error_message;
+//   auto new_statement = traffic_cop_->PrepareStatement(
+//       statement->GetStatementName(), statement->GetQueryString(),
+//       error_message);
+//   // But then rip out its query plan and stick it in our old statement
+//   if (new_statement.get() == nullptr) {
+//     LOG_ERROR(
+//         "Failed to generate a new query plan for PreparedStatement '%s'\n%s",
+//         statement->GetStatementName().c_str(), error_message.c_str());
+//   } else {
+//     LOG_DEBUG("Generating new plan for PreparedStatement '%s'",
+//               statement->GetStatementName().c_str());
 
-    auto old_plan = statement->GetPlanTree();
-    auto new_plan = new_statement->GetPlanTree();
-    statement->SetPlanTree(new_plan);
-    new_statement->SetPlanTree(old_plan);
-    statement->SetNeedsPlan(false);
+//     auto old_plan = statement->GetPlanTree();
+//     auto new_plan = new_statement->GetPlanTree();
+//     statement->SetPlanTree(new_plan);
+//     new_statement->SetPlanTree(old_plan);
+//     statement->SetNeedsPlan(false);
 
-    // TODO: We may need to delete the old plan and new statement here
-  }
-}
+//     // TODO: We may need to delete the old plan and new statement here
+//   }
+// }
 
 void PacketManager::MakeHardcodedParameterStatus(
     const std::pair<std::string, std::string> &kv) {
@@ -340,6 +340,7 @@ bool PacketManager::HardcodedExecuteFilter(QueryType query_type) {
 // However, the multi-statement queries has been split by the psql client and
 // there is no need to split the query again.
 void PacketManager::ExecQueryMessage(InputPacket *pkt, const size_t thread_id) {
+  PL_ASSERT(false);
   std::string query;
   PacketGetString(pkt, pkt->len, query);
 
@@ -374,8 +375,10 @@ void PacketManager::ExecQueryMessage(InputPacket *pkt, const size_t thread_id) {
         LOG_DEBUG("PrepareStatement[%s] => %s", statement_name.c_str(),
                 statement_query.c_str());
 
-        statement = traffic_cop_->PrepareStatement(statement_name, statement_query,
-                                                 error_message);
+        PL_ASSERT(false);
+
+        // statement = traffic_cop_->PrepareStatement(statement_name, statement_query,
+        //                                          error_message);
         if (statement.get() == nullptr) {
           skipped_stmt_ = true;
           SendErrorResponse(
@@ -396,7 +399,7 @@ void PacketManager::ExecQueryMessage(InputPacket *pkt, const size_t thread_id) {
         std::string statement_name;
         std::shared_ptr<Statement> statement;
         std::vector<type::Value> param_values;
-        bool unnamed = false;
+        // bool unnamed = false;
         std::vector<std::string> tokens;
 
         boost::split(tokens, query, boost::is_any_of("(), "));
@@ -431,9 +434,9 @@ void PacketManager::ExecQueryMessage(InputPacket *pkt, const size_t thread_id) {
           statement->GetPlanTree()->SetParameterValues(&param_values);
         }
 
-        auto status =
-                traffic_cop_->ExecuteStatement(statement, param_values, unnamed, nullptr, result_format,
-                             result, rows_affected, error_message, thread_id);
+        auto status = ResultType::SUCCESS;
+                // traffic_cop_->ExecuteStatement(statement, param_values, unnamed, nullptr, result_format,
+                //              result, rows_affected, error_message, thread_id);
 
         if (status == ResultType::SUCCESS) {
           tuple_descriptor = std::move(statement->GetTupleDescriptor());
@@ -517,9 +520,10 @@ void PacketManager::ExecParseMessage(InputPacket *pkt) {
 
   LOG_DEBUG("PrepareStatement[%s] => %s", statement_name.c_str(),
             query_string.c_str());
+  PL_ASSERT(false);
 
-  statement = traffic_cop_->PrepareStatement(statement_name, query_string,
-                                             error_message);
+  // statement = traffic_cop_->PrepareStatement(statement_name, query_string,
+  //                                            error_message);
   if (statement.get() == nullptr) {
     skipped_stmt_ = true;
     SendErrorResponse(
@@ -653,9 +657,9 @@ void PacketManager::ExecBindMessage(InputPacket *pkt) {
 
   // Check whether somebody wants us to generate a new query plan
   // for this prepared statement
-  if (statement->GetNeedsPlan()) {
-    ReplanPreparedStatement(statement.get());
-  }
+  // if (statement->GetNeedsPlan()) {
+  //   ReplanPreparedStatement(statement.get());
+  // }
 
   // Group the parameter types and the parameters in this vector
   std::vector<std::pair<int, std::string>> bind_parameters(num_params);
@@ -900,7 +904,7 @@ bool PacketManager::ExecDescribeMessage(InputPacket *pkt) {
 }
 
 void PacketManager::ExecExecuteMessage(InputPacket *pkt,
-                                       const size_t thread_id) {
+                                       const size_t thread_id UNUSED_ATTRIBUTE) {
   // EXECUTE message
   std::vector<StatementResult> results;
   std::string error_message, portal_name;
@@ -944,12 +948,13 @@ void PacketManager::ExecExecuteMessage(InputPacket *pkt,
   }
 
   auto statement_name = statement->GetStatementName();
-  bool unnamed = statement_name.empty();
+  // bool unnamed = statement_name.empty();
   auto param_values = portal->GetParameters();
-
-  auto status = traffic_cop_->ExecuteStatement(
-      statement, param_values, unnamed, param_stat, result_format_, results,
-      rows_affected, error_message, thread_id);
+  PL_ASSERT(false);
+  auto status = ResultType::FAILURE;
+  // traffic_cop_->ExecuteStatement(
+  //     statement, param_values, unnamed, param_stat, result_format_, results,
+  //     rows_affected, error_message, thread_id);
 
   switch (status) {
     case ResultType::FAILURE:
@@ -969,7 +974,7 @@ void PacketManager::ExecExecuteMessage(InputPacket *pkt,
     default: {
       auto tuple_descriptor = statement->GetTupleDescriptor();
       SendDataRows(results, tuple_descriptor.size(), rows_affected);
-      // The reponse to ExecuteCommand is the query_type string token.
+      // The response to ExecuteCommand is the query_type string token.
       CompleteCommand(statement->GetQueryTypeString(), query_type, rows_affected);
       return;
     }

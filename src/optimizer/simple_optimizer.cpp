@@ -60,11 +60,18 @@ SimpleOptimizer::SimpleOptimizer(){};
 SimpleOptimizer::~SimpleOptimizer(){};
 
 std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
-    const std::unique_ptr<parser::SQLStatementList>& parse_tree) {
+    const std::unique_ptr<parser::SQLStatementList>& parse_tree, 
+    concurrency::Transaction *txn UNUSED_ATTRIBUTE) {
+
   std::shared_ptr<planner::AbstractPlan> plan_tree;
+  printf("simple optimizer line 65\n");
 
   // Base Case
-  if (parse_tree->GetStatements().size() == 0) return plan_tree;
+  if (parse_tree->GetStatements().size() == 0) {
+    printf("simple optimizer line 69, size == 0\n");
+    return plan_tree;
+  }
+  printf("simple optimizer line 72\n");
 
   std::unique_ptr<planner::AbstractPlan> child_plan = nullptr;
 
@@ -74,6 +81,13 @@ std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
   auto parse_tree2 = parse_tree->GetStatements().at(0);
 
   switch (stmt_type) {
+
+    case StatementType::TRANSACTION: {
+      // Do nothing.
+      printf("simple optimizer transaction!!!\n");
+      break;
+    }
+
     case StatementType::DROP: {
       LOG_TRACE("Adding Drop plan...");
       std::unique_ptr<planner::AbstractPlan> child_DropPlan(
@@ -128,6 +142,7 @@ std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
       auto group_by = select_stmt->group_by;
       expression::AbstractExpression* having = nullptr;
 
+      ///////////////////////////////////////////////////
       // The HACK to make the join in tpcc work. This is written by Joy Arulraj
       if (select_stmt->from_table->list != NULL) {
         LOG_TRACE("have join condition? %d",
@@ -135,8 +150,9 @@ std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
         LOG_TRACE("have sub select statement? %d",
                   select_stmt->from_table->select != NULL);
         try {
+          printf("simple optimizer 139\n");
           catalog::Catalog::GetInstance()->GetTableWithName(DEFAULT_DB_NAME,
-                                                            "order_line");
+                                                            "order_line", txn);
           // auto child_SelectPlan = CreateHackingJoinPlan();
           auto child_SelectPlan = CreateHackingNestedLoopJoinPlan(select_stmt);
           child_plan = std::move(child_SelectPlan);
@@ -145,6 +161,7 @@ std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
           throw NotImplementedException("Error: Joins are not implemented yet");
         }
       }
+      ///////////////////////////////////////////////////
 
       if (select_stmt->from_table->join != NULL) {
         child_plan = CreateJoinPlan(select_stmt);
@@ -152,11 +169,11 @@ std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
         // throw NotImplementedException("Error: Joins are not implemented
         // yet");
       }
-
+      printf("simple optimizer line 157...\n");
       storage::DataTable* target_table =
           catalog::Catalog::GetInstance()->GetTableWithName(
               select_stmt->from_table->GetDatabaseName(),
-              select_stmt->from_table->GetTableName());
+              select_stmt->from_table->GetTableName(), txn);
 
       // Preparing the group by columns
       if (group_by != NULL) {
@@ -692,10 +709,6 @@ std::shared_ptr<planner::AbstractPlan> SimpleOptimizer::BuildPelotonPlanTree(
       }
     } break;
 
-    case StatementType::TRANSACTION: {
-      // Nothing???
-      break;
-    }
     default:
       LOG_ERROR("Unsupported StatementType %s",
                 StatementTypeToString(stmt_type).c_str());

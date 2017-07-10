@@ -50,6 +50,9 @@ TrafficCop::TrafficCop() {
 #else
   optimizer_.reset(new optimizer::SimpleOptimizer());
 #endif
+
+  single_statement_txn_ = false;
+  init_failure_ = false;
 }
 
 void TrafficCop::Reset() {
@@ -57,6 +60,9 @@ void TrafficCop::Reset() {
   // clear out the stack
   swap(tcop_txn_state_, new_tcop_txn_state);
   optimizer_->Reset();
+
+  single_statement_txn_ = false;
+  init_failure_ = false;
 }
 
 TrafficCop::~TrafficCop() {
@@ -91,7 +97,7 @@ TrafficCop::TcopTxnState &TrafficCop::GetCurrentTxnState() {
 ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction(thread_id);
-
+  printf("begin txn line 94\n");
   // this shouldn't happen
   if (txn == nullptr) {
     LOG_DEBUG("Begin txn failed");
@@ -105,7 +111,9 @@ ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
 
 ResultType TrafficCop::CommitQueryHelper() {
   // do nothing if we have no active txns
-  if (tcop_txn_state_.empty()) return ResultType::NOOP;
+  if (tcop_txn_state_.empty()) {
+    return ResultType::NOOP;
+  }
   auto &curr_state = tcop_txn_state_.top();
   tcop_txn_state_.pop();
   // commit the txn only if it has not aborted already
@@ -122,7 +130,9 @@ ResultType TrafficCop::CommitQueryHelper() {
 
 ResultType TrafficCop::AbortQueryHelper() {
   // do nothing if we have no active txns
-  if (tcop_txn_state_.empty()) return ResultType::NOOP;
+  if (tcop_txn_state_.empty()) {
+    return ResultType::NOOP;
+  }
   auto &curr_state = tcop_txn_state_.top();
   tcop_txn_state_.pop();
   // explicitly abort the txn only if it has not aborted already
@@ -140,12 +150,16 @@ ResultType TrafficCop::AbortQueryHelper() {
 ResultType TrafficCop::ExecuteStatement(
     const std::string &query, std::vector<StatementResult> &result,
     std::vector<FieldInfo> &tuple_descriptor, int &rows_changed,
-    std::string &error_message, const size_t thread_id UNUSED_ATTRIBUTE) {
+    std::string &error_message, const size_t thread_id) {
+  printf("execute statement line 144\n");
   LOG_TRACE("Received %s", query.c_str());
 
   // Prepare the statement
   std::string unnamed_statement = "unnamed";
-  auto statement = PrepareStatement(unnamed_statement, query, error_message);
+  
+  concurrency::Transaction *txn = nullptr;
+
+  auto statement = PrepareStatement(unnamed_statement, query, error_message, txn, thread_id);
 
   if (statement.get() == nullptr) {
     return ResultType::FAILURE;
@@ -157,7 +171,7 @@ ResultType TrafficCop::ExecuteStatement(
   std::vector<type::Value> params;
   auto status =
       ExecuteStatement(statement, params, unnamed, nullptr, result_format,
-                       result, rows_changed, error_message, thread_id);
+                       result, rows_changed, error_message, txn, thread_id);
 
   if (status == ResultType::SUCCESS) {
     LOG_TRACE("Execution succeeded!");
@@ -169,13 +183,92 @@ ResultType TrafficCop::ExecuteStatement(
   return status;
 }
 
+
+std::shared_ptr<Statement> TrafficCop::PrepareStatement(
+    const std::string &statement_name, 
+    const std::string &query_string,
+    std::string &error_message, 
+    concurrency::Transaction *&txn,
+    const size_t thread_id) {
+  
+  printf("prepare statement line 297\n");
+
+  LOG_TRACE("Prepare Statement name: %s", statement_name.c_str());
+  LOG_TRACE("Prepare Statement query: %s", query_string.c_str());
+
+  try {
+    auto &peloton_parser = parser::PostgresParser::GetInstance();
+    auto sql_stmt = peloton_parser.BuildParseTree(query_string);
+    if (sql_stmt->is_valid == false) {
+      throw ParserException("Error parsing SQL statement");
+    }
+
+    auto stmt_type = sql_stmt->GetStatements().at(0)->GetType();
+    
+    if (stmt_type == StatementType::TRANSACTION) {
+      // do nothing
+    } else {
+      // get transaction handler.
+      auto &curr_state = GetCurrentTxnState();
+      if (tcop_txn_state_.empty()) {
+        // no active txn, single-statement txn
+        auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+        // new txn, reset result status
+        curr_state.second = ResultType::SUCCESS;
+        txn = txn_manager.BeginTransaction(thread_id);
+      
+        single_statement_txn_ = true;
+      } else {
+        // get ptr to current active txn
+        txn = curr_state.first;
+      }
+    }
+
+    std::shared_ptr<Statement> statement(
+        new Statement(statement_name, query_string));
+
+    printf("line 336\n");
+    auto plan = optimizer_->BuildPelotonPlanTree(sql_stmt, txn);
+    statement->SetPlanTree(plan);
+    printf("line 339\n");
+    // Get the tables that our plan references so that we know how to
+    // invalidate it at a later point when the catalog changes
+    const std::set<oid_t> table_oids =
+        planner::PlanUtil::GetTablesReferenced(plan.get());
+    statement->SetReferencedTables(table_oids);
+    printf("line 345\n");
+    for (auto stmt : sql_stmt->GetStatements()) {
+      LOG_TRACE("SQLStatement: %s", stmt->GetInfo().c_str());
+      if (stmt->GetType() == StatementType::SELECT) {
+        auto tuple_descriptor = GenerateTupleDescriptor(stmt, txn);
+        statement->SetTupleDescriptor(tuple_descriptor);
+      }
+      break;
+    }
+    printf("line 354\n");
+#ifdef LOG_DEBUG_ENABLED
+    if (statement->GetPlanTree().get() != nullptr) {
+      LOG_DEBUG("Statement Prepared: %s", statement->GetInfo().c_str());
+      LOG_TRACE("%s", statement->GetPlanTree().get()->GetInfo().c_str());
+    }
+#endif
+    return std::move(statement);
+  } catch (Exception &e) {
+    error_message = e.what();
+    return nullptr;
+  }
+}
+
+
 ResultType TrafficCop::ExecuteStatement(
     const std::shared_ptr<Statement> &statement,
     const std::vector<type::Value> &params, UNUSED_ATTRIBUTE const bool unnamed,
     std::shared_ptr<stats::QueryMetric::QueryParams> param_stats,
     const std::vector<int> &result_format, std::vector<StatementResult> &result,
-    int &rows_changed, UNUSED_ATTRIBUTE std::string &error_message,
-    const size_t thread_id UNUSED_ATTRIBUTE) {
+    int &rows_changed, std::string &error_message,
+    concurrency::Transaction *txn,
+    const size_t thread_id) {
+  printf("execute statement line 180\n");
   if (FLAGS_stats_mode != STATS_TYPE_INVALID) {
     stats::BackendStatsContext::GetInstance()->InitQueryMetric(statement,
                                                                param_stats);
@@ -198,7 +291,7 @@ ResultType TrafficCop::ExecuteStatement(
       default:
         auto status = ExecuteStatementPlan(statement->GetPlanTree().get(), params,
                                            result, result_format,
-                                           thread_id);
+                                           txn, thread_id);
         LOG_TRACE("Statement executed. Result: %s",
                   ResultTypeToString(status.m_result).c_str());
         rows_changed = status.m_processed;
@@ -212,24 +305,27 @@ ResultType TrafficCop::ExecuteStatement(
 
 executor::ExecuteResult TrafficCop::ExecuteStatementPlan(
     const planner::AbstractPlan *plan, const std::vector<type::Value> &params,
-    std::vector<StatementResult> &result, const std::vector<int> &result_format,
-    const size_t thread_id) {
-  concurrency::Transaction *txn;
-  bool single_statement_txn = false, init_failure = false;
+    std::vector<StatementResult> &result, const std::vector<int> &result_format, 
+    concurrency::Transaction *txn, 
+    const size_t thread_id UNUSED_ATTRIBUTE) {
+
+  // bool single_statement_txn = false, init_failure = false;
   executor::ExecuteResult p_status;
 
   auto &curr_state = GetCurrentTxnState();
-  if (tcop_txn_state_.empty()) {
-    // no active txn, single-statement txn
-    auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
-    // new txn, reset result status
-    curr_state.second = ResultType::SUCCESS;
-    txn = txn_manager.BeginTransaction(thread_id);
-    single_statement_txn = true;
-  } else {
-    // get ptr to current active txn
-    txn = curr_state.first;
-  }
+  // if (tcop_txn_state_.empty()) {
+  //   // no active txn, single-statement txn
+  //   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
+  //   // new txn, reset result status
+  //   curr_state.second = ResultType::SUCCESS;
+  //   txn = txn_manager.BeginTransaction(thread_id);
+  //   printf("begin txn line 228\n");
+  
+  //   single_statement_txn = true;
+  // } else {
+  //   // get ptr to current active txn
+  //   txn = curr_state.first;
+  // }
 
   // skip if already aborted
   if (curr_state.second != ResultType::ABORTED) {
@@ -239,17 +335,17 @@ executor::ExecuteResult TrafficCop::ExecuteStatementPlan(
 
     if (p_status.m_result == ResultType::FAILURE) {
       // only possible if init failed
-      init_failure = true;
+      init_failure_ = true;
     }
 
     auto txn_result = txn->GetResult();
-    if (single_statement_txn == true || init_failure == true ||
+    if (single_statement_txn_ == true || init_failure_ == true ||
         txn_result == ResultType::FAILURE) {
       auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
 
       LOG_TRACE(
           "About to commit: single stmt: %d, init_failure: %d, txn_result: %s",
-          single_statement_txn, init_failure,
+          single_statement_txn_, init_failure_,
           ResultTypeToString(txn_result).c_str());
       switch (txn_result) {
         case ResultType::SUCCESS:
@@ -273,78 +369,35 @@ executor::ExecuteResult TrafficCop::ExecuteStatementPlan(
   return p_status;
 }
 
-std::shared_ptr<Statement> TrafficCop::PrepareStatement(
-    const std::string &statement_name, const std::string &query_string,
-    UNUSED_ATTRIBUTE std::string &error_message) {
-  LOG_TRACE("Prepare Statement name: %s", statement_name.c_str());
-  LOG_TRACE("Prepare Statement query: %s", query_string.c_str());
-
-  std::shared_ptr<Statement> statement(
-      new Statement(statement_name, query_string));
-  try {
-    auto &peloton_parser = parser::PostgresParser::GetInstance();
-    auto sql_stmt = peloton_parser.BuildParseTree(query_string);
-    if (sql_stmt->is_valid == false) {
-      throw ParserException("Error parsing SQL statement");
-    }
-    auto plan = optimizer_->BuildPelotonPlanTree(sql_stmt);
-    statement->SetPlanTree(plan);
-
-    // Get the tables that our plan references so that we know how to
-    // invalidate it at a later point when the catalog changes
-    const std::set<oid_t> table_oids =
-        planner::PlanUtil::GetTablesReferenced(plan.get());
-    statement->SetReferencedTables(table_oids);
-
-    for (auto stmt : sql_stmt->GetStatements()) {
-      LOG_TRACE("SQLStatement: %s", stmt->GetInfo().c_str());
-      if (stmt->GetType() == StatementType::SELECT) {
-        auto tuple_descriptor = GenerateTupleDescriptor(stmt);
-        statement->SetTupleDescriptor(tuple_descriptor);
-      }
-      break;
-    }
-
-#ifdef LOG_DEBUG_ENABLED
-    if (statement->GetPlanTree().get() != nullptr) {
-      LOG_DEBUG("Statement Prepared: %s", statement->GetInfo().c_str());
-      LOG_TRACE("%s", statement->GetPlanTree().get()->GetInfo().c_str());
-    }
-#endif
-    return std::move(statement);
-  } catch (Exception &e) {
-    error_message = e.what();
-    return nullptr;
-  }
-}
 
 void TrafficCop::GetDataTables(
     parser::TableRef *from_table,
-    std::vector<storage::DataTable *> &target_tables) {
+    std::vector<storage::DataTable *> &target_tables, 
+    concurrency::Transaction *txn) {
   if (from_table == nullptr) return;
 
   if (from_table->list == NULL) {
     if (from_table->join == NULL) {
       auto *target_table = static_cast<storage::DataTable *>(
           catalog::Catalog::GetInstance()->GetTableWithName(
-              from_table->GetDatabaseName(), from_table->GetTableName()));
+              from_table->GetDatabaseName(), from_table->GetTableName(), txn));
       target_tables.push_back(target_table);
     } else {
-      GetDataTables(from_table->join->left, target_tables);
-      GetDataTables(from_table->join->right, target_tables);
+      GetDataTables(from_table->join->left, target_tables, txn);
+      GetDataTables(from_table->join->right, target_tables, txn);
     }
   }
 
   // Query has multiple tables. Recursively add all tables
   else {
     for (auto table : *(from_table->list)) {
-      GetDataTables(table, target_tables);
+      GetDataTables(table, target_tables, txn);
     }
   }
 }
 
 std::vector<FieldInfo> TrafficCop::GenerateTupleDescriptor(
-    parser::SQLStatement *sql_stmt) {
+    parser::SQLStatement *sql_stmt, concurrency::Transaction *txn) {
   std::vector<FieldInfo> tuple_descriptor;
   if (sql_stmt->GetType() != StatementType::SELECT) return tuple_descriptor;
   auto select_stmt = (parser::SelectStatement *)sql_stmt;
@@ -362,7 +415,7 @@ std::vector<FieldInfo> TrafficCop::GenerateTupleDescriptor(
 
   // Check if query only has one Table
   // Example : SELECT * FROM A;
-  GetDataTables(select_stmt->from_table, target_tables);
+  GetDataTables(select_stmt->from_table, target_tables, txn);
 
   int count = 0;
   for (auto expr : *select_stmt->select_list) {

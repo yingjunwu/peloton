@@ -66,7 +66,7 @@ class PacketManager {
   void InvalidatePreparedStatements(oid_t table_id);
 
   // Ugh... this should not be here but we have no choice...
-  void ReplanPreparedStatement(Statement* statement);
+  // void ReplanPreparedStatement(Statement* statement);
 
   // Check existence of statement in cache by name
   // Return true if exists

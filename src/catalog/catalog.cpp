@@ -45,6 +45,7 @@ Catalog::Catalog() : pool_(new type::EphemeralPool()) {
   // Begin transaction for catalog initialization
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction();
+  printf("begin transaction at catalog line 48\n");
 
   // Create pg_catalog database
   auto pg_catalog = new storage::Database(CATALOG_DATABASE_OID);
@@ -132,6 +133,7 @@ Catalog::Catalog() : pool_(new type::EphemeralPool()) {
 void Catalog::Bootstrap() {
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction();
+  printf("begin txn at catalog line 136!\n");
 
   DatabaseMetricsCatalog::GetInstance(txn);
   TableMetricsCatalog::GetInstance(txn);
@@ -701,6 +703,7 @@ storage::Database *Catalog::GetDatabaseWithName(
   if (txn == nullptr) {
     single_statement_txn = true;
     txn = txn_manager.BeginTransaction();
+    printf("begin transaction at catalog line 706!\n");
   }
 
   // Check in pg_database using txn
@@ -726,12 +729,14 @@ storage::Database *Catalog::GetDatabaseWithName(
 storage::DataTable *Catalog::GetTableWithName(const std::string &database_name,
                                               const std::string &table_name,
                                               concurrency::Transaction *txn) {
+
   // FIXME: enforce caller to use txn
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   bool single_statement_txn = false;
   if (txn == nullptr) {
     single_statement_txn = true;
     txn = txn_manager.BeginTransaction();
+    printf("get table with name begin txn line 738!\n");
   }
 
   LOG_TRACE("Looking for table %s in database %s", table_name.c_str(),
@@ -833,6 +838,9 @@ void Catalog::AddDatabase(storage::Database *database) {
   databases_.push_back(database);
   auto &txn_manager = concurrency::TransactionManagerFactory::GetInstance();
   auto txn = txn_manager.BeginTransaction();
+  
+  printf("catalog line 840\n");
+
   DatabaseCatalog::GetInstance()->InsertDatabase(
       database->GetOid(), database->GetDBName(), pool_.get(),
       txn);  // I guess this can pass tests

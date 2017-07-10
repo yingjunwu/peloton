@@ -54,6 +54,13 @@ class TrafficCop {
                               int &rows_changed, std::string &error_message,
                               const size_t thread_id = 0);
 
+  // InitBindPrepStmt - Prepare and bind a query from a query string
+  std::shared_ptr<Statement> PrepareStatement(const std::string &statement_name,
+                                              const std::string &query_string,
+                                              std::string &error_message,
+                                              concurrency::Transaction *&txn,
+                                              const size_t thread_id);
+
   // ExecPrepStmt - Execute a statement from a prepared and bound statement
   ResultType ExecuteStatement(
       const std::shared_ptr<Statement> &statement,
@@ -61,22 +68,20 @@ class TrafficCop {
       std::shared_ptr<stats::QueryMetric::QueryParams> param_stats,
       const std::vector<int> &result_format,
       std::vector<StatementResult> &result, int &rows_change,
-      std::string &error_message, const size_t thread_id = 0);
+      std::string &error_message, 
+      concurrency::Transaction *txn, const size_t thread_id = 0);
 
   // ExecutePrepStmt - Helper to handle txn-specifics for the plan-tree of a
   // statement
   executor::ExecuteResult ExecuteStatementPlan(
       const planner::AbstractPlan *plan, const std::vector<type::Value> &params,
       std::vector<StatementResult> &result,
-      const std::vector<int> &result_format, const size_t thread_id = 0);
-
-  // InitBindPrepStmt - Prepare and bind a query from a query string
-  std::shared_ptr<Statement> PrepareStatement(const std::string &statement_name,
-                                              const std::string &query_string,
-                                              std::string &error_message);
+      const std::vector<int> &result_format, 
+      concurrency::Transaction *txn, const size_t thread_id = 0);
 
   std::vector<FieldInfo> GenerateTupleDescriptor(
-      parser::SQLStatement *select_stmt);
+      parser::SQLStatement *select_stmt, 
+      concurrency::Transaction *txn);
 
   FieldInfo GetColumnFieldForValueType(std::string column_name,
                                        type::TypeId column_type);
@@ -96,6 +101,9 @@ class TrafficCop {
   typedef std::pair<concurrency::Transaction *, ResultType> TcopTxnState;
   std::stack<TcopTxnState> tcop_txn_state_;
 
+  bool single_statement_txn_;
+  bool init_failure_;
+
  private:
   static TcopTxnState &GetDefaultTxnState();
 
@@ -111,7 +119,8 @@ class TrafficCop {
   // For multi-way join
   // still a HACK
   void GetDataTables(parser::TableRef *from_table,
-                     std::vector<storage::DataTable *> &target_tables);
+                     std::vector<storage::DataTable *> &target_tables, 
+                     concurrency::Transaction *txn);
 };
 
 }  // End tcop namespace

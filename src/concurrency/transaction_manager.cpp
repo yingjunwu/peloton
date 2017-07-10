@@ -63,6 +63,8 @@ Transaction *TransactionManager::BeginTransaction(const size_t thread_id, const 
     // transaction processing with decentralized epoch manager
     cid_t read_id = EpochManagerFactory::GetInstance().EnterEpoch(thread_id, TimestampType::READ);
     txn = new Transaction(thread_id, type, read_id); 
+    
+    printf("let's begin a new transaction! id = %d\n", (int)read_id);
   
   }
   
@@ -76,6 +78,8 @@ Transaction *TransactionManager::BeginTransaction(const size_t thread_id, const 
 }
 
 void TransactionManager::EndTransaction(Transaction *current_txn) {
+
+  printf("let's end a transaction! id = %d\n", (int)current_txn->GetTransactionId());
 
   auto &epoch_manager = EpochManagerFactory::GetInstance();
 
