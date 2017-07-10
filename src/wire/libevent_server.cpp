@@ -53,6 +53,7 @@ void LibeventServer::CreateNewConn(const int &connfd, short ev_flags,
   if (global_socket_list.find(connfd) == global_socket_list.end()) {
     LOG_INFO("create new connection: id = %d", connfd);
   }
+  printf("create new connection\n");
   global_socket_list[connfd].reset(
       new LibeventSocket(connfd, ev_flags, thread, init_state));
   thread->SetThreadSockFd(connfd);

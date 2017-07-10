@@ -180,6 +180,7 @@ void StateMachine(LibeventSocket *conn) {
             conn->pkt_manager.ssl_sent = true;
           }
         } else {
+          printf("conn thread id = %d\n", conn->thread_id);
           // Process all other packets
           status = conn->pkt_manager.ProcessPacket(&conn->rpkt,
                                                    (size_t)conn->thread_id);

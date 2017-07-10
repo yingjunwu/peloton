@@ -31,7 +31,8 @@ namespace peloton {
 ThreadPool thread_pool;
 
 void PelotonInit::Initialize() {
-  CONNECTION_THREAD_COUNT = std::thread::hardware_concurrency();
+  //CONNECTION_THREAD_COUNT = std::thread::hardware_concurrency();
+  CONNECTION_THREAD_COUNT = 2;
   LOGGING_THREAD_COUNT = 1;
   GC_THREAD_COUNT = 1;
   EPOCH_THREAD_COUNT = 1;

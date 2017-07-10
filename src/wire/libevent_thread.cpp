@@ -136,6 +136,8 @@ void LibeventMasterThread::DispatchConnection(int new_conn_fd,
   std::shared_ptr<LibeventWorkerThread> worker_thread = threads[thread_id];
   LOG_DEBUG("Dispatching connection to worker %d", thread_id);
 
+  printf("Dispatching connection to worker %d, conn id = %d\n", thread_id, new_conn_fd);
+
   std::shared_ptr<NewConnQueueItem> item(
       new NewConnQueueItem(new_conn_fd, event_flags, CONN_READ));
   worker_thread->new_conn_queue.Enqueue(item);

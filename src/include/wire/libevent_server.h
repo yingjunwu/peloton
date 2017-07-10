@@ -180,6 +180,7 @@ class LibeventSocket {
   inline LibeventSocket(int sock_fd, short event_flags, LibeventThread *thread,
                         ConnState init_state)
       : sock_fd(sock_fd) {
+        printf("socket id = %d\n", sock_fd);
     Init(event_flags, thread, init_state);
   }
 

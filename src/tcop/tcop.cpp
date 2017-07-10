@@ -44,6 +44,7 @@ namespace peloton {
 namespace tcop {
 
 TrafficCop::TrafficCop() {
+  printf("start new tcop\n");
   LOG_TRACE("Starting a new TrafficCop");
 #ifdef NEW_OPTIMIZER
   optimizer_.reset(new optimizer::Optimizer);
