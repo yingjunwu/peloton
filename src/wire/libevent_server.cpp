@@ -19,44 +19,14 @@
 
 #include "common/init.h"
 #include "common/macros.h"
-#include "common/thread_pool.h"
+
+#include "wire/libevent_callbacks.h"
 
 namespace peloton {
 namespace wire {
 
 int LibeventServer::recent_connfd = -1;
 SSL_CTX *LibeventServer::ssl_context = nullptr;
-
-std::unordered_map<int, std::unique_ptr<LibeventSocket>> &
-LibeventServer::GetGlobalSocketList() {
-  // mapping from socket id to socket object.
-  static std::unordered_map<int, std::unique_ptr<LibeventSocket>>
-      global_socket_list;
-
-  return global_socket_list;
-}
-
-LibeventSocket *LibeventServer::GetConn(const int &connfd) {
-  auto &global_socket_list = GetGlobalSocketList();
-  if (global_socket_list.find(connfd) != global_socket_list.end()) {
-    return global_socket_list.at(connfd).get();
-  } else {
-    return nullptr;
-  }
-}
-
-void LibeventServer::CreateNewConn(const int &connfd, short ev_flags,
-                                   LibeventThread *thread,
-                                   ConnState init_state) {
-  auto &global_socket_list = GetGlobalSocketList();
-  recent_connfd = connfd;
-  if (global_socket_list.find(connfd) == global_socket_list.end()) {
-    LOG_INFO("create new connection: id = %d", connfd);
-  }
-  global_socket_list[connfd].reset(
-      new LibeventSocket(connfd, ev_flags, thread, init_state));
-  thread->SetThreadSockFd(connfd);
-}
 
 LibeventServer::LibeventServer() {
   base_ = event_base_new();
@@ -189,9 +159,28 @@ void LibeventServer::CloseServer() {
   this->SetIsClosed(true);
 }
 
-/**
- * Change port to new_port
- */
-void LibeventServer::SetPort(int new_port) { port_ = new_port; }
+
+LibeventSocket *LibeventServer::GetConn(const int &connfd) {
+  auto &global_socket_list = GetGlobalSocketList();
+  if (global_socket_list.find(connfd) != global_socket_list.end()) {
+    return global_socket_list.at(connfd).get();
+  } else {
+    return nullptr;
+  }
+}
+
+void LibeventServer::CreateNewConn(const int &connfd, short ev_flags,
+                                   LibeventThread *thread,
+                                   ConnState init_state) {
+  auto &global_socket_list = GetGlobalSocketList();
+  recent_connfd = connfd;
+  if (global_socket_list.find(connfd) == global_socket_list.end()) {
+    LOG_INFO("create new connection: id = %d", connfd);
+  }
+  global_socket_list[connfd].reset(
+      new LibeventSocket(connfd, ev_flags, thread, init_state));
+  thread->SetThreadSockFd(connfd);
+}
+
 }
 }

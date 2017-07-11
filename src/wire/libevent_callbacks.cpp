@@ -19,6 +19,7 @@
 namespace peloton {
 namespace wire {
 
+// called by worker
 void WorkerHandleNewConn(evutil_socket_t new_conn_recv_fd,
                          UNUSED_ATTRIBUTE short ev_flags, void *arg) {
   // buffer used to receive messages from the main thread

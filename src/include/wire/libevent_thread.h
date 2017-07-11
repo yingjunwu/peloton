@@ -34,8 +34,10 @@
 #include "common/logger.h"
 #include "configuration/configuration.h"
 #include "container/lock_free_queue.h"
-#include "wire/libevent_server.h"
 #include "wire/packet_manager.h"
+
+
+#define QUEUE_SIZE 100
 
 namespace peloton {
 namespace wire {
@@ -82,57 +84,6 @@ class LibeventThread {
   int GetThreadSockFd() { return sock_fd; }
 
   void SetThreadSockFd(int fd) { this->sock_fd = fd; }
-};
-
-class LibeventWorkerThread : public LibeventThread {
- private:
-  // New connection event
-  struct event *new_conn_event_;
-
-  // Timeout event
-  struct event *ev_timeout_;
-
-  // Notify new connection pipe(send end)
-  int new_conn_send_fd_;
-
-  // Notify new connection pipe(receive end)
-  int new_conn_receive_fd_;
-
- public:
-  /* The queue for new connection requests */
-  LockFreeQueue<std::shared_ptr<NewConnQueueItem>> new_conn_queue;
-
- public:
-  LibeventWorkerThread(const int thread_id);
-
-  // Getters and setters
-  event *GetNewConnEvent() { return this->new_conn_event_; }
-
-  event *GetTimeoutEvent() { return this->ev_timeout_; }
-
-  int GetNewConnSendFd() { return this->new_conn_send_fd_; }
-
-  int GetNewConnReceiveFd() { return this->new_conn_receive_fd_; }
-};
-
-// a master thread contains multiple worker threads.
-class LibeventMasterThread : public LibeventThread {
- private:
-  const int num_threads_;
-
-  // TODO: have a smarter dispatch scheduler
-  std::atomic<int> next_thread_id_;  // next thread we dispatched to
-
- public:
-  LibeventMasterThread(const int num_threads, struct event_base *libevent_base);
-
-  void DispatchConnection(int new_conn_fd, short event_flags);
-
-  void CloseConnection();
-
-  std::vector<std::shared_ptr<LibeventWorkerThread>> &GetWorkerThreads();
-
-  static void StartWorker(peloton::wire::LibeventWorkerThread *worker_thread);
 };
 
 }  // namespace wire
