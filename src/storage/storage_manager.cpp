@@ -1,3 +1,4 @@
+
 //===----------------------------------------------------------------------===//
 //
 //                         Peloton
@@ -36,7 +37,7 @@ Database *StorageManager::GetDatabaseWithOid(
   for (auto database : databases_)
     if (database->GetOid() == database_oid) return database;
   throw CatalogException("Database with oid = " + std::to_string(database_oid) +
-      " is not found");
+                         " is not found");
   return nullptr;
 }
 
@@ -58,8 +59,8 @@ DataTable *StorageManager::GetTableWithOid(
  * throw exception if not exists
  * */
 index::Index *StorageManager::GetIndexWithOid(oid_t database_oid,
-                                              oid_t table_oid,
-                                              oid_t index_oid) const {
+                                                     oid_t table_oid,
+                                                     oid_t index_oid) const {
   // Lookup table from storage layer
   auto table = GetTableWithOid(database_oid,
                                table_oid);  // Throw exception if not exists

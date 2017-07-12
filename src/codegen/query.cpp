@@ -2,17 +2,18 @@
 //
 //                         Peloton
 //
-// query_statement.cpp
+// query.cpp
 //
-// Identification: src/codegen/query_statement.cpp
+// Identification: src/codegen/query.cpp
 //
-// Copyright (c) 2015-17, Carnegie Mellon University Database Group
+// Copyright (c) 2015-2017, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
 #include "codegen/query.h"
 
 #include "catalog/catalog.h"
+#include "storage/storage_manager.h"
 
 namespace peloton {
 namespace codegen {
@@ -27,8 +28,7 @@ Query::Query(const planner::AbstractPlan &query_plan)
 // functions throw exceptions.
 void Query::Execute(concurrency::Transaction &txn,
                     executor::ExecutorContext *executor_context,
-                    char *consumer_arg,
-                    RuntimeStats *stats) {
+                    char *consumer_arg, RuntimeStats *stats) {
   CodeGen codegen{GetCodeContext()};
 
   llvm::Type *runtime_state_type = runtime_state_.FinalizeType(codegen);
@@ -47,7 +47,7 @@ void Query::Execute(concurrency::Transaction &txn,
   // We use this handy class to avoid complex casting and pointer manipulation
   struct FunctionArguments {
     concurrency::Transaction *txn;
-    catalog::Catalog *catalog;
+    storage::StorageManager *catalog;
     executor::ExecutorContext *executor_context;
     char *consumer_arg;
     char rest[0];
@@ -56,7 +56,7 @@ void Query::Execute(concurrency::Transaction &txn,
   // Set up the function arguments
   auto *func_args = reinterpret_cast<FunctionArguments *>(param_data.get());
   func_args->txn = &txn;
-  func_args->catalog = catalog::Catalog::GetInstance();
+  func_args->catalog = storage::StorageManager::GetInstance();
   func_args->executor_context = executor_context;
   func_args->consumer_arg = consumer_arg;
 
