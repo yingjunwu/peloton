@@ -172,6 +172,7 @@ ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple) {
   auto &gc_manager = gc::GCManagerFactory::GetInstance();
   auto free_item_pointer = gc_manager.ReturnFreeSlot(this->table_oid);
   if (free_item_pointer.IsNull() == false) {
+    printf("reuse item pointer : (%u, %u)\n", free_item_pointer.block, free_item_pointer.offset);
     // when inserting a tuple
     if (tuple != nullptr) {
       auto tile_group =
@@ -181,7 +182,7 @@ ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple) {
     return free_item_pointer;
   }
   //====================================================
-
+  
   size_t active_tile_group_id = number_of_tuples_ % active_tilegroup_count_;
   std::shared_ptr<storage::TileGroup> tile_group;
   oid_t tuple_slot = INVALID_OID;
@@ -200,6 +201,7 @@ ItemPointer DataTable::GetEmptyTupleSlot(const storage::Tuple *tuple) {
       break;
     }
   }
+printf("use new item pointer : (%u, %u)\n", tuple_slot, tile_group_id);
 
   // if this is the last tuple slot we can get
   // then create a new tile group
@@ -368,7 +370,7 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
       concurrency::TransactionManagerFactory::GetInstance();
 
   std::function<bool(const void *)> fn =
-      std::bind(&concurrency::TransactionManager::IsOccupied,
+      std::bind(&concurrency::TransactionManager::IsInserted,
                 &transaction_manager, transaction, std::placeholders::_1);
 
   // Since this is NOT protected by a lock, concurrent insert may happen.
@@ -389,7 +391,9 @@ bool DataTable::InsertInIndexes(const storage::Tuple *tuple,
         // get unique tuple from primary/unique index.
         // if in this index there has been a visible or uncommitted
         // <key, location> pair, this constraint is violated
+        printf("invoke cond insert: (%u, %u)\n", (*index_entry_ptr)->block, (*index_entry_ptr)->offset);
         res = index->CondInsertEntry(key.get(), *index_entry_ptr, fn);
+        printf("insert tuple pos = (%u, %u)\n", (*index_entry_ptr)->block, (*index_entry_ptr)->offset);
       } break;
 
       case IndexConstraintType::DEFAULT:
@@ -434,7 +438,7 @@ bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
       concurrency::TransactionManagerFactory::GetInstance();
 
   std::function<bool(const void *)> fn =
-      std::bind(&concurrency::TransactionManager::IsOccupied,
+      std::bind(&concurrency::TransactionManager::IsInserted,
                 &transaction_manager, transaction, std::placeholders::_1);
 
   // Check existence for primary/unique indexes
@@ -469,12 +473,12 @@ bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
     key->SetFromTuple(tuple, indexed_columns, index->GetPool());
 
     switch (index->GetIndexType()) {
-      case IndexConstraintType::PRIMARY_KEY:
       case IndexConstraintType::UNIQUE: {
         res = index->CondInsertEntry(key.get(), index_entry_ptr, fn);
       } break;
       case IndexConstraintType::DEFAULT:
       default:
+        PL_ASSERT(index->GetIndexType() != IndexConstraintType::PRIMARY_KEY);
         index->InsertEntry(key.get(), index_entry_ptr);
         break;
     }

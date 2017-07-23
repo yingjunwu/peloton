@@ -56,7 +56,10 @@ class GCManager {
 
   virtual void StartGC(std::vector<std::unique_ptr<std::thread>> & UNUSED_ATTRIBUTE) {}
 
-  virtual void StartGC() {}
+  virtual void StartGC() {
+    printf("start gc!!!!\n");
+
+  }
 
   virtual void StopGC() {}
 

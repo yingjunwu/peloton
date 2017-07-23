@@ -487,7 +487,7 @@ void OAHashTable::Iterate(CodeGen &codegen, llvm::Value *hash_table,
     llvm::Value *status_neq_zero = IsPtrUnEqualTo(codegen, kv_p, 0UL);
 
     // If the bucket is not free
-    lang::If bucket_occupied{codegen, status_neq_zero, "bucketIsOccupied"};
+    lang::If bucket_occupied{codegen, status_neq_zero, "bucketIsInserted"};
     {
       // Read keys and return the pointer to value
       std::vector<codegen::Value> entry_key{};

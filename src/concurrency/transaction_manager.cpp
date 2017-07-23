@@ -111,11 +111,13 @@ void TransactionManager::EndTransaction(Transaction *current_txn) {
   }
 }
 
-// this function checks whether a concurrent transaction is inserting the same
-// tuple
-// that is to-be-inserted by the current transaction.
-bool TransactionManager::IsOccupied(
+// this function returns false if: 
+// (1) the tuple has already been in the index;
+// (1) a concurrent transaction is inserting the same tuple that is 
+// to-be-inserted by the current transaction.
+bool TransactionManager::IsInserted(
     Transaction *const current_txn, const void *position_ptr) {
+  return false;
   ItemPointer &position = *((ItemPointer *)position_ptr);
 
   auto tile_group_header =
@@ -127,7 +129,7 @@ bool TransactionManager::IsOccupied(
   cid_t tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
 
   if (tuple_txn_id == INVALID_TXN_ID) {
-    // the tuple is not available.
+    // this is an unused version.
     return false;
   }
 
@@ -143,13 +145,18 @@ bool TransactionManager::IsOccupied(
   if (own == true) {
     if (tuple_begin_cid == MAX_CID && tuple_end_cid != INVALID_CID) {
       PL_ASSERT(tuple_end_cid == MAX_CID);
-      // the only version that is visible is the newly inserted one.
+      // this is a to-be-installed version.
+      // the insertion shall fail. 
       return true;
     } else if (current_txn->GetRWType(position) == RWType::READ_OWN) {
       // the ownership is from a select-for-update read operation
+      // the insertion shall fail.
       return true;
     } else {
-      // the older version is not visible.
+      // we should not see an older version that is updated by the 
+      // current transaction.
+      PL_ASSERT(tuple_end_cid == INVALID_CID);
+      // the older version is deleted by current transaction.
       return false;
     }
   } else {
@@ -184,6 +191,11 @@ bool TransactionManager::IsOccupied(
 }
 
 // this function checks whether a version is visible to current transaction.
+// In most cases, VisibilityIdType is set to READ_ID.
+// It is set to COMMIT_ID only when the DBMS executes transaction under
+// snapshot isolation and the transaction is updating a version.
+// This is because, under snapshot isolation, a transaction must always
+// update the latest version of a tuple.
 VisibilityType TransactionManager::IsVisible(
     Transaction *const current_txn,
     const storage::TileGroupHeader *const tile_group_header,

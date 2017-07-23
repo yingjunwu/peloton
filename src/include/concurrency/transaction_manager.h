@@ -55,7 +55,7 @@ class TransactionManager {
   }
 
   // This method is used for avoiding concurrent inserts.
-  bool IsOccupied(
+  bool IsInserted(
       Transaction *const current_txn, 
       const void *position_ptr);
 

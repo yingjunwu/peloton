@@ -23,6 +23,7 @@ namespace gc {
 class GCManagerFactory {
  public:
   static GCManager &GetInstance() {
+    // return GCManager::GetInstance();
     switch (gc_type_) {
 
       case GarbageCollectionType::ON:
@@ -34,6 +35,7 @@ class GCManagerFactory {
   }
 
   static void Configure(const int thread_count = 1) { 
+    return;
     if (thread_count == 0) {
       gc_type_ = GarbageCollectionType::OFF;
     } else {

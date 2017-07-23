@@ -69,6 +69,7 @@ public:
   }
 
   virtual void StartGC(std::vector<std::unique_ptr<std::thread>> &gc_threads) override {
+    printf("line 72.... start gc.....\n");
     LOG_TRACE("Starting GC");
     this->is_running_ = true;
     gc_threads.resize(gc_thread_count_);
@@ -79,6 +80,7 @@ public:
   }
 
   virtual void StartGC() override {
+    printf("line 83.... start gc.....\n");
     LOG_TRACE("Starting GC");
     this->is_running_ = true;
     for (int i = 0; i < gc_thread_count_; ++i) {
