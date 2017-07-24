@@ -57,13 +57,15 @@ class TimestampOrderingTransactionManager : public TransactionManager {
   virtual bool IsOwnable(
       Transaction *const current_txn,
       const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id);
+      const oid_t &tuple_id, 
+      txn_id_t &tx_cause_of_abort);
 
   // This method is used to acquire the ownership of a tuple for a transaction.
   virtual bool AcquireOwnership(
       Transaction *const current_txn,
       const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id);
+      const oid_t &tuple_id, 
+      txn_id_t &tx_cause_of_abort);
 
   // This method is used by executor to yield ownership after the acquired
   // ownership.
@@ -80,6 +82,7 @@ class TimestampOrderingTransactionManager : public TransactionManager {
 
   virtual bool PerformRead(Transaction *const current_txn,
                            const ItemPointer &location,
+                           txn_id_t &tx_cause_of_abort, 
                            bool acquire_ownership = false);
 
   virtual void PerformUpdate(Transaction *const current_txn,

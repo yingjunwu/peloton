@@ -254,8 +254,10 @@ bool IndexScanExecutor::ExecPrimaryIndexLookup() {
         // if passed evaluation, then perform write.
         if (eval == true) {
           LOG_TRACE("perform read operation");
+
+          UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
           auto res = transaction_manager.PerformRead(
-              current_txn, tuple_location, acquire_owner);
+              current_txn, tuple_location, tx_cause_of_abort, acquire_owner);
           if (!res) {
             LOG_TRACE("read nothing");
             transaction_manager.SetTransactionResult(current_txn,
@@ -496,8 +498,10 @@ bool IndexScanExecutor::ExecSecondaryIndexLookup() {
         }
         // if passed evaluation, then perform write.
         if (eval == true) {
+
+          UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
           auto res = transaction_manager.PerformRead(
-              current_txn, tuple_location, acquire_owner);
+              current_txn, tuple_location, tx_cause_of_abort, acquire_owner);
           if (!res) {
             transaction_manager.SetTransactionResult(current_txn,
                                                      ResultType::FAILURE);

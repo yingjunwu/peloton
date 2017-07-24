@@ -87,18 +87,19 @@ class TransactionManager {
   virtual bool IsOwnable(
       Transaction *const current_txn, 
       const storage::TileGroupHeader *const tile_group_header,
-      const oid_t &tuple_id) = 0;
+      const oid_t &tuple_id, 
+      txn_id_t &tx_cause_of_abort) = 0;
 
   // This method is used to acquire the ownership of a tuple for a transaction.
   virtual bool AcquireOwnership(
       Transaction *const current_txn, 
       const storage::TileGroupHeader *const tile_group_header, 
-      const oid_t &tuple_id) = 0;
+      const oid_t &tuple_id, 
+      txn_id_t &tx_cause_of_abort) = 0;
 
   // This method is used by executor to yield ownership after the acquired ownership.
   virtual void YieldOwnership(
       Transaction *const current_txn, 
-      // const oid_t &tile_group_id, 
       const storage::TileGroupHeader *const tile_group_header, 
       const oid_t &tuple_id) = 0;
 
@@ -110,6 +111,7 @@ class TransactionManager {
 
   virtual bool PerformRead(Transaction *const current_txn, 
                            const ItemPointer &location,
+                           txn_id_t &tx_cause_of_abort, 
                            bool acquire_ownership = false) = 0;
 
   virtual void PerformUpdate(Transaction *const current_txn, 

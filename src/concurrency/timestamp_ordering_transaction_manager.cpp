@@ -147,17 +147,26 @@ bool TimestampOrderingTransactionManager::IsWritten(
 bool TimestampOrderingTransactionManager::IsOwnable(
     UNUSED_ATTRIBUTE Transaction *const current_txn,
     const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tuple_id) {
+    const oid_t &tuple_id, txn_id_t &tx_cause_of_abort) {
   auto tuple_txn_id = tile_group_header->GetTransactionId(tuple_id);
   auto tuple_end_cid = tile_group_header->GetEndCommitId(tuple_id);
-  return tuple_txn_id == INITIAL_TXN_ID &&
-         tuple_end_cid == MAX_CID;
+  
+  bool ret = (tuple_txn_id == INITIAL_TXN_ID &&
+              tuple_end_cid == MAX_CID);
+  
+  if (ret == false) {
+    // the current transaction is conflicted with a transaction that holds
+    // a write lock on it.
+    tx_cause_of_abort = tuple_txn_id;
+  }
+
+  return ret;
 }
 
 bool TimestampOrderingTransactionManager::AcquireOwnership(
     Transaction *const current_txn,
     const storage::TileGroupHeader *const tile_group_header,
-    const oid_t &tuple_id) {
+    const oid_t &tuple_id, txn_id_t &tx_cause_of_abort) {
   auto txn_id = current_txn->GetTransactionId();
 
   // to acquire the ownership, 
@@ -174,10 +183,16 @@ bool TimestampOrderingTransactionManager::AcquireOwnership(
   if (last_reader_cid > current_txn->GetCommitId()) {
     GetSpinlockField(tile_group_header, tuple_id)->Unlock();
 
+    // the current transaction is conflicted with a transaction that holds
+    // a read lock on it.
+    tx_cause_of_abort = last_reader_cid;
+
     return false;
   } else {
     if (tile_group_header->SetAtomicTransactionId(tuple_id, txn_id) == false) {
       GetSpinlockField(tile_group_header, tuple_id)->Unlock();
+
+      tx_cause_of_abort = tile_group_header->GetTransactionId(tuple_id);
 
       return false;
     } else {
@@ -204,6 +219,7 @@ void TimestampOrderingTransactionManager::YieldOwnership(
 
 bool TimestampOrderingTransactionManager::PerformRead(
     Transaction *const current_txn, const ItemPointer &read_location,
+    txn_id_t &tx_cause_of_abort, 
     bool acquire_ownership) {
 
   ItemPointer location = read_location;
@@ -245,11 +261,11 @@ bool TimestampOrderingTransactionManager::PerformRead(
       if (IsOwner(current_txn, tile_group_header, tuple_id) == false) {
 
         // Acquire ownership if we haven't
-        if (IsOwnable(current_txn, tile_group_header, tuple_id) == false) {
+        if (IsOwnable(current_txn, tile_group_header, tuple_id, tx_cause_of_abort) == false) {
           // Cannot own
           return false;
         }
-        if (AcquireOwnership(current_txn, tile_group_header, tuple_id) == false) {
+        if (AcquireOwnership(current_txn, tile_group_header, tuple_id, tx_cause_of_abort) == false) {
           // Cannot acquire ownership
           return false;
         }
@@ -301,11 +317,11 @@ bool TimestampOrderingTransactionManager::PerformRead(
       if (IsOwner(current_txn, tile_group_header, tuple_id) == false) {
 
         // Acquire ownership if we haven't
-        if (IsOwnable(current_txn, tile_group_header, tuple_id) == false) {
+        if (IsOwnable(current_txn, tile_group_header, tuple_id, tx_cause_of_abort) == false) {
           // Cannot own
           return false;
         }
-        if (AcquireOwnership(current_txn, tile_group_header, tuple_id) == false) {
+        if (AcquireOwnership(current_txn, tile_group_header, tuple_id, tx_cause_of_abort) == false) {
           // Cannot acquire ownership
           return false;
         }
@@ -386,11 +402,11 @@ bool TimestampOrderingTransactionManager::PerformRead(
       if (IsOwner(current_txn, tile_group_header, tuple_id) == false) {
 
         // Acquire ownership if we haven't
-        if (IsOwnable(current_txn, tile_group_header, tuple_id) == false) {
+        if (IsOwnable(current_txn, tile_group_header, tuple_id, tx_cause_of_abort) == false) {
           // Cannot own
           return false;
         }
-        if (AcquireOwnership(current_txn, tile_group_header, tuple_id) == false) {
+        if (AcquireOwnership(current_txn, tile_group_header, tuple_id, tx_cause_of_abort) == false) {
           // Cannot acquire ownership
           return false;
         }

@@ -235,7 +235,11 @@ bool HybridScanExecutor::SeqScanUtil() {
             predicate_->Evaluate(&tuple, nullptr, executor_context_).IsTrue();
         if (eval == true) {
           position_list.push_back(tuple_id);
+
+          UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
+          
           auto res = transaction_manager.PerformRead(current_txn, location,
+                                                     tx_cause_of_abort,
                                                      acquire_owner);
           if (!res) {
             transaction_manager.SetTransactionResult(current_txn,
@@ -393,8 +397,10 @@ bool HybridScanExecutor::ExecPrimaryIndexLookup() {
 
       if (visibility == VisibilityType::OK) {
         visible_tuples[tuple_location.block].push_back(tuple_location.offset);
+        
+        UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
         auto res = transaction_manager.PerformRead(current_txn, tuple_location,
-                                                   acquire_owner);
+                                                   tx_cause_of_abort, acquire_owner);
         if (!res) {
           transaction_manager.SetTransactionResult(current_txn,
                                                    ResultType::FAILURE);

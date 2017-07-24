@@ -52,8 +52,9 @@ uint32_t TransactionRuntime::PerformVectorizedRead(
     // Construct the item location
     ItemPointer location{tile_group_idx, selection_vector[idx]};
 
+    UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
     // Perform the read
-    bool can_read = txn_manager.PerformRead(&txn, location);
+    bool can_read = txn_manager.PerformRead(&txn, location, tx_cause_of_abort);
 
     // Update the selection vector and output position
     selection_vector[out_idx] = selection_vector[idx];
@@ -99,8 +100,10 @@ bool TransactionRuntime::PerformDelete(concurrency::Transaction &txn,
   }
 
   bool is_owner = txn_manager.IsOwner(&txn, tile_group_header, tuple_offset);
+  
+  UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
   bool is_ownable =
-      is_owner || txn_manager.IsOwnable(&txn, tile_group_header, tuple_offset);
+      is_owner || txn_manager.IsOwnable(&txn, tile_group_header, tuple_offset, tx_cause_of_abort);
   if (!is_ownable) {
     // transaction should be aborted as we cannot update the latest version.
     LOG_TRACE("Fail to delete tuple.");
@@ -111,7 +114,7 @@ bool TransactionRuntime::PerformDelete(concurrency::Transaction &txn,
 
   bool acquired_ownership =
       is_owner ||
-      txn_manager.AcquireOwnership(&txn, tile_group_header, tuple_offset);
+      txn_manager.AcquireOwnership(&txn, tile_group_header, tuple_offset, tx_cause_of_abort);
   if (!acquired_ownership) {
     txn_manager.SetTransactionResult(&txn, ResultType::FAILURE);
     return false;

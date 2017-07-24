@@ -129,8 +129,9 @@ bool DeleteExecutor::DExecute() {
 
     } else {
 
+      UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
       bool is_ownable = is_owner ||
-          transaction_manager.IsOwnable(current_txn, tile_group_header, physical_tuple_id);
+          transaction_manager.IsOwnable(current_txn, tile_group_header, physical_tuple_id, tx_cause_of_abort);
 
       if (is_ownable == true) {
         // if the tuple is not owned by any transaction and is visible to current
@@ -138,7 +139,7 @@ bool DeleteExecutor::DExecute() {
       	LOG_TRACE("Thread is not the owner of the tuple, but still visible");
 
         bool acquire_ownership_success = is_owner ||
-            transaction_manager.AcquireOwnership(current_txn, tile_group_header, physical_tuple_id);
+            transaction_manager.AcquireOwnership(current_txn, tile_group_header, physical_tuple_id, tx_cause_of_abort);
 
 
         if (acquire_ownership_success == false) {

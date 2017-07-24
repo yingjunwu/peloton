@@ -178,7 +178,10 @@ bool SeqScanExecutor::DExecute() {
           // if the tuple is visible, then perform predicate evaluation.
           if (predicate_ == nullptr) {
             position_list.push_back(tuple_id);
+
+            UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
             auto res = transaction_manager.PerformRead(current_txn, location,
+                                                       tx_cause_of_abort,
                                                        acquire_owner);
             if (!res) {
               transaction_manager.SetTransactionResult(current_txn,
@@ -194,7 +197,10 @@ bool SeqScanExecutor::DExecute() {
             LOG_TRACE("Evaluation result: %s", eval.GetInfo().c_str());
             if (eval.IsTrue()) {
               position_list.push_back(tuple_id);
-              auto res = transaction_manager.PerformRead(current_txn, location,
+
+              UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
+              auto res = transaction_manager.PerformRead(current_txn, location, 
+                                                         tx_cause_of_abort,
                                                          acquire_owner);
               if (!res) {
                 transaction_manager.SetTransactionResult(current_txn,

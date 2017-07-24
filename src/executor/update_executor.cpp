@@ -229,9 +229,10 @@ bool UpdateExecutor::DExecute() {
     else {
       // Skip the IsOwnable and AcquireOwnership if we have already got the
       // ownership
+      UNUSED_ATTRIBUTE txn_id_t tx_cause_of_abort = INVALID_TXN_ID;
       bool is_ownable =
           is_owner || transaction_manager.IsOwnable(
-                          current_txn, tile_group_header, physical_tuple_id);
+                          current_txn, tile_group_header, physical_tuple_id, tx_cause_of_abort);
 
       if (is_ownable == true) {
         // if the tuple is not owned by any transaction and is visible to
@@ -239,7 +240,7 @@ bool UpdateExecutor::DExecute() {
 
         bool acquire_ownership_success =
             is_owner || transaction_manager.AcquireOwnership(
-                            current_txn, tile_group_header, physical_tuple_id);
+                            current_txn, tile_group_header, physical_tuple_id, tx_cause_of_abort);
 
         if (acquire_ownership_success == false) {
           LOG_TRACE("Fail to insert new tuple. Set txn failure.");
