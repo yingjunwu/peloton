@@ -52,7 +52,7 @@ public:
     recovery_thread_count_ = recovery_thread_count;
   }
 
-  virtual void RegisterWorker() = 0;
+  virtual void RegisterWorker(size_t thread_id) = 0;
   virtual void DeregisterWorker() = 0;
 
   virtual void DoRecovery(const size_t &begin_eid) = 0;
@@ -63,8 +63,6 @@ public:
   virtual void StartTxn(concurrency::Transaction *txn);
 
   virtual void FinishPendingTxn();
-
-  void MarkTupleCommitEpochId(storage::TileGroupHeader *tg_header, oid_t tuple_slot);
 
   size_t GetPersistEpochId() {
     return global_persist_epoch_id_.load();
