@@ -755,6 +755,7 @@ ResultType TimestampOrderingTransactionManager::CommitTransaction(
   auto &log_manager = logging::WalLogManager::GetInstance();
 
   cid_t end_commit_id = current_txn->GetCommitId();
+  eid_t epoch_id = current_txn->GetEpochId();
 
   // generate transaction id.
   auto &rw_set = current_txn->GetReadWriteSet();
@@ -829,7 +830,7 @@ ResultType TimestampOrderingTransactionManager::CommitTransaction(
         // may need to delete versions from secondary indexes.
         gc_set->operator[](tile_group_id)[tuple_slot] = GCVersionType::COMMIT_UPDATE;
         //log_manager.StartPersistTxn(end_commit_id);
-        log_manager.LogUpdate(old_version, new_version,5);
+        log_manager.LogUpdate(old_version, new_version,end_commit_id,epoch_id);
         //log_manager.EndPersistTxn(end_commit_id);
       } else if (tuple_entry.second == RWType::DELETE) {
         ItemPointer new_version =
@@ -861,7 +862,7 @@ ResultType TimestampOrderingTransactionManager::CommitTransaction(
         // the gc should be responsible for recycling the newer empty version.
         gc_set->operator[](tile_group_id)[tuple_slot] = GCVersionType::COMMIT_DELETE;
         //log_manager.StartPersistTxn(end_commit_id);
-        log_manager.LogDelete(ItemPointer(tile_group_id, tuple_slot),5);
+        log_manager.LogDelete(ItemPointer(tile_group_id, tuple_slot),end_commit_id,epoch_id);
         //log_manager.EndPersistTxn(end_commit_id);
       } else if (tuple_entry.second == RWType::INSERT) {
 
@@ -878,9 +879,7 @@ ResultType TimestampOrderingTransactionManager::CommitTransaction(
         tile_group_header->SetTransactionId(tuple_slot, INITIAL_TXN_ID);
 
         // nothing to be added to gc set.
-        //log_manager.StartPersistTxn(100);
-        log_manager.LogInsert(ItemPointer(tile_group_id, tuple_slot),5);
-        //log_manager.EndPersistTxn(100);
+        log_manager.LogInsert(ItemPointer(tile_group_id, tuple_slot),end_commit_id,epoch_id);
 
 
       } else if (tuple_entry.second == RWType::INS_DEL) {
