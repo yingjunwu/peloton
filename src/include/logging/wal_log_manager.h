@@ -2,11 +2,11 @@
 //
 //                         Peloton
 //
-// reordered_phylog_log_manager.h
+// wal_log_manager.h
 //
-// Identification: src/backend/logging/reordered_phylog_log_manager.h
+// Identification: src/include/logging/wal_log_manager.h
 //
-// Copyright (c) 2015-16, Carnegie Mellon University Database Group
+// Copyright (c) 2015-2017, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
 
@@ -43,7 +43,7 @@ namespace logging {
  *  | txn_eid | txn_cid | database_id | table_id | operation_type | tilegroup and offset |data | ... | txn_end_flag
  *  -----------------------------------------------------------------------------
  *
- * NOTE: this layout is designed for physiological logging.
+ * NOTE: this layout is designed for WAL.
  *
  * NOTE: tuple length can be obtained from the table schema.
  *
@@ -56,22 +56,16 @@ class WalLogManager {
   WalLogManager &operator=(WalLogManager &&) = delete;
 
 
-
-
 public:
   WalLogManager()
     :is_running_(false) {}
   WalLogManager(void(* task_callback)(void *), void *task_callback_arg):
       task_callback_(task_callback), task_callback_arg_(task_callback_arg),is_running_(false) {
   }
-  /*static WalLogManager &GetInstance() {
-    static WalLogManager log_manager;
-    return log_manager;
-  }*/
+  
   ~WalLogManager() {}
 
   static void SetDirectories(std::string logging_dir);
-
 
   static void WriteTransactionWrapper(void* args);
 

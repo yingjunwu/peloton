@@ -23,29 +23,29 @@ namespace peloton {
 namespace logging {
 
 ResultType LogTransaction(std::vector<LogRecord> log_records){
-    ResultType status = ResultType::SUCCESS;
-    LogTransactionArg* arg = new LogTransactionArg(log_records, &status);
-    threadpool::LoggerQueuePool::GetInstance().SubmitTask(WalLogManager::WriteTransactionWrapper, arg, task_callback_, task_callback_arg_);
-    LOG_TRACE("Submit Task into MonoQueuePool");
-    return status;
+  ResultType status = ResultType::SUCCESS;
+  LogTransactionArg* arg = new LogTransactionArg(log_records, &status);
+  threadpool::LoggerQueuePool::GetInstance().SubmitTask(WalLogManager::WriteTransactionWrapper, arg, task_callback_, task_callback_arg_);
+  LOG_TRACE("Submit Task into MonoQueuePool");
+  return status;
 }
 
-void SetDirectories(std::string logging_dir)
-{
-    // check the existence of logging directories.
-    // if not exists, then create the directory.
-      if (LoggingUtil::CheckDirectoryExistence(logging_dir.c_str()) == false) {
-        LOG_INFO("Logging directory %s is not accessible or does not exist", logging_dir.c_str());
-        bool res = LoggingUtil::CreateDirectory(logging_dir.c_str(), 0700);
-        if (res == false) {
-          LOG_ERROR("Cannot create directory: %s", logging_dir.c_str());
-        }
-      }
+void SetDirectories(std::string logging_dir) {
+  // check the existence of logging directories.
+  // if not exists, then create the directory.
+  if (LoggingUtil::CheckDirectoryExistence(logging_dir.c_str()) == false) {
+    LOG_INFO("Logging directory %s is not accessible or does not exist", logging_dir.c_str());
+    bool res = LoggingUtil::CreateDirectory(logging_dir.c_str(), 0700);
+    if (res == false) {
+      LOG_ERROR("Cannot create directory: %s", logging_dir.c_str());
+    }
   }
+}
+
 void WalLogManager::DoRecovery(){
-    logger_->StartRecovery();
-    logger_->WaitForRecovery();
- }
+  logger_->StartRecovery();
+  logger_->WaitForRecovery();
+}
 
 /*void WalLogManager::StartLoggers() {
 //  logger_->StartLogging();
