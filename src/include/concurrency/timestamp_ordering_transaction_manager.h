@@ -120,7 +120,6 @@ class TimestampOrderingTransactionManager : public TransactionManager {
   void InitTupleReserved(
       const storage::TileGroupHeader *const tile_group_header,
       const oid_t tuple_id);
-  ResultType EndTransaction2(Transaction* txn);
 };
 }
 }

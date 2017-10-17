@@ -120,6 +120,8 @@ class TrafficCop {
   void ExecuteStatementPlanGetResult() {
     ExecuteStatementPlanGetResult(nullptr);
   }
+    ExecuteStatementPlanGetResult(nullptr);
+  }
 
   static void ExecutePlanWrapper(void *arg_ptr);
 
