@@ -64,8 +64,7 @@ NetworkManager::NetworkManager() {
   }
 
   // Add hang up signal event
-  ev_stop_ =
-      evsignal_new(base_, SIGHUP, CallbackUtil::Signal_Callback, base_);
+  ev_stop_ = evsignal_new(base_, SIGHUP, CallbackUtil::Signal_Callback, base_);
   evsignal_add(ev_stop_, NULL);
 
   // Add timeout event to check server's start/close flag every one second
@@ -79,9 +78,12 @@ NetworkManager::NetworkManager() {
       std::make_shared<NetworkMasterThread>(CONNECTION_THREAD_COUNT, base_);
 
   port_ = settings::SettingsManager::GetInt(settings::SettingId::port);
-  max_connections_ = settings::SettingsManager::GetInt(settings::SettingId::max_connections);
-  private_key_file_ = settings::SettingsManager::GetString(settings::SettingId::private_key_file);
-  certificate_file_ = settings::SettingsManager::GetString(settings::SettingId::certificate_file);
+  max_connections_ =
+      settings::SettingsManager::GetInt(settings::SettingId::max_connections);
+  private_key_file_ = settings::SettingsManager::GetString(
+      settings::SettingId::private_key_file);
+  certificate_file_ = settings::SettingsManager::GetString(
+      settings::SettingId::certificate_file);
 
   // For logging purposes
   //  event_enable_debug_mode();
@@ -97,7 +99,8 @@ NetworkManager::NetworkManager() {
 }
 
 void NetworkManager::StartServer() {
-  if (settings::SettingsManager::GetString(settings::SettingId::socket_family) == "AF_INET") {
+  if (settings::SettingsManager::GetString(
+          settings::SettingId::socket_family) == "AF_INET") {
     struct sockaddr_in sin;
     PL_MEMSET(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
@@ -120,8 +123,7 @@ void NetworkManager::StartServer() {
     SSL_load_error_strings();
     SSL_library_init();
 
-    if ((ssl_context = SSL_CTX_new(TLSv1_server_method())) == nullptr)
-    {
+    if ((ssl_context = SSL_CTX_new(TLSv1_server_method())) == nullptr) {
       throw ConnectionException("Error creating SSL context.");
     }
 
@@ -145,14 +147,12 @@ void NetworkManager::StartServer() {
     }
     * Temporarily commented to pass tests END
     */
-    if (bind(listen_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
-    {
+    if (bind(listen_fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
       SSL_CTX_free(ssl_context);
       throw ConnectionException("Failed binding socket.");
     }
 
-    if (listen(listen_fd, conn_backlog) < 0)
-    {
+    if (listen(listen_fd, conn_backlog) < 0) {
       SSL_CTX_free(ssl_context);
       throw ConnectionException("Error listening onsocket.");
     }
@@ -160,9 +160,10 @@ void NetworkManager::StartServer() {
     master_thread_->Start();
 
     NetworkManager::CreateNewConnection(listen_fd, EV_READ | EV_PERSIST,
-                                        master_thread_.get(), ConnState::CONN_LISTENING);
+                                        master_thread_.get(),
+                                        ConnState::CONN_LISTENING);
 
-    LOG_INFO("Listening on port %llu", (unsigned long long) port_);
+    LOG_INFO("Listening on port %llu", (unsigned long long)port_);
     event_base_dispatch(base_);
     LOG_INFO("Closing server");
     NetworkManager::GetConnection(listen_fd)->CloseSocket();

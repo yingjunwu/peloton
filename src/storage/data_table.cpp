@@ -332,9 +332,9 @@ ItemPointer DataTable::InsertTuple(const storage::Tuple *tuple,
   return location;
 }
 
-bool DataTable::InsertTuple(const AbstractTuple *tuple,
-    ItemPointer location, concurrency::Transaction *transaction,
-    ItemPointer **index_entry_ptr) {
+bool DataTable::InsertTuple(const AbstractTuple *tuple, ItemPointer location,
+                            concurrency::Transaction *transaction,
+                            ItemPointer **index_entry_ptr) {
 
   auto result = CheckConstraints(tuple);
   if (result == false) {
@@ -565,8 +565,8 @@ bool DataTable::InsertInSecondaryIndexes(const AbstractTuple *tuple,
  *
  * @returns True on success, false if any foreign key constraints fail
  */
-bool DataTable::CheckForeignKeyConstraints(
-    const AbstractTuple *tuple UNUSED_ATTRIBUTE) {
+bool DataTable::CheckForeignKeyConstraints(const AbstractTuple *tuple
+                                               UNUSED_ATTRIBUTE) {
   for (auto foreign_key : foreign_keys_) {
     oid_t sink_table_id = foreign_key->GetSinkTableOid();
     storage::DataTable *ref_table = nullptr;

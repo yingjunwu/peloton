@@ -35,11 +35,11 @@ namespace tcop {
 TrafficCop::TrafficCop():is_queuing_(false), rows_affected_(0) {
   LOG_TRACE("Starting a new TrafficCop");
   optimizer_.reset(new optimizer::Optimizer);
-//  result_ = ResultType::QUEUING;
+  //  result_ = ResultType::QUEUING;
 }
 
-TrafficCop::TrafficCop(void(* task_callback)(void *), void *task_callback_arg):
-    task_callback_(task_callback), task_callback_arg_(task_callback_arg) {
+TrafficCop::TrafficCop(void (*task_callback)(void *), void *task_callback_arg)
+    : task_callback_(task_callback), task_callback_arg_(task_callback_arg) {
   optimizer_.reset(new optimizer::Optimizer);
 }
 
@@ -51,7 +51,7 @@ void TrafficCop::Reset() {
   results_.clear();
   param_values_.clear();
   setRowsAffected(0);
-//  result_ = ResultType::QUEUING;
+  //  result_ = ResultType::QUEUING;
 }
 
 TrafficCop::~TrafficCop() {
@@ -100,12 +100,11 @@ ResultType TrafficCop::BeginQueryHelper(const size_t thread_id) {
   return ResultType::SUCCESS;
 }
 
-
-//Pass the log manager to commit transaction
-ResultType TrafficCop::CommitQueryHelper(logging::WalLogManager* log_manager) {
+// Pass the log manager to commit transaction
+ResultType TrafficCop::CommitQueryHelper(logging::WalLogManager *log_manager) {
   // do nothing if we have no active txns
-  if (tcop_txn_state_.empty()){
-      return ResultType::NOOP;
+  if (tcop_txn_state_.empty()) {
+    return ResultType::NOOP;
   }
   auto &curr_state = tcop_txn_state_.top();
   tcop_txn_state_.pop();
@@ -179,8 +178,10 @@ executor::ExecuteResult TrafficCop::ExecuteHelper(
     PL_ASSERT(plan);
     PL_ASSERT(task_callback_);
     PL_ASSERT(task_callback_arg_);
-    ExecutePlanArg* arg = new ExecutePlanArg(plan, txn, params, result, result_format, p_status_);
-    threadpool::MonoQueuePool::GetInstance().SubmitTask(ExecutePlanWrapper, arg, task_callback_, task_callback_arg_);
+    ExecutePlanArg *arg =
+        new ExecutePlanArg(plan, txn, params, result, result_format, p_status_);
+    threadpool::MonoQueuePool::GetInstance().SubmitTask(
+        ExecutePlanWrapper, arg, task_callback_, task_callback_arg_);
     LOG_TRACE("Submit Task into MonoQueuePool");
 
     is_queuing_ = true;
@@ -197,57 +198,58 @@ executor::ExecuteResult TrafficCop::ExecuteHelper(
 void TrafficCop::ExecutePlanWrapper(void *arg_ptr) {
   LOG_TRACE("Entering ExecutePlanWrapper");
   PL_ASSERT(arg_ptr);
-  ExecutePlanArg* arg = (ExecutePlanArg*) arg_ptr;
+  ExecutePlanArg *arg = (ExecutePlanArg *)arg_ptr;
   PL_ASSERT(arg->plan_);
   PL_ASSERT(arg->txn_);
-//  PL_ASSERT(&arg->result_);
+  //  PL_ASSERT(&arg->result_);
   PL_ASSERT(&arg->params_);
   executor::PlanExecutor::ExecutePlan(arg->plan_, arg->txn_, arg->params_,
                                       arg->result_, arg->result_format_,
                                       arg->p_status_);
-  delete(arg);
+  delete (arg);
 }
 
-//Pass log manager to CommitTransaction
-void TrafficCop::ExecuteStatementPlanGetResult(logging::WalLogManager* log_manager) {
+// Pass log manager to CommitTransaction
+void TrafficCop::ExecuteStatementPlanGetResult(
+    logging::WalLogManager *log_manager) {
   bool init_failure = false;
   if (p_status_.m_result == ResultType::FAILURE) {
     // only possible if init failed
     init_failure = true;
   }
-  //If there is a single commit statement,
-  //the transaction has been killed when GetResult is called again.
-  if(GetCurrentTxnState().first != nullptr){
-  auto txn_result = GetCurrentTxnState().first->GetResult();
-  if (single_statement_txn_ == true || init_failure == true ||
-      txn_result == ResultType::FAILURE) {
-    LOG_TRACE(
-        "About to commit: single stmt: %d, init_failure: %d, txn_result: %s",
-        single_statement_txn_, init_failure,
-        ResultTypeToString(txn_result).c_str());
-    switch (txn_result) {
-      case ResultType::SUCCESS:
-        // Commit single statement
-        LOG_TRACE("Commit Transaction");
-        p_status_.m_result = CommitQueryHelper(log_manager);
-        break;
+  // If there is a single commit statement,
+  // the transaction has been killed when GetResult is called again.
+  if (GetCurrentTxnState().first != nullptr) {
+    auto txn_result = GetCurrentTxnState().first->GetResult();
+    if (single_statement_txn_ == true || init_failure == true ||
+        txn_result == ResultType::FAILURE) {
+      LOG_TRACE(
+          "About to commit: single stmt: %d, init_failure: %d, txn_result: %s",
+          single_statement_txn_, init_failure,
+          ResultTypeToString(txn_result).c_str());
+      switch (txn_result) {
+        case ResultType::SUCCESS:
+          // Commit single statement
+          LOG_TRACE("Commit Transaction");
+          p_status_.m_result = CommitQueryHelper(log_manager);
+          break;
 
-      case ResultType::FAILURE:
-      default:
-        // Abort
-        LOG_TRACE("Abort Transaction");
-        if (single_statement_txn_ == true) {
-          LOG_TRACE("Tcop_txn_state size: %lu", tcop_txn_state_.size());
-          p_status_.m_result = AbortQueryHelper();
-        } else {
-          tcop_txn_state_.top().second = ResultType::ABORTED;
-          p_status_.m_result = ResultType::ABORTED;
-        }
+        case ResultType::FAILURE:
+        default:
+          // Abort
+          LOG_TRACE("Abort Transaction");
+          if (single_statement_txn_ == true) {
+            LOG_TRACE("Tcop_txn_state size: %lu", tcop_txn_state_.size());
+            p_status_.m_result = AbortQueryHelper();
+          } else {
+            tcop_txn_state_.top().second = ResultType::ABORTED;
+            p_status_.m_result = ResultType::ABORTED;
+          }
+      }
     }
-  }
   } else {
-      //COMMIT; statement
-      p_status_.m_result = ResultType::QUEUING;
+    // COMMIT; statement
+    p_status_.m_result = ResultType::QUEUING;
   }
 }
 
@@ -270,7 +272,7 @@ void TrafficCop::GetDataTables(
 
   // Query has multiple tables. Recursively add all tables
   else {
-    for (auto& table : from_table->list) {
+    for (auto &table : from_table->list) {
       GetDataTables(table.get(), target_tables);
     }
   }
@@ -298,7 +300,7 @@ std::vector<FieldInfo> TrafficCop::GenerateTupleDescriptor(
   GetDataTables(select_stmt->from_table.get(), target_tables);
 
   int count = 0;
-  for (auto& expr : select_stmt->select_list) {
+  for (auto &expr : select_stmt->select_list) {
     count++;
     if (expr->GetExpressionType() == ExpressionType::STAR) {
       for (auto target_table : target_tables) {
@@ -371,8 +373,7 @@ FieldInfo TrafficCop::GetColumnFieldForValueType(std::string column_name,
     default: {
       // Type not Identified
       LOG_ERROR("Unrecognized field type '%s' for field '%s'",
-                TypeIdToString(column_type).c_str(),
-                column_name.c_str());
+                TypeIdToString(column_type).c_str(), column_name.c_str());
       field_type = PostgresValueType::TEXT;
       field_size = 255;
       break;
