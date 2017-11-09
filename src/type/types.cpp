@@ -1672,9 +1672,6 @@ std::string ResultTypeToString(ResultType type) {
     case ResultType::QUEUING: {
       return ("QUEUING");
     }
-    case ResultType::LOGGING: {
-      return ("LOGGING");
-    }
     default: {
       throw ConversionException(
           StringUtil::Format("No string conversion for ResultType value '%d'",
