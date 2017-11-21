@@ -16,7 +16,7 @@
 #include "common/logger.h"
 
 #define MIN_PAUSE_TIME 1
-#define MAX_PAUSE_TIME 1000
+#define MAX_PAUSE_TIME 2000
 
 namespace peloton {
 namespace threadpool {
