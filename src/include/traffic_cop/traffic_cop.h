@@ -73,10 +73,10 @@ class TrafficCop {
         const std::vector<type::Value> &params, const bool unnamed,
         std::shared_ptr<stats::QueryMetric::QueryParams> param_stats,
         const std::vector<int> &result_format,
-        std::vector<StatementResult> &result, int &rows_change,
+        std::vector<StatementResult> &result,
         std::string &error_message, const size_t thread_id = 0) {
       return ExecuteStatement(statement, params, unnamed, param_stats,
-                              result_format, result, rows_change, error_message,
+                              result_format, result, error_message,
                               nullptr, thread_id);
   }
 
@@ -177,6 +177,14 @@ class TrafficCop {
     return is_queuing_;
   }
 
+  void SetLogging(bool is_logging) {
+    is_logging_ = is_logging;
+  }
+
+  bool GetLogging() {
+    return is_logging_;
+  }
+
   executor::ExecuteResult p_status_;
 
   inline void SetDefaultDatabaseName(std::string default_database_name) {
@@ -193,6 +201,8 @@ class TrafficCop {
   //  struct event* event_;
  private:
   bool is_queuing_;
+
+  bool is_logging_;
 
   std::string error_message_;
 
