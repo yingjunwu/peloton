@@ -116,7 +116,7 @@ Value DecimalType::Divide(const Value& left, const Value &right) const {
     return left.OperateNull(right);
 
   if (right.IsZero()) {
-    throw Exception(EXCEPTION_TYPE_DIVIDE_BY_ZERO,
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
                     "Division by zero on right-hand side");
   }
 
@@ -133,7 +133,7 @@ Value DecimalType::Modulo(const Value& left, const Value &right) const {
     return left.OperateNull(right);
   
   if (right.IsZero()) {
-    throw Exception(EXCEPTION_TYPE_DIVIDE_BY_ZERO,
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
                     "Division by zero on right-hand side");
   }
   switch(right.GetTypeId()) {
@@ -163,7 +163,7 @@ Value DecimalType::Min(const Value& left, const Value &right) const {
   if (left.IsNull() || right.IsNull())
     return left.OperateNull(right);
 
-  if (left.CompareLessThanEquals(right) == CMP_TRUE)
+  if (left.CompareLessThanEquals(right) == CmpBool::TRUE)
     return left.Copy();
   return right.Copy();
 }
@@ -174,7 +174,7 @@ Value DecimalType::Max(const Value& left, const Value &right) const {
   if (left.IsNull() || right.IsNull())
     return left.OperateNull(right);
 
-  if (left.CompareGreaterThanEquals(right) == CMP_TRUE)
+  if (left.CompareGreaterThanEquals(right) == CmpBool::TRUE)
     return left.Copy();
   return right.Copy();
 }
@@ -184,7 +184,7 @@ Value DecimalType::Sqrt(const Value& val) const {
   if (val.IsNull())
     return ValueFactory::GetDecimalValue(PELOTON_DECIMAL_NULL);
   if (val.value_.decimal < 0) {
-    throw Exception(EXCEPTION_TYPE_DECIMAL,
+    throw Exception(ExceptionType::DECIMAL,
                     "Cannot take square root of a negative number.");
   }
   return ValueFactory::GetDecimalValue(sqrt(val.value_.decimal));
@@ -198,7 +198,7 @@ CmpBool DecimalType::CompareEquals(const Value& left, const Value &right) const 
   PL_ASSERT(GetTypeId() == TypeId::DECIMAL);
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
     
   DECIMAL_COMPARE_FUNC(==);
 
@@ -209,7 +209,7 @@ CmpBool DecimalType::CompareNotEquals(const Value& left, const Value &right) con
   PL_ASSERT(GetTypeId() == TypeId::DECIMAL);
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   DECIMAL_COMPARE_FUNC(!=);
 
@@ -220,7 +220,7 @@ CmpBool DecimalType::CompareLessThan(const Value& left, const Value &right) cons
   PL_ASSERT(GetTypeId() == TypeId::DECIMAL);
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   DECIMAL_COMPARE_FUNC(<);
 
@@ -231,7 +231,7 @@ CmpBool DecimalType::CompareLessThanEquals(const Value& left, const Value &right
   PL_ASSERT(GetTypeId() == TypeId::DECIMAL);
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   DECIMAL_COMPARE_FUNC(<=);
 
@@ -242,7 +242,7 @@ CmpBool DecimalType::CompareGreaterThan(const Value& left, const Value &right) c
   PL_ASSERT(GetTypeId() == TypeId::DECIMAL);
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   DECIMAL_COMPARE_FUNC(>);
 
@@ -253,7 +253,7 @@ CmpBool DecimalType::CompareGreaterThanEquals(const Value& left, const Value &ri
   PL_ASSERT(GetTypeId() == TypeId::DECIMAL);
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   DECIMAL_COMPARE_FUNC(>=);
 
@@ -266,7 +266,7 @@ Value DecimalType::CastAs(const Value& val, const TypeId type_id) const {
       if (val.IsNull()) return ValueFactory::GetNullValueByType(type_id);
       if (val.GetAs<double>() > PELOTON_INT8_MAX ||
           val.GetAs<double>() < PELOTON_INT8_MIN)
-        throw Exception(EXCEPTION_TYPE_OUT_OF_RANGE,
+        throw Exception(ExceptionType::OUT_OF_RANGE,
           "Numeric value out of range.");
       return ValueFactory::GetTinyIntValue((int8_t)val.GetAs<double>());
     }
@@ -274,7 +274,7 @@ Value DecimalType::CastAs(const Value& val, const TypeId type_id) const {
       if (val.IsNull()) return ValueFactory::GetNullValueByType(type_id);
       if (val.GetAs<double>() > PELOTON_INT16_MAX ||
           val.GetAs<double>() < PELOTON_INT16_MIN)
-        throw Exception(EXCEPTION_TYPE_OUT_OF_RANGE,
+        throw Exception(ExceptionType::OUT_OF_RANGE,
           "Numeric value out of range.");
       return ValueFactory::GetSmallIntValue((int16_t)val.GetAs<double>());
     }
@@ -282,7 +282,7 @@ Value DecimalType::CastAs(const Value& val, const TypeId type_id) const {
       if (val.IsNull()) return ValueFactory::GetNullValueByType(type_id);
       if (val.GetAs<double>() > PELOTON_INT32_MAX ||
           val.GetAs<double>() < PELOTON_INT32_MIN)
-        throw Exception(EXCEPTION_TYPE_OUT_OF_RANGE,
+        throw Exception(ExceptionType::OUT_OF_RANGE,
           "Numeric value out of range.");
       return ValueFactory::GetIntegerValue((int32_t)val.GetAs<double>());
     }
@@ -290,7 +290,7 @@ Value DecimalType::CastAs(const Value& val, const TypeId type_id) const {
       if (val.IsNull()) return ValueFactory::GetNullValueByType(type_id);
       if (val.GetAs<double>() > PELOTON_INT64_MAX ||
           val.GetAs<double>() < PELOTON_INT64_MIN)
-        throw Exception(EXCEPTION_TYPE_OUT_OF_RANGE,
+        throw Exception(ExceptionType::OUT_OF_RANGE,
           "Numeric value out of range.");
       return ValueFactory::GetBigIntValue((int64_t)val.GetAs<double>());
     }

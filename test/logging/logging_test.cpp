@@ -396,7 +396,7 @@ TimerType::TIMER_OFF);
 //   log_manager.WaitForModeTransition(LoggingStatusType::LOGGING, true);
 //   EXPECT_TRUE(log_manager.ContainsFrontendLogger());
 //   log_manager.SetGlobalMaxFlushedCommitId(4);
-//   concurrency::Transaction test_txn;
+//   concurrency::TransactionContext test_txn;
 //   cid_t commit_id = 5;
 //   log_manager.PrepareLogging();
 //   log_manager.LogBeginTransaction(commit_id);

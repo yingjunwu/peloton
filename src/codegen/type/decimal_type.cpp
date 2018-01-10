@@ -16,7 +16,6 @@
 #include "codegen/value.h"
 #include "codegen/proxy/decimal_functions_proxy.h"
 #include "codegen/proxy/values_runtime_proxy.h"
-#include "codegen/proxy/decimal_functions_proxy.h"
 #include "codegen/type/boolean_type.h"
 #include "codegen/type/integer_type.h"
 #include "common/exception.h"
@@ -178,7 +177,7 @@ struct Floor : public TypeSystem::UnaryOperatorHandleNull {
   Value Impl(CodeGen &codegen, const Value &val) const override {
     llvm::Value *raw_ret =
         codegen.Call(DecimalFunctionsProxy::Floor, {val.GetValue()});
-    return Value{Integer::Instance(), raw_ret};
+    return Value{Decimal::Instance(), raw_ret};
   }
 };
 
@@ -196,6 +195,26 @@ struct Round : public TypeSystem::UnaryOperatorHandleNull {
     llvm::Value *raw_ret =
         codegen.Call(DecimalFunctionsProxy::Round, {val.GetValue()});
     return Value{Decimal::Instance(), raw_ret};
+  }
+};
+
+// Ceiling
+struct Ceil : public TypeSystem::UnaryOperatorHandleNull {
+  bool SupportsType(const Type &type) const override {
+    return type.GetSqlType() == Decimal::Instance();
+  }
+
+  Type ResultType(UNUSED_ATTRIBUTE const Type &val_type) const override {
+    return Type{Decimal::Instance()};
+  }
+
+  Value Impl(CodeGen &codegen, const Value &val) const override {
+    PL_ASSERT(SupportsType(val.GetType()));
+
+    llvm::Value *result = codegen.Call(DecimalFunctionsProxy::Ceil,
+                                       {val.GetValue()});
+    // Return result
+    return Value{Decimal::Instance(), result};
   }
 };
 
@@ -409,10 +428,13 @@ static std::vector<TypeSystem::ComparisonInfo> kComparisonTable = {
 static Negate kNegOp;
 static Floor kFloorOp;
 static Round kRound;
+static Ceil kCeilOp;
 static std::vector<TypeSystem::UnaryOpInfo> kUnaryOperatorTable = {
     {OperatorId::Negation, kNegOp},
     {OperatorId::Floor, kFloorOp},
-    {OperatorId::Round, kRound}};
+    {OperatorId::Round, kRound},
+    {OperatorId::Ceil, kCeilOp}};
+
 
 // Binary operations
 static Add kAddOp;
@@ -430,6 +452,9 @@ static std::vector<TypeSystem::BinaryOpInfo> kBinaryOperatorTable = {
 // Nary operations
 static std::vector<TypeSystem::NaryOpInfo> kNaryOperatorTable = {};
 
+// No arg operations
+static std::vector<TypeSystem::NoArgOpInfo> kNoArgOperatorTable = {};
+
 }  // anonymous namespace
 
 //===----------------------------------------------------------------------===//
@@ -440,8 +465,9 @@ static std::vector<TypeSystem::NaryOpInfo> kNaryOperatorTable = {};
 Decimal::Decimal()
     : SqlType(peloton::type::TypeId::DECIMAL),
       type_system_(kImplicitCastingTable, kExplicitCastingTable,
-                   kComparisonTable, kUnaryOperatorTable, kBinaryOperatorTable,
-                   kNaryOperatorTable) {}
+                   kComparisonTable, kUnaryOperatorTable,
+                   kBinaryOperatorTable, kNaryOperatorTable,
+                   kNoArgOperatorTable) {}
 
 Value Decimal::GetMinValue(CodeGen &codegen) const {
   auto *raw_val = codegen.ConstDouble(peloton::type::PELOTON_DECIMAL_MIN);

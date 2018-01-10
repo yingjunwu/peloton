@@ -31,7 +31,7 @@ namespace type {
 class Type;
 
 inline CmpBool GetCmpBool(bool boolean) {
-  return boolean ? CMP_TRUE : CMP_FALSE;
+  return boolean ? CmpBool::TRUE : CmpBool::FALSE;
 }
 
 // A value is an abstract class that represents a view over SQL data stored in
@@ -239,7 +239,7 @@ class Value : public Printable {
         return Type::GetInstance(type_id)->GetData(storage);
       }
       default:
-        throw Exception(EXCEPTION_TYPE_INCOMPATIBLE_TYPE,
+        throw Exception(ExceptionType::INCOMPATIBLE_TYPE,
                         "Invalid Type for getting raw data pointer");
     }
   }
@@ -278,7 +278,7 @@ class Value : public Printable {
   // For unordered_map
   struct equal_to {
     inline bool operator()(const Value &x, const Value &y) const {
-      return Type::GetInstance(x.type_id_)->CompareEquals(x, y) == CMP_TRUE;
+      return Type::GetInstance(x.type_id_)->CompareEquals(x, y) == CmpBool::TRUE;
     }
   };
 
@@ -356,7 +356,7 @@ Value::Value(TypeId type, const std::vector<T> &vals, TypeId element_type)
       std::string msg =
           StringUtil::Format("Invalid Type '%d' for Array Value constructor",
                              static_cast<int>(type));
-      throw Exception(EXCEPTION_TYPE_INCOMPATIBLE_TYPE, msg);
+      throw Exception(ExceptionType::INCOMPATIBLE_TYPE, msg);
     }
   }
 }

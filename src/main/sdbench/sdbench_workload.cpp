@@ -32,9 +32,9 @@
 #include "common/logger.h"
 #include "common/macros.h"
 #include "common/timer.h"
-#include "concurrency/transaction.h"
+#include "concurrency/transaction_context.h"
 #include "concurrency/transaction_manager_factory.h"
-#include "type/types.h"
+#include "common/internal_types.h"
 #include "type/value.h"
 #include "type/value_factory.h"
 
@@ -745,7 +745,8 @@ static void JoinQueryHelper(
   std::shared_ptr<const catalog::Schema> schema(nullptr);
 
   planner::NestedLoopJoinPlan nested_loop_join_node(
-      join_type, std::move(join_predicate), std::move(project_info), schema);
+      join_type, std::move(join_predicate), std::move(project_info), schema,
+      {left_table_join_column}, {right_table_join_column});
 
   // Run the nested loop join executor
   executor::NestedLoopJoinExecutor nested_loop_join_executor(
@@ -807,7 +808,7 @@ static void JoinQueryHelper(
   auto selectivity = state.selectivity;
 
   ExecuteTest(
-      executors, brain::SAMPLE_TYPE_ACCESS,
+      executors, brain::SampleType::ACCESS,
       {left_table_index_columns_accessed, right_table_index_columns_accessed},
       {left_table_tuple_columns_accessed, right_table_tuple_columns_accessed},
       selectivity);
@@ -965,7 +966,7 @@ static void AggregateQueryHelper(const std::vector<oid_t> &tuple_key_attrs,
     tuple_columns_accessed.push_back(column_id);
   }
 
-  ExecuteTest(executors, brain::SAMPLE_TYPE_ACCESS, {index_columns_accessed},
+  ExecuteTest(executors, brain::SampleType::ACCESS, {index_columns_accessed},
               {tuple_columns_accessed}, selectivity);
 
   auto result = txn_manager.CommitTransaction(txn);
@@ -1076,7 +1077,7 @@ static void UpdateHelper(const std::vector<oid_t> &tuple_key_attrs,
     tuple_columns_accessed.push_back(update_attr);
   }
 
-  ExecuteTest(executors, brain::SAMPLE_TYPE_ACCESS, {index_columns_accessed},
+  ExecuteTest(executors, brain::SampleType::ACCESS, {index_columns_accessed},
               {tuple_columns_accessed}, selectivity);
 
   auto result = txn_manager.CommitTransaction(txn);
@@ -1142,7 +1143,7 @@ static void InsertHelper() {
   std::vector<double> index_columns_accessed;
   double selectivity = 0;
 
-  ExecuteTest(executors, brain::SAMPLE_TYPE_UPDATE, {{}}, {}, selectivity);
+  ExecuteTest(executors, brain::SampleType::UPDATE, {{}}, {}, selectivity);
 
   auto result = txn_manager.CommitTransaction(txn);
 
@@ -1389,7 +1390,7 @@ void BenchmarkPrepare() {
   }
 
   // Start layout tuner
-  if (state.layout_mode == LAYOUT_TYPE_HYBRID) {
+  if (state.layout_mode == LayoutType::HYBRID) {
     layout_tuner.AddTable(sdbench_table.get());
 
     // Start layout tuner
@@ -1407,7 +1408,7 @@ void BenchmarkCleanUp() {
     index_tuner.ClearTables();
   }
 
-  if (state.layout_mode == LAYOUT_TYPE_HYBRID) {
+  if (state.layout_mode == LayoutType::HYBRID) {
     layout_tuner.Stop();
     layout_tuner.ClearTables();
   }
@@ -1473,7 +1474,7 @@ static void SDBenchHelper() {
       // double selectivity = state.selectivity;
       double duration = rand() % 100;
       brain::Sample index_access_sample(index_columns_accessed, duration,
-                                        brain::SAMPLE_TYPE_ACCESS);
+                                        brain::SampleType::ACCESS);
       // ??? , selectivity);
       for (oid_t i = 0; i < state.analyze_sample_count_threshold; i++) {
         sdbench_table->RecordIndexSample(index_access_sample);

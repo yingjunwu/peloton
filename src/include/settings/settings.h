@@ -58,6 +58,11 @@ SETTING_string(certificate_file,
 // RESOURCE USAGE
 //===----------------------------------------------------------------------===//
 
+SETTING_double(bnlj_buffer_size,
+             "The default buffer size to use for blockwise nested loop joins (default: 1 MB)",
+             1.0 * 1024.0 * 1024.0,
+             true, true)
+
 //===----------------------------------------------------------------------===//
 // WRITE AHEAD LOG
 //===----------------------------------------------------------------------===//
@@ -93,7 +98,7 @@ SETTING_bool(display_settings,
 // Enable or disable statistics collection
 SETTING_int(stats_mode,
            "Enable statistics collection (default: 0)",
-           peloton::STATS_TYPE_INVALID,
+           static_cast<int>(peloton::StatsType::INVALID),
            true, true)
 
 //===----------------------------------------------------------------------===//
@@ -120,6 +125,20 @@ SETTING_bool(codegen,
             "Enable code-generation for query execution (default: true)",
             true,
             true, true)
+
+
+//===----------------------------------------------------------------------===//
+// Optimizer
+//===----------------------------------------------------------------------===//
+SETTING_bool(predicate_push_down,
+             "Enable predicate push-down optimization (default: true)",
+             true,
+             true, true)
+
+SETTING_bool(hash_join_bloom_filter,
+             "Enable bloom filter for hash join in codegen (default: true)",
+             true,
+             true, true)
 
 //===----------------------------------------------------------------------===//
 // GENERAL

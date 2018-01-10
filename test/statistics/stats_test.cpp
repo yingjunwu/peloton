@@ -24,7 +24,7 @@
 #include "executor/insert_executor.h"
 #include "statistics/backend_stats_context.h"
 #include "statistics/stats_aggregator.h"
-#include "include/traffic_cop/traffic_cop.h"
+#include "traffic_cop/traffic_cop.h"
 
 #define NUM_ITERATION 50
 #define NUM_TABLE_INSERT 1
@@ -45,7 +45,7 @@ class StatsTests : public PelotonTest {};
 // Launch the aggregator thread manually
 void LaunchAggregator(int64_t stat_interval) {
   settings::SettingsManager::SetInt(settings::SettingId::stats_mode,
-                                    STATS_TYPE_ENABLE);
+                                    static_cast<int>(StatsType::ENABLE));
 
   auto &aggregator =
       peloton::stats::StatsAggregator::GetInstance(stat_interval);
@@ -391,9 +391,9 @@ TEST_F(StatsTests, MultiThreadStatsTest) {
 //
 //  // Execute insert
 //  std::vector<type::Value> params;
-//  std::vector<StatementResult> result;
+//  std::vector<ResultValue> result;
 //  std::vector<int> result_format(statement->GetTupleDescriptor().size(), 0);
-//  executor::ExecuteResult status = traffic_cop.ExecuteHelper(
+//  executor::ExecutionResult status = traffic_cop.ExecuteHelper(
 //      statement->GetPlanTree().get(), params, result, result_format);
 //  LOG_TRACE("Statement executed. Result: %s",
 //            ResultTypeToString(status.m_result).c_str());

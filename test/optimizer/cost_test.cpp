@@ -29,7 +29,7 @@
 #include "optimizer/stats/table_stats.h"
 #include "optimizer/stats/value_condition.h"
 #include "sql/testing_sql_util.h"
-#include "type/types.h"
+#include "common/internal_types.h"
 #include "type/value.h"
 #include "type/value_factory.h"
 
@@ -55,7 +55,7 @@ void CreateAndLoadTable() {
 }
 
 std::shared_ptr<TableStats> GetTableStatsWithName(
-    std::string table_name, concurrency::Transaction *txn) {
+    std::string table_name, concurrency::TransactionContext *txn) {
   auto catalog = catalog::Catalog::GetInstance();
   auto database = catalog->GetDatabaseWithName(DEFAULT_DB_NAME, txn);
   auto table = catalog->GetTableWithName(DEFAULT_DB_NAME, table_name, txn);

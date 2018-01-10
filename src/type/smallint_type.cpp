@@ -113,7 +113,7 @@ Value SmallintType::Divide(const Value& left, const Value &right) const {
     return left.OperateNull(right);
 
   if (right.IsZero()) {
-    throw Exception(EXCEPTION_TYPE_DIVIDE_BY_ZERO,
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
                     "Division by zero on right-hand side");
   }
 
@@ -129,7 +129,7 @@ Value SmallintType::Modulo(const Value& left, const Value &right) const {
     return left.OperateNull(right);
 
   if (right.IsZero()) {
-    throw Exception(EXCEPTION_TYPE_DIVIDE_BY_ZERO,
+    throw Exception(ExceptionType::DIVIDE_BY_ZERO,
                     "Division by zero on right-hand side");
   }
 
@@ -163,7 +163,7 @@ Value SmallintType::Sqrt(const Value& val) const {
     return ValueFactory::GetDecimalValue(PELOTON_DECIMAL_NULL);
 
   if (val.value_.smallint < 0) {
-    throw Exception(EXCEPTION_TYPE_DECIMAL,
+    throw Exception(ExceptionType::DECIMAL,
         "Cannot take square root of a negative number.");
   }
   return ValueFactory::GetDecimalValue(sqrt(val.value_.smallint));
@@ -198,7 +198,7 @@ CmpBool SmallintType::CompareEquals(const Value& left,
   PL_ASSERT(left.CheckComparable(right));
 
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   SMALLINT_COMPARE_FUNC(==);
 
@@ -210,7 +210,7 @@ CmpBool SmallintType::CompareNotEquals(const Value& left,
   PL_ASSERT(left.CheckInteger());
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   SMALLINT_COMPARE_FUNC(!=);
 
@@ -222,7 +222,7 @@ CmpBool SmallintType::CompareLessThan(const Value& left,
   PL_ASSERT(left.CheckInteger());
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   SMALLINT_COMPARE_FUNC(<);
 
@@ -234,7 +234,7 @@ CmpBool SmallintType::CompareLessThanEquals(const Value& left,
   PL_ASSERT(left.CheckInteger());
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   SMALLINT_COMPARE_FUNC(<=);
 
@@ -246,7 +246,7 @@ CmpBool SmallintType::CompareGreaterThan(const Value& left,
   PL_ASSERT(left.CheckInteger());
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   SMALLINT_COMPARE_FUNC(>);
 
@@ -258,7 +258,7 @@ CmpBool SmallintType::CompareGreaterThanEquals(const Value& left,
   PL_ASSERT(left.CheckInteger());
   PL_ASSERT(left.CheckComparable(right));
   if (left.IsNull() || right.IsNull())
-    return CMP_NULL;
+    return CmpBool::NULL_;
 
   SMALLINT_COMPARE_FUNC(>=);
 
@@ -346,7 +346,7 @@ Value SmallintType::CastAs(const Value& val,
     if (val.IsNull()) return ValueFactory::GetNullValueByType(type_id);
     if (val.GetAs<int16_t>() > PELOTON_INT8_MAX ||
         val.GetAs<int16_t>() < PELOTON_INT8_MIN)
-      throw Exception(EXCEPTION_TYPE_OUT_OF_RANGE,
+      throw Exception(ExceptionType::OUT_OF_RANGE,
           "Numeric value out of range.");
     return ValueFactory::GetTinyIntValue((int8_t) val.GetAs<int16_t>());
   }

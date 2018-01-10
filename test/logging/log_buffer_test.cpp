@@ -41,7 +41,7 @@ TEST_F(LogBufferTests, LogBufferTest) {
 
   bool rt = log_buffer.Empty();
 
-  EXPECT_EQ(rt, true);
+  EXPECT_TRUE(rt);
 
   char *data = log_buffer.GetData();
 
@@ -49,7 +49,7 @@ TEST_F(LogBufferTests, LogBufferTest) {
 
   rt = log_buffer.WriteData((char*)(&num), sizeof(num));
 
-  EXPECT_EQ(rt, true);
+  EXPECT_TRUE(rt);
 
   int num2;
 
@@ -65,7 +65,7 @@ TEST_F(LogBufferTests, LogBufferTest) {
 
   rt = log_buffer.Empty();
 
-  EXPECT_EQ(rt, true);
+  EXPECT_TRUE(rt);
 
   size = log_buffer.GetSize();
 

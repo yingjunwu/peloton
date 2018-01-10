@@ -16,10 +16,10 @@
 #include <thread>
 #include <vector>
 
-#include "type/types.h"
 #include "common/macros.h"
 #include "common/logger.h"
 #include "common/platform.h"
+#include "common/internal_types.h"
 
 namespace peloton {
 namespace concurrency {

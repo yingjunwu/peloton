@@ -20,7 +20,7 @@
 
 #include "common/item_pointer.h"
 #include "common/platform.h"
-#include "container/lock_free_array.h"
+#include "common/container/lock_free_array.h"
 #include "index/index.h"
 #include "storage/abstract_table.h"
 #include "storage/indirection_array.h"
@@ -47,7 +47,7 @@ class Index;
 }
 
 namespace concurrency {
-class Transaction;
+class TransactionContext;
 }
 
 namespace storage {
@@ -82,7 +82,8 @@ class DataTable : public AbstractTable {
   DataTable(catalog::Schema *schema, const std::string &table_name,
             const oid_t &database_oid, const oid_t &table_oid,
             const size_t &tuples_per_tilegroup, const bool own_schema,
-            const bool adapt_table, const bool is_catalog = false);
+            const bool adapt_table, const bool is_catalog = false,
+            const peloton::LayoutType layout_type = peloton::LayoutType::ROW);
 
   ~DataTable();
 
@@ -105,13 +106,13 @@ class DataTable : public AbstractTable {
   // as we implement logical-pointer indexing mechanism, targets_ptr is
   // required.
   bool InstallVersion(const AbstractTuple *tuple, const TargetList *targets_ptr,
-                      concurrency::Transaction *transaction,
+                      concurrency::TransactionContext *transaction,
                       ItemPointer *index_entry_ptr);
 
   // insert tuple in table. the pointer to the index entry is returned as
   // index_entry_ptr.
   ItemPointer InsertTuple(const Tuple *tuple,
-                          concurrency::Transaction *transaction,
+                          concurrency::TransactionContext *transaction,
                           ItemPointer **index_entry_ptr = nullptr);
   // designed for tables without primary key. e.g., output table used by
   // aggregate_executor.
@@ -119,7 +120,7 @@ class DataTable : public AbstractTable {
 
   // Insert tuple with ItemPointer provided explicitly
   bool InsertTuple(const AbstractTuple *tuple, ItemPointer location,
-                   concurrency::Transaction *transaction,
+                   concurrency::TransactionContext *transaction, 
                    ItemPointer **index_entry_ptr);
 
   //===--------------------------------------------------------------------===//
@@ -156,7 +157,7 @@ class DataTable : public AbstractTable {
 
   trigger::TriggerList *GetTriggerList();
 
-  void UpdateTriggerListFromCatalog(concurrency::Transaction *txn);
+  void UpdateTriggerListFromCatalog(concurrency::TransactionContext *txn);
 
   //===--------------------------------------------------------------------===//
   // INDEX
@@ -268,7 +269,7 @@ class DataTable : public AbstractTable {
   // the last argument is the index entry in primary index holding the new
   // tuple.
   bool InsertInIndexes(const AbstractTuple *tuple, ItemPointer location,
-                       concurrency::Transaction *transaction,
+                       concurrency::TransactionContext *transaction,
                        ItemPointer **index_entry_ptr);
 
   static void SetActiveTileGroupCount(const size_t active_tile_group_count) {
@@ -324,7 +325,7 @@ class DataTable : public AbstractTable {
 
   bool InsertInSecondaryIndexes(const AbstractTuple *tuple,
                                 const TargetList *targets_ptr,
-                                concurrency::Transaction *transaction,
+                                concurrency::TransactionContext *transaction,
                                 ItemPointer *index_entry_ptr);
 
   // check the foreign key constraints
